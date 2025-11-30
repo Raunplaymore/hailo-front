@@ -36,21 +36,21 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           # 줄바꿈 문자가 \n 로 저장된 경우 실제 개행으로 변환해 파일에 기록
-          echo "${{ secrets.PI_SSH_KEY }}" | sed 's/\\n/\n/g' > ~/.ssh/hailo-ci
-          chmod 600 ~/.ssh/hailo-ci
+          echo "${{ secrets.PI_SSH_KEY }}" | sed 's/\\n/\n/g' > ~/.ssh/hailo-ci-rsa
+          chmod 600 ~/.ssh/hailo-ci-rsa
           ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts
 
       - run: |
-          ls -l ~/.ssh/hailo-ci
-          head -n 2 ~/.ssh/hailo-ci
-          ssh-keygen -lf ~/.ssh/hailo-ci
+          ls -l ~/.ssh/hailo-ci-rsa
+          head -n 2 ~/.ssh/hailo-ci-rsa
+          ssh-keygen -lf ~/.ssh/hailo-ci-rsa
 
       - name: Verify SSH connection
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key_path: /home/runner/.ssh/hailo-ci-rsa
           script: echo "SSH connection established"
 
       - name: Prepare release directory on Raspberry Pi
@@ -58,7 +58,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key_path: /home/runner/.ssh/hailo-ci-rsa
           script: |
             RELEASES_DIR=~/hailo-front/releases
             TARGET="$RELEASES_DIR/${{ env.RELEASE_NAME }}"
@@ -69,7 +69,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key_path: /home/runner/.ssh/hailo-ci-rsa
           source: "dist/*"
           target: "~/hailo-front/releases/${{ env.RELEASE_NAME }}"
 
@@ -78,7 +78,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key_path: /home/runner/.ssh/hailo-ci-rsa
           script: |
             RELEASES_DIR=~/hailo-front/releases
             CURRENT_LINK=~/hailo-front/current

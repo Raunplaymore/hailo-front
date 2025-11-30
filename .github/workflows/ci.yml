@@ -39,7 +39,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key: $PI_SSH_KEY
+          key: "$PI_SSH_KEY"
           script: |
             RELEASES_DIR=~/hailo-front/releases
             TARGET="$RELEASES_DIR/${RELEASE_NAME}"
@@ -50,7 +50,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key: $PI_SSH_KEY
+          key: "$PI_SSH_KEY"
           source: "dist/*"
           target: "~/hailo-front/releases/${{ env.RELEASE_NAME }}"
 
@@ -59,7 +59,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key: $PI_SSH_KEY
+          key: "$PI_SSH_KEY"
           script: |
             RELEASES_DIR=~/hailo-front/releases
             CURRENT_LINK=~/hailo-front/current

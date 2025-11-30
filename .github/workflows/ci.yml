@@ -40,11 +40,6 @@ jobs:
           chmod 600 ~/.ssh/hailo-ci
           ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts
 
-      - run: |
-          ls -l ~/.ssh/hailo-ci-rsa
-          head -n 2 ~/.ssh/hailo-ci-rsa
-          ssh-keygen -lf ~/.ssh/hailo-ci-rsa
-
       - name: Verify SSH connection
         uses: appleboy/ssh-action@v1.2.0
         with:

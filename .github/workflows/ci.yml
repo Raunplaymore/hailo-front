@@ -18,14 +18,36 @@ jobs:
           node-version: 20.19.4
           cache: npm
 
-      - name: Deploy to Raspberry Pi
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Prepare target directory on Raspberry Pi
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
-            cd ~/hailo-frontend
-            git pull
-            npm ci
+            mkdir -p ~/hailo-frontend/dist
+            rm -rf ~/hailo-frontend/dist/*
+
+      - name: Upload dist to Raspberry Pi
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USER }}
+          key: ${{ secrets.PI_SSH_KEY }}
+          source: "dist/*"
+          target: "~/hailo-frontend/dist"
+
+      - name: Reload PM2 app
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USER }}
+          key: ${{ secrets.PI_SSH_KEY }}
+          script: |
             pm2 reload hailo-frontend

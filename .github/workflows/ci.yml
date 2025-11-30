@@ -34,10 +34,10 @@ jobs:
 
       - name: Write SSH private key
         env:
-          PI_SSH_KEY: ${{ secrets.PI_SSH_KEY }}
+          PI_SSH_KEY_RSA: ${{ secrets.PI_SSH_KEY_RSA }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "$PI_SSH_KEY" > ~/.ssh/hailo-ci
+          printf '%s' "$PI_SSH_KEY_RSA" > ~/.ssh/hailo-ci
           chmod 600 ~/.ssh/hailo-ci
           ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts
 

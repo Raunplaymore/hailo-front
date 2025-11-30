@@ -45,7 +45,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key: ${{ secrets.PI_SSH_KEY }}
           script: echo "SSH connection established"
 
       - name: Prepare release directory on Raspberry Pi
@@ -53,7 +53,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key: ${{ secrets.PI_SSH_KEY }}
           script: |
             RELEASES_DIR=~/hailo-front/releases
             TARGET="$RELEASES_DIR/${{ env.RELEASE_NAME }}"
@@ -64,7 +64,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key: ${{ secrets.PI_SSH_KEY }}
           source: "dist/*"
           target: "~/hailo-front/releases/${{ env.RELEASE_NAME }}"
 
@@ -73,7 +73,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key: ${{ secrets.PI_SSH_KEY }}
           script: |
             RELEASES_DIR=~/hailo-front/releases
             CURRENT_LINK=~/hailo-front/current

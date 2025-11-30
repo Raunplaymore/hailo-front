@@ -38,6 +38,13 @@ jobs:
           echo "${{ secrets.PI_SSH_KEY_B64 }}" | base64 --decode > /home/runner/.ssh/hailo-ci
           chmod 600 /home/runner/.ssh/hailo-ci
 
+      - name: Test SSH connection
+        run: |
+          echo "Testing SSH..."
+          ssh -vvv -i /home/runner/.ssh/hailo-ci \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.PI_USER }}@${{ secrets.PI_HOST }} "echo 'SSH connected successfully!'"
+
       - name: Prepare release directory on Raspberry Pi
         uses: appleboy/ssh-action@v1.2.0
         with:

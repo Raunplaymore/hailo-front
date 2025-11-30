@@ -34,7 +34,7 @@ jobs:
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
-            RELEASES_DIR=~/hailo-frontend/releases
+            RELEASES_DIR=~/hailo-front/releases
             TARGET="$RELEASES_DIR/${RELEASE_NAME}"
             mkdir -p "$TARGET"
 
@@ -45,7 +45,7 @@ jobs:
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           source: "dist/*"
-          target: "~/hailo-frontend/releases/${{ env.RELEASE_NAME }}"
+          target: "~/hailo-front/releases/${{ env.RELEASE_NAME }}"
 
       - name: Activate release and prune old ones
         uses: appleboy/ssh-action@v1.2.0
@@ -54,8 +54,8 @@ jobs:
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
-            RELEASES_DIR=~/hailo-frontend/releases
-            CURRENT_LINK=~/hailo-frontend/current
+            RELEASES_DIR=~/hailo-front/releases
+            CURRENT_LINK=~/hailo-front/current
             TARGET="$RELEASES_DIR/${RELEASE_NAME}"
 
             # current -> latest release symlink
@@ -66,4 +66,4 @@ jobs:
             ls -1dt */ | tail -n +4 | xargs -r rm -rf
 
             # PM2가 current 경로를 바라보고 있다는 가정
-            pm2 reload hailo-frontend
+            pm2 reload hailo-front

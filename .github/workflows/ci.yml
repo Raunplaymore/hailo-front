@@ -36,8 +36,8 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           cat > ~/.ssh/hailo-ci << 'EOF'
-${{ secrets.PI_SSH_KEY }}
-EOF
+          ${{ secrets.PI_SSH_KEY }}
+          EOF
           chmod 600 ~/.ssh/hailo-ci
           ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts
 

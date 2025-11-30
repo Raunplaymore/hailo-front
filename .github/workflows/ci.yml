@@ -7,6 +7,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      PI_SSH_KEY_RSA: ${{ secrets.PI_SSH_KEY_RSA }}
 
     steps:
       - name: Checkout
@@ -33,8 +35,6 @@ jobs:
         run: echo "RELEASE_NAME=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
 
       - name: Write SSH private key
-        env:
-          PI_SSH_KEY_RSA: ${{ secrets.PI_SSH_KEY_RSA }}
         run: |
           mkdir -p ~/.ssh
           printf '%s' "$PI_SSH_KEY_RSA" > ~/.ssh/hailo-ci
@@ -46,7 +46,7 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key: ${{ env.PI_SSH_KEY_RSA }}
           script: |
             RELEASES_DIR=~/hailo-front/releases
             TARGET="$RELEASES_DIR/${RELEASE_NAME}"
@@ -66,18 +66,16 @@ jobs:
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
-          key_path: /home/runner/.ssh/hailo-ci
+          key: ${{ env.PI_SSH_KEY_RSA }}
           script: |
             RELEASES_DIR=~/hailo-front/releases
             CURRENT_LINK=~/hailo-front/current
             TARGET="$RELEASES_DIR/${RELEASE_NAME}"
 
-            # current -> latest release symlink
             ln -sfn "$TARGET" "$CURRENT_LINK"
 
-            # keep latest 3 releases (current + 2 이전분)
             cd "$RELEASES_DIR"
             ls -1dt */ | tail -n +4 | xargs -r rm -rf
 
-            # PM2가 current 경로를 바라보고 있다는 가정
-            pm2 reload hailo-front
+            pm2 reload hailo-front || pm2 start ~/hailo-front/ecosystem.config.js
+            pm2 save

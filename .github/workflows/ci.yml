@@ -40,6 +40,11 @@ jobs:
           chmod 600 ~/.ssh/hailo-ci
           ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Debug key type
+        run: |
+          echo "Key type in runner:"
+          ssh-keygen -lf ~/.ssh/hailo-ci
+
       - name: Test SSH connection
         run: |
           echo "Testing SSH..."

@@ -24,15 +24,19 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Prepare target directory on Raspberry Pi
+      - name: Set release name
+        run: echo "RELEASE_NAME=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+
+      - name: Prepare release directory on Raspberry Pi
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
-            mkdir -p ~/hailo-frontend/dist
-            rm -rf ~/hailo-frontend/dist/*
+            RELEASES_DIR=~/hailo-frontend/releases
+            TARGET="$RELEASES_DIR/${RELEASE_NAME}"
+            mkdir -p "$TARGET"
 
       - name: Upload dist to Raspberry Pi
         uses: appleboy/scp-action@v0.1.7
@@ -41,13 +45,25 @@ jobs:
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           source: "dist/*"
-          target: "~/hailo-frontend/dist"
+          target: "~/hailo-frontend/releases/${{ env.RELEASE_NAME }}"
 
-      - name: Reload PM2 app
+      - name: Activate release and prune old ones
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
+            RELEASES_DIR=~/hailo-frontend/releases
+            CURRENT_LINK=~/hailo-frontend/current
+            TARGET="$RELEASES_DIR/${RELEASE_NAME}"
+
+            # current -> latest release symlink
+            ln -sfn "$TARGET" "$CURRENT_LINK"
+
+            # keep latest 3 releases (current + 2 이전분)
+            cd "$RELEASES_DIR"
+            ls -1dt */ | tail -n +4 | xargs -r rm -rf
+
+            # PM2가 current 경로를 바라보고 있다는 가정
             pm2 reload hailo-frontend

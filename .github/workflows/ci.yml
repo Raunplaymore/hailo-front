@@ -44,7 +44,8 @@ jobs:
       - name: Verify SSH key file
         run: |
           ls -la ~/.ssh
-          ssh-keygen -lf ~/.ssh/hailo-ci
+          ssh-keygen -yf ~/.ssh/hailo-ci > /tmp/hailo-ci.pub
+          ssh-keygen -lf /tmp/hailo-ci.pub
 
       - name: Prepare release directory on Raspberry Pi
         uses: appleboy/ssh-action@v1.2.0

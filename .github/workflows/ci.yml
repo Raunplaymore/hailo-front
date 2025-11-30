@@ -58,6 +58,16 @@ jobs:
             RELEASES_DIR=~/hailo-front/releases
             TARGET="$RELEASES_DIR/${{ env.RELEASE_NAME }}"
             mkdir -p "$TARGET"
+            mkdir -p ~/hailo-front
+
+      - name: Upload PM2 config
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USER }}
+          key: ${{ secrets.PI_SSH_KEY }}
+          source: "ecosystem.config.cjs"
+          target: "~/hailo-front"
 
       - name: Upload dist to Raspberry Pi
         uses: appleboy/scp-action@v0.1.7

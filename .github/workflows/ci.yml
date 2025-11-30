@@ -75,6 +75,9 @@ jobs:
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.PI_SSH_KEY }}
           script: |
+            # pm2가 있는 node bin 경로를 PATH에 추가
+            export PATH="$HOME/.nvm/versions/node/v20.19.4/bin:$PATH"
+
             RELEASES_DIR=~/hailo-front/releases
             CURRENT_LINK=~/hailo-front/current
             TARGET="$RELEASES_DIR/${{ env.RELEASE_NAME }}"

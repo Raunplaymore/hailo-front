@@ -10,6 +10,7 @@ function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [files, setFiles] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // 최초 진입 시 한번 목록 조회
@@ -21,6 +22,31 @@ function App() {
     const file = event.target.files?.[0] ?? null;
     setSelectedFile(file);
     setMessage(file ? `"${file.name}" 선택됨` : "");
+  };
+
+  const handleDelete = async (name: string) => {
+    setDeleting(name);
+    setMessage(`"${name}" 삭제 중...`);
+    try {
+      const res = await fetch(`/api/files/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error("삭제 실패");
+      }
+      const data: { ok: boolean } = await res.json();
+      if (!data.ok) {
+        throw new Error("삭제 실패");
+      }
+
+      setFiles((prev) => prev.filter((file) => file !== name));
+      setMessage("삭제 완료");
+    } catch (error) {
+      console.error(error);
+      setMessage("삭제 실패. 다시 시도하세요.");
+    } finally {
+      setDeleting(null);
+    }
   };
 
   const fetchFiles = async () => {
@@ -244,9 +270,31 @@ function App() {
                     color: "#111827",
                     fontSize: "15px",
                     wordBreak: "break-all",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
                   }}
                 >
-                  {name}
+                  <span style={{ flex: 1 }}>{name}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(name)}
+                    disabled={deleting === name}
+                    style={{
+                      border: "1px solid #ef4444",
+                      background: deleting === name ? "#fecdd3" : "#fee2e2",
+                      color: "#b91c1c",
+                      borderRadius: "999px",
+                      padding: "6px 10px",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      minWidth: "48px",
+                    }}
+                    aria-label={`${name} 삭제`}
+                  >
+                    {deleting === name ? "삭제중" : "삭제"}
+                  </button>
                 </li>
               ))}
             </ul>

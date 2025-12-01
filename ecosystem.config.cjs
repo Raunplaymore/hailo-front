@@ -5,10 +5,10 @@ module.exports = {
   apps: [
     {
       name: "hailo-front", // CI에서 pm2 reload 대상으로 사용하는 이름
-      // Vite preview 서버 실행 (빌드 산출물 미리보기)
-      cwd: process.env.FRONT_HOME || "/home/ray/hailo-front/current",
-      script: "npm",
-      args: "run preview -- --host 0.0.0.0 --port 4173",
+      // dist 정적 서빙 (vite preview 대신 serve 사용)
+      cwd: process.env.FRONT_HOME || "/home/ray/hailo-front",
+      script: "npx",
+      args: "serve -s current/dist -l 4173",
       exec_mode: "fork",
       instances: 1,
       env: {

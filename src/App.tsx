@@ -132,7 +132,7 @@ function App() {
               margin: "0 0 6px",
             }}
           >
-            스윙 영상 업로드
+           나의 스윙 영상 업로드
           </p>
           <h1
             style={{

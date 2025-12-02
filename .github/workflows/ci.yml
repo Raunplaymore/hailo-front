@@ -40,13 +40,7 @@ jobs:
           # Secret 에 들어있는 멀티라인 키를 그대로 파일로 저장
           printf '%s\n' "${{ secrets.PI_SSH_KEY }}" > ~/.ssh/hailo-ci
           chmod 600 ~/.ssh/hailo-ci
-          echo "Host: ${{ secrets.PI_HOST }}"
-          echo "Trying ssh-keyscan..."
-          ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts || true
-          echo "known_hosts:"
-          cat ~/.ssh/known_hosts
-          echo "Testing TCP connectivity to 22..."
-          nc -zv ${{ secrets.PI_HOST }} 22 || true
+          ssh-keyscan -H ${{ secrets.PI_HOST }} >> ~/.ssh/known_hosts
 
       - name: Verify SSH connection
         uses: appleboy/ssh-action@v1.2.0

@@ -1,4 +1,4 @@
-import { client } from "./client";
+import { client, API_BASE } from "./client";
 import { Shot } from "../types/shots";
 
 type UploadRes = { ok: boolean; file: string };
@@ -10,7 +10,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
   return filenames.map((name) => ({
     id: name,
     filename: name,
-    videoUrl: `/uploads/${encodeURIComponent(name)}`,
+    videoUrl: `${API_BASE}/uploads/${encodeURIComponent(name)}`,
     sourceType: "upload",
     createdAt: now,
   }));
@@ -21,7 +21,7 @@ export const fetchShot = async (id: string): Promise<Shot> => {
   return {
     id,
     filename: id,
-    videoUrl: `/uploads/${encodeURIComponent(id)}`,
+    videoUrl: `${API_BASE}/uploads/${encodeURIComponent(id)}`,
     sourceType: "upload",
     createdAt: new Date().toISOString(),
   };
@@ -35,7 +35,7 @@ export const createShot = async (file: File, sourceType: "upload" | "camera" = "
   return {
     id: res.file,
     filename: res.file,
-    videoUrl: `/uploads/${encodeURIComponent(res.file)}`,
+    videoUrl: `${API_BASE}/uploads/${encodeURIComponent(res.file)}`,
     sourceType,
     createdAt: new Date().toISOString(),
   } as Shot;

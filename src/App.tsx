@@ -40,6 +40,9 @@ function App() {
       if (!data.ok) throw new Error("삭제 실패");
 
       setFiles((prev) => prev.filter((file) => file !== name));
+      if (selectedVideo === name) {
+        setSelectedVideo(null);
+      }
       setMessage("삭제 완료");
     } catch (error) {
       console.error(error);

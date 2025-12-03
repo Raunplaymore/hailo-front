@@ -12,17 +12,25 @@ const withVideoUrl = (shot: Shot): Shot => ({
 export const fetchShots = async (): Promise<Shot[]> => {
   // 1) 최신 백엔드: /api/shots
   try {
-    const data = await client.get<Shot[]>("/api/shots");
-    return data.map(withVideoUrl);
+    const data = await client.get<unknown>("/api/shots");
+    if (Array.isArray(data)) {
+      return (data as Shot[]).map(withVideoUrl);
+    }
+    console.warn("fetchShots /api/shots returned non-array", data);
   } catch (err) {
     console.warn("fetchShots /api/shots failed, fallback to /api/files/detail", err);
   }
 
   // 2) fallback: /api/files/detail
   try {
-    const detail = await client.get<FilesDetailRes>("/api/files/detail");
+    const detail = await client.get<unknown>("/api/files/detail");
+    if (!detail || typeof detail !== "object" || !Array.isArray((detail as FilesDetailRes).files)) {
+      console.warn("fetchShots fallback returned unexpected shape", detail);
+      return [];
+    }
+    const filesDetail = detail as FilesDetailRes;
     const now = new Date().toISOString();
-    return detail.files.map((f) =>
+    return filesDetail.files.map((f) =>
       withVideoUrl({
         id: f.shotId || f.filename,
         filename: f.filename,

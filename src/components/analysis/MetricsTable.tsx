@@ -7,11 +7,11 @@ type MetricsTableProps = {
 };
 
 const metricDefs = [
-  { key: "club_path_angle", label: "Club path angle", labelKor: "클럽 패스 각도 (+: 아웃-인, -: 인-아웃)" },
+  { key: "club_path_angle", label: "Club path angle", labelKor: "클럽 패스 각도" },
   {
     key: "path_direction",
     label: "Path direction",
-    labelKor: "스윙 패스 방향 (in-to-in / out-to-in / in-to-out)",
+    labelKor: "스윙 패스 방향",
   },
   {
     key: "downswing_path_curve",
@@ -155,8 +155,6 @@ export function MetricsTable({ analysis }: MetricsTableProps) {
     );
   }
 
-  console.log('analysis:', analysis);
-
   const keyed = metricDefs.map((def) => ({
     ...def,
     value: getValue(analysis, def.key),
@@ -193,7 +191,6 @@ export function MetricsTable({ analysis }: MetricsTableProps) {
           {showMore && (
             <div className="mt-2 divide-y divide-slate-200">
               {extraMetrics.map((row) => (
-                console.log('row:', row),
                 <div
                   key={row.label}
                   className="flex items-center justify-between py-2 text-sm"

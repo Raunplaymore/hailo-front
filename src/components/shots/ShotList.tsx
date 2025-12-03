@@ -1,6 +1,7 @@
 import { Shot } from "../../types/shots";
 import { Button } from "../Button";
 import { Card } from "../Card";
+import { API_BASE } from "../../api/client";
 
 type ShotListProps = {
   shots: Shot[];
@@ -10,6 +11,7 @@ type ShotListProps = {
   onSelect: (shot: Shot) => void;
   onDelete?: (shot: Shot) => void;
   deletingId?: string | null;
+  openIds?: Set<string>;
 };
 
 export function ShotList({
@@ -20,6 +22,7 @@ export function ShotList({
   onSelect,
   onDelete,
   deletingId,
+  openIds,
 }: ShotListProps) {
   return (
     <Card>
@@ -61,7 +64,7 @@ export function ShotList({
                   variant="outline"
                   className="w-auto px-3 py-1 text-sm"
                 >
-                  보기
+                  {openIds?.has(shot.id) ? "접기" : "보기"}
                 </Button>
                 {onDelete && (
                   <Button
@@ -77,6 +80,22 @@ export function ShotList({
                   </Button>
                 )}
               </div>
+              {openIds?.has(shot.id) && (
+                <div className="mt-2 w-full">
+                  <video
+                    key={shot.id}
+                    className="w-full rounded-lg border border-slate-200 max-h-[600px] object-contain"
+                    controls
+                    preload="metadata"
+                    src={
+                      shot.videoUrl ||
+                      `${API_BASE}/uploads/${encodeURIComponent(shot.filename)}`
+                    }
+                  >
+                    브라우저에서 video 태그를 지원하지 않습니다.
+                  </video>
+                </div>
+              )}
             </li>
           ))}
         </ul>

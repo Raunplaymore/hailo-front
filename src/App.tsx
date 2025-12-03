@@ -108,22 +108,12 @@ function App() {
       {activeTab === "analysis" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            <div className="flex justify-end">
-              {selected && (
-                <Button
-                  type="button"
-                  onClick={() => setShowVideoModal(true)}
-                  variant="outline"
-                  className="w-auto px-3 py-1 text-sm"
-                  fullWidth={false}
-                >
-                  영상 보기
-                </Button>
-              )}
-            </div>
             {isAnalysisLoading && <p className="text-sm text-slate-500">분석 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
-            <MetricsTable analysis={analysis} />
+            <MetricsTable
+              analysis={analysis}
+              onOpenVideo={selected ? () => setShowVideoModal(true) : undefined}
+            />
           </div>
           <CoachSummary comments={analysis?.coach_summary ?? []} />
         </div>
@@ -131,11 +121,8 @@ function App() {
 
       {showVideoModal && selected && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-4 space-y-3">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-slate-900 break-words">
-                {selected.filename}
-              </h3>
+          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-4 space-y-3">
+            <div className="flex justify-end items-center">
               <Button
                 type="button"
                 onClick={() => setShowVideoModal(false)}

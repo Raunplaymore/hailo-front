@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ShotAnalysis } from "../../types/shots";
 import { Card } from "../Card";
+import { Button } from "../Button";
 
 type MetricsTableProps = {
   analysis?: ShotAnalysis;
+  onOpenVideo?: () => void;
 };
 
 const metricDefs = [
@@ -144,7 +146,7 @@ const getValue = (analysis: ShotAnalysis & Record<string, any>, key: string) => 
   return undefined;
 };
 
-export function MetricsTable({ analysis }: MetricsTableProps) {
+export function MetricsTable({ analysis, onOpenVideo }: MetricsTableProps) {
   const [showMore, setShowMore] = useState(false);
 
   if (!analysis) {
@@ -165,7 +167,20 @@ export function MetricsTable({ analysis }: MetricsTableProps) {
 
   return (
     <Card>
-      <p className="text-sm text-slate-500 mb-2">핵심 지표</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm text-slate-500">핵심 지표</p>
+        {onOpenVideo && (
+          <Button
+            type="button"
+            onClick={onOpenVideo}
+            variant="outline"
+            className="w-auto px-3 py-1 text-sm"
+            fullWidth={false}
+          >
+            영상 보기
+          </Button>
+        )}
+      </div>
       <div className="divide-y divide-slate-200">
         {keyMetrics.map((row) => (
           <div

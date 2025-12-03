@@ -5,15 +5,17 @@ import { Card } from "../Card";
 type UploadCardProps = {
   isUploading: boolean;
   message: string;
-  onUpload: (file: File) => void;
+  onUpload: (file: File, club?: string) => void;
 };
 
 export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const selectRef = useRef<HTMLSelectElement | null>(null);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) onUpload(file);
+    const club = selectRef.current?.value;
+    if (file) onUpload(file, club);
   };
 
   return (
@@ -29,6 +31,23 @@ export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) 
             className="text-base w-full"
           />
         </label>
+
+        <div className="grid gap-2">
+          <span className="text-sm text-slate-700">클럽 선택</span>
+          <select
+            ref={selectRef}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            defaultValue="driver"
+          >
+            <option value="driver">Driver</option>
+            <option value="wood">Fairway Wood</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="iron">Iron</option>
+            <option value="wedge">Wedge</option>
+            <option value="putter">Putter</option>
+            <option value="unknown">기타/미지정</option>
+          </select>
+        </div>
         <Button
           type="button"
           onClick={() => inputRef.current?.click()}

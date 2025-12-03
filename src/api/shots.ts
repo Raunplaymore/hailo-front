@@ -62,10 +62,15 @@ export const fetchShot = async (id: string): Promise<Shot> => {
   }
 };
 
-export const createShot = async (file: File, sourceType: "upload" | "camera" = "upload") => {
+export const createShot = async (
+  file: File,
+  sourceType: "upload" | "camera" = "upload",
+  club?: string
+) => {
   const fd = new FormData();
   fd.append("video", file);
   fd.append("sourceType", sourceType);
+  if (club) fd.append("club", club);
   const res = await client.post<UploadRes>("/api/upload?analyze=true", fd);
   if (res.shot) {
     return withVideoUrl(res.shot);

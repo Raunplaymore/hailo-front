@@ -9,11 +9,11 @@ export function useUpload(options?: UseUploadOptions) {
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<string>("");
 
-  const start = async (file: File, sourceType: "upload" | "camera" = "upload") => {
+  const start = async (file: File, sourceType: "upload" | "camera" = "upload", club?: string) => {
     setIsUploading(true);
     setMessage("업로드 중...");
     try {
-      await createShot(file, sourceType);
+      await createShot(file, sourceType, club);
       setMessage("업로드 완료!");
       options?.onSuccess?.();
     } catch (error) {

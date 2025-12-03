@@ -64,7 +64,7 @@ function App() {
         <UploadCard
           isUploading={upload.isUploading}
           message={upload.message}
-          onUpload={(file) => upload.start(file)}
+          onUpload={(file, club) => upload.start(file, "upload", club)}
         />
       )}
 

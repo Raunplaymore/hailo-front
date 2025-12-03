@@ -64,10 +64,9 @@ function App() {
       next.delete(shot.id);
     } else {
       next.add(shot.id);
-      select(shot);
-      setActiveTab("analysis");
     }
     setOpenShotIds(next);
+    select(shot);
   };
 
   return (
@@ -94,6 +93,10 @@ function App() {
           error={error}
           onRefresh={refresh}
           onSelect={toggleOpen}
+          onAnalyze={(shot) => {
+            select(shot);
+            setActiveTab("analysis");
+          }}
           onDelete={(shot) => handleDelete(shot)}
           deletingId={deletingId}
           openIds={openShotIds}

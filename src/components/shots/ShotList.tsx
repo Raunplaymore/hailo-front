@@ -9,6 +9,7 @@ type ShotListProps = {
   error?: string | null;
   onRefresh: () => void;
   onSelect: (shot: Shot) => void;
+  onAnalyze?: (shot: Shot) => void;
   onDelete?: (shot: Shot) => void;
   deletingId?: string | null;
   openIds?: Set<string>;
@@ -20,6 +21,7 @@ export function ShotList({
   error,
   onRefresh,
   onSelect,
+  onAnalyze,
   onDelete,
   deletingId,
   openIds,
@@ -49,39 +51,51 @@ export function ShotList({
           {shots.map((shot) => (
             <li
               key={shot.id}
-              className="p-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-base break-words flex items-center justify-between gap-3 w-full"
+              className="p-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-base break-words flex flex-col gap-3 w-full"
             >
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="font-semibold">{shot.filename}</span>
-                <span className="text-xs text-slate-500">
-                  {shot.sourceType} · {shot.shot_type ?? "분류 없음"} · {new Date(shot.createdAt).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  onClick={() => onSelect(shot)}
-                  variant="outline"
-                  className="w-auto px-3 py-1 text-sm"
-                >
-                  {openIds?.has(shot.id) ? "접기" : "보기"}
-                </Button>
-                {onDelete && (
+              <div className="flex items-center justify-between gap-3 w-full">
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="font-semibold">{shot.filename}</span>
+                  <span className="text-xs text-slate-500">
+                    {shot.sourceType} · {shot.shot_type ?? "분류 없음"} · {new Date(shot.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
                   <Button
                     type="button"
-                    onClick={() => onDelete(shot)}
-                    isLoading={deletingId === shot.id}
-                    loadingText="삭제중"
-                    variant="danger"
-                    className="w-auto"
-                    aria-label={`${shot.filename} 삭제`}
+                    onClick={() => onSelect(shot)}
+                    variant="outline"
+                    className="w-auto px-3 py-1 text-sm"
                   >
-                    삭제
+                    {openIds?.has(shot.id) ? "접기" : "보기"}
                   </Button>
-                )}
+                  {onAnalyze && (
+                    <Button
+                      type="button"
+                      onClick={() => onAnalyze(shot)}
+                      variant="outline"
+                      className="w-auto px-3 py-1 text-sm"
+                    >
+                      분석
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      type="button"
+                      onClick={() => onDelete(shot)}
+                      isLoading={deletingId === shot.id}
+                      loadingText="삭제중"
+                      variant="danger"
+                      className="w-auto"
+                      aria-label={`${shot.filename} 삭제`}
+                    >
+                      삭제
+                    </Button>
+                  )}
+                </div>
               </div>
               {openIds?.has(shot.id) && (
-                <div className="mt-2 w-full">
+                <div className="w-full">
                   <video
                     key={shot.id}
                     className="w-full rounded-lg border border-slate-200 max-h-[600px] object-contain"

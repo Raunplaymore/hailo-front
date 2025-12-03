@@ -64,7 +64,14 @@ function App() {
         <UploadCard
           isUploading={upload.isUploading}
           message={upload.message}
-          onUpload={(file, club) => upload.start(file, "upload", club)}
+          onUpload={async (file, club) => {
+            const shot = await upload.start(file, "upload", club);
+            if (shot) {
+              await refresh();
+              select(shot);
+              setActiveTab("analysis");
+            }
+          }}
         />
       )}
 

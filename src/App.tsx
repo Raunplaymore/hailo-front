@@ -115,7 +115,7 @@ function App() {
               onOpenVideo={selected ? () => setShowVideoModal(true) : undefined}
             />
           </div>
-          <CoachSummary comments={analysis?.coach_summary ?? []} />
+          {/* <CoachSummary comments={analysis?.coach_summary ?? []} /> */}
         </div>
       )}
 

@@ -2,12 +2,23 @@ import { client, API_BASE } from "./client";
 import { Shot, ShotAnalysis } from "../types/shots";
 
 type UploadRes = { ok: boolean; file: string; shot?: Shot };
-type FilesDetailRes = { ok: boolean; files: { filename: string; shotId?: string; analysis?: ShotAnalysis }[] };
+type FilesDetailRes = {
+  ok: boolean;
+  files: { filename: string; shotId?: string; analysis?: ShotAnalysis }[];
+};
 
-const withVideoUrl = (shot: Shot): Shot => ({
-  ...shot,
-  videoUrl: shot.videoUrl || `${API_BASE}/uploads/${encodeURIComponent(shot.filename)}`,
-});
+const resolveFilename = (shot: any): string => {
+  return shot.filename || shot.media?.filename || "";
+};
+
+const withVideoUrl = (shot: Shot): Shot => {
+  const filename = resolveFilename(shot);
+  return {
+    ...shot,
+    filename,
+    videoUrl: shot.videoUrl || `${API_BASE}/uploads/${encodeURIComponent(filename)}`,
+  };
+};
 
 export const fetchShots = async (): Promise<Shot[]> => {
   // 1) 최신 백엔드: /api/shots

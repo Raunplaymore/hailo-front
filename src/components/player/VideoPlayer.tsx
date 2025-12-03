@@ -9,7 +9,7 @@ export function VideoPlayer({ src, title }: VideoPlayerProps) {
       {title && <p className="text-sm text-slate-700 break-words">{title}</p>}
       <video
         key={src}
-        className="w-full rounded-lg border border-slate-200"
+        className="w-full rounded-lg border border-slate-200 max-h-[600px] object-contain"
         controls
         preload="metadata"
         src={src}

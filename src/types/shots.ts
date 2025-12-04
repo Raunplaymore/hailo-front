@@ -62,6 +62,7 @@ export type ShotAnalysis = {
 };
 
 export type Shot = {
+  shot_type: string;
   id: string;
   createdAt: string;
   club?: string;

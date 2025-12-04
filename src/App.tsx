@@ -9,8 +9,9 @@ import { useUpload } from "./hooks/useUpload";
 import { useShots } from "./hooks/useShots";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { Shot } from "./types/shots";
+import { SettingsForm, UploadSettings } from "./components/settings/SettingsForm";
 
-type TabKey = "upload" | "list" | "analysis";
+type TabKey = "upload" | "list" | "analysis" | "settings";
 
 function App() {
   const API_BASE = import.meta.env.VITE_API_BASE || "";
@@ -25,6 +26,9 @@ function App() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openShotIds, setOpenShotIds] = useState<Set<string>>(new Set());
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [settings, setSettings] = useState<UploadSettings>({
+    club: "driver",
+  });
 
   const tabs: { key: TabKey; label: string }[] = useMemo(
     () => [
@@ -72,13 +76,19 @@ function App() {
   };
 
   return (
-    <Shell tabs={tabs} active={activeTab} onChange={setActiveTab}>
+    <Shell
+      tabs={tabs}
+      active={activeTab}
+      onChange={setActiveTab}
+      onSettingsClick={() => setActiveTab("settings")}
+    >
       {activeTab === "upload" && (
         <UploadCard
           isUploading={upload.isUploading}
           message={upload.message}
-          onUpload={async (file, options) => {
-            const shot = await upload.start(file, "upload", options);
+          settings={settings}
+          onUpload={async (file) => {
+            const shot = await upload.start(file, "upload", settings);
             if (shot) {
               await refresh();
               select(shot);
@@ -117,6 +127,14 @@ function App() {
           </div>
           {/* <CoachSummary comments={analysis?.coach_summary ?? []} /> */}
         </div>
+      )}
+
+      {activeTab === "settings" && (
+        <SettingsForm
+          value={settings}
+          onChange={(next) => setSettings(next)}
+          onSubmit={() => setActiveTab("upload")}
+        />
       )}
 
       {showVideoModal && selected && (

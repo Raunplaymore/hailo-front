@@ -1,14 +1,194 @@
 import { client, API_BASE } from "./client";
-import { Shot, ShotAnalysis } from "../types/shots";
+import {
+  AnalysisResult,
+  BallMetrics,
+  EventTimingMetrics,
+  JobStatus,
+  PendingMetric,
+  Shot,
+  SourceType,
+  SwingEventKey,
+  SwingEventTiming,
+  TempoMetrics,
+} from "../types/shots";
 
-type UploadRes = { ok: boolean; file: string; shot?: Shot };
-type FilesDetailRes = {
-  ok: boolean;
-  files: { filename: string; shotId?: string; analysis?: ShotAnalysis }[];
+type UploadRes = { jobId: string; filename?: string; shotId?: string; status?: JobStatus; analysis?: any };
+type FilesDetailRes = { ok: boolean; files: any[] };
+
+const PENDING_METRICS: PendingMetric[] = [
+  {
+    key: "clubPath",
+    label: "Club Path",
+    description: "YOLO 기반 클럽 헤드 트래킹 고도화 후 제공 예정입니다.",
+    status: "coming-soon",
+  },
+  {
+    key: "swingPlane",
+    label: "Swing Plane",
+    description: "샤프트/헤드 감지를 안정화한 뒤 활성화됩니다.",
+    status: "coming-soon",
+  },
+  {
+    key: "attackAngle",
+    label: "Attack Angle",
+    description: "단일 카메라에서 신뢰도 확보 후 표시할 예정입니다.",
+    status: "coming-soon",
+  },
+];
+
+const resolveFilename = (input: any): string => {
+  if (!input) return "";
+  if (typeof input === "string") return input;
+  return input.filename || input.media?.filename || input.name || "";
 };
 
-const resolveFilename = (shot: any): string => {
-  return shot.filename || shot.media?.filename || "";
+const toNumberOrNull = (value: any): number | null => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const normalizeEvents = (events: any): Partial<Record<SwingEventKey, SwingEventTiming>> => {
+  const keys: SwingEventKey[] = ["address", "top", "impact", "finish"];
+  if (!events || typeof events !== "object") return {};
+
+  return keys.reduce((acc, key) => {
+    const raw = events[key];
+    if (raw == null) return acc;
+
+    if (typeof raw === "number") {
+      acc[key] = { timeMs: raw };
+      return acc;
+    }
+
+    if (typeof raw === "object") {
+      const timeMs = toNumberOrNull(raw.timeMs ?? raw.ms ?? raw.time);
+      if (timeMs == null) return acc;
+      acc[key] = {
+        timeMs,
+        frame: toNumberOrNull(raw.frame ?? raw.frameIndex) ?? undefined,
+        label: raw.label ?? key,
+      };
+    }
+
+    return acc;
+  }, {} as Partial<Record<SwingEventKey, SwingEventTiming>>);
+};
+
+const normalizeTempo = (metrics: any): TempoMetrics | undefined => {
+  const tempo = metrics?.tempo ?? metrics;
+  if (!tempo || typeof tempo !== "object") return undefined;
+
+  const backswing = tempo.backswingMs ?? tempo.backswing_ms ?? tempo.backswing_time_ms;
+  const downswing = tempo.downswingMs ?? tempo.downswing_ms ?? tempo.downswing_time_ms;
+  const ratio = tempo.ratio ?? tempo.tempo_ratio ?? tempo.backswing_to_downswing_ratio;
+
+  if (backswing == null && downswing == null && ratio == null) return undefined;
+
+  return {
+    backswingMs: toNumberOrNull(backswing),
+    downswingMs: toNumberOrNull(downswing),
+    ratio: ratio != null ? String(ratio) : null,
+  };
+};
+
+const deriveSpeedRelative = (initialVelocity: any): BallMetrics["speedRelative"] => {
+  const value = toNumberOrNull(initialVelocity);
+  if (value == null) return undefined;
+  if (value >= 0.7) return "fast";
+  if (value >= 0.4) return "medium";
+  return "slow";
+};
+
+const deriveLaunchDirection = (dir: any): BallMetrics["launchDirection"] => {
+  if (dir == null) return undefined;
+  if (typeof dir === "string") {
+    const normalized = dir.toLowerCase();
+    if (normalized.includes("left") || normalized.includes("pull") || normalized.includes("hook")) {
+      return "left";
+    }
+    if (normalized.includes("right") || normalized.includes("push") || normalized.includes("slice")) {
+      return "right";
+    }
+    return "center";
+  }
+  const num = toNumberOrNull(dir);
+  if (num == null) return undefined;
+  if (num > 1) return "right";
+  if (num < -1) return "left";
+  return "center";
+};
+
+const normalizeBall = (metrics: any): BallMetrics | undefined => {
+  const ball = metrics?.ball ?? metrics;
+  if (!ball || typeof ball !== "object") return undefined;
+
+  const launchDirection =
+    ball.launchDirection ??
+    ball.launch_direction ??
+    ball.horizontal_launch_direction ??
+    deriveLaunchDirection(ball);
+  const launchAngle =
+    toNumberOrNull(ball.launchAngle ?? ball.launch_angle ?? ball.vertical_launch_angle) ?? null;
+  const speedRelative =
+    ball.speedRelative ??
+    ball.speed_relative ??
+    ball.speed_category ??
+    deriveSpeedRelative(ball.initial_velocity) ??
+    ("unknown" as const);
+
+  if (launchDirection || launchAngle != null || speedRelative) {
+    return {
+      launchDirection: (launchDirection as BallMetrics["launchDirection"]) ?? "unknown",
+      launchAngle,
+      speedRelative,
+    };
+  }
+  return undefined;
+};
+
+const deriveEventTiming = (
+  metrics: any,
+  events: Partial<Record<SwingEventKey, SwingEventTiming>>
+): EventTimingMetrics | undefined => {
+  const fromMetrics = metrics?.eventTiming ?? metrics?.event_timing;
+  if (fromMetrics && typeof fromMetrics === "object") {
+    return fromMetrics as EventTimingMetrics;
+  }
+
+  const derived: EventTimingMetrics = {};
+  Object.entries(events).forEach(([key, value]) => {
+    if (value?.timeMs != null) {
+      derived[key as SwingEventKey] = value.timeMs;
+    }
+  });
+  return Object.keys(derived).length > 0 ? derived : undefined;
+};
+
+const normalizeAnalysis = (
+  raw: any,
+  jobId: string,
+  status: JobStatus = "succeeded"
+): AnalysisResult => {
+  const metricsBlock = raw?.metrics ?? raw;
+  const events = normalizeEvents(raw?.events ?? metricsBlock?.events);
+  const tempo = normalizeTempo(metricsBlock);
+  const eventTiming = deriveEventTiming(metricsBlock, events);
+  const ball = normalizeBall(metricsBlock);
+
+  return {
+    jobId,
+    status,
+    events,
+    metrics: {
+      tempo,
+      eventTiming,
+      ball,
+    },
+    pending: [...PENDING_METRICS],
+    createdAt: raw?.createdAt ?? raw?.created_at,
+    finishedAt: raw?.finishedAt ?? raw?.finished_at,
+    errorMessage: raw?.errorMessage ?? raw?.error,
+  };
 };
 
 const withVideoUrl = (shot: Shot): Shot => {
@@ -20,19 +200,49 @@ const withVideoUrl = (shot: Shot): Shot => {
   };
 };
 
+const mapToShot = (item: any): Shot => {
+  const filename = resolveFilename(item);
+  const jobId = item?.jobId ?? item?.analysis?.jobId ?? item?.id ?? filename;
+  const analysis = item?.analysis
+    ? normalizeAnalysis(item.analysis, jobId, item.analysis.status ?? item.status)
+    : null;
+
+  return withVideoUrl({
+    id: item?.id ?? jobId ?? filename,
+    filename,
+    jobId,
+    sourceType: (item?.sourceType as SourceType) ?? "upload",
+    createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
+    status: item?.status ?? analysis?.status,
+    club: item?.club,
+    analysis,
+  } as Shot);
+};
+
 export const fetchShots = async (): Promise<Shot[]> => {
-  // 1) 최신 백엔드: /api/shots
+  // 1) 우선순위: /api/files (신규 스펙)
+  try {
+    const data = await client.get<unknown>("/api/files");
+    if (Array.isArray(data)) {
+      return (data as any[]).map((entry) =>
+        typeof entry === "string" ? mapToShot({ filename: entry }) : mapToShot(entry)
+      );
+    }
+  } catch (err) {
+    console.warn("fetchShots /api/files failed, fallback to legacy", err);
+  }
+
+  // 2) 레거시: /api/shots
   try {
     const data = await client.get<unknown>("/api/shots");
     if (Array.isArray(data)) {
-      return (data as Shot[]).map(withVideoUrl);
+      return (data as any[]).map((entry) => mapToShot(entry));
     }
-    console.warn("fetchShots /api/shots returned non-array", data);
   } catch (err) {
     console.warn("fetchShots /api/shots failed, fallback to /api/files/detail", err);
   }
 
-  // 2) fallback: /api/files/detail
+  // 3) 레거시 디테일: /api/files/detail
   try {
     const detail = await client.get<unknown>("/api/files/detail");
     if (!detail || typeof detail !== "object" || !Array.isArray((detail as FilesDetailRes).files)) {
@@ -42,11 +252,9 @@ export const fetchShots = async (): Promise<Shot[]> => {
     const filesDetail = detail as FilesDetailRes;
     const now = new Date().toISOString();
     return filesDetail.files.map((f) =>
-      withVideoUrl({
+      mapToShot({
         id: f.shotId || f.filename,
         filename: f.filename,
-        videoUrl: `${API_BASE}/uploads/${encodeURIComponent(f.filename)}`,
-        sourceType: "upload",
         createdAt: now,
         analysis: f.analysis,
       })
@@ -60,22 +268,20 @@ export const fetchShots = async (): Promise<Shot[]> => {
 export const fetchShot = async (id: string): Promise<Shot> => {
   try {
     const shot = await client.get<Shot>(`/api/shots/${encodeURIComponent(id)}`);
-    return withVideoUrl(shot);
+    return mapToShot(shot);
   } catch {
-    // 최소 정보로 반환 (파일명으로 접근)
-    return withVideoUrl({
+    return mapToShot({
       id,
       filename: id,
-      videoUrl: `${API_BASE}/uploads/${encodeURIComponent(id)}`,
       sourceType: "upload",
       createdAt: new Date().toISOString(),
     });
   }
 };
 
-export const createShot = async (
+export const createAnalysisJob = async (
   file: File,
-  sourceType: "upload" | "camera" = "upload",
+  sourceType: SourceType = "upload",
   options?: {
     club?: string;
     fps?: number;
@@ -87,7 +293,7 @@ export const createShot = async (
     impact_frame?: number;
     track_frames?: number;
   }
-) => {
+): Promise<Shot> => {
   const fd = new FormData();
   fd.append("video", file);
   fd.append("sourceType", sourceType);
@@ -100,27 +306,66 @@ export const createShot = async (
   if (options?.v_fov != null) fd.append("v_fov", String(options.v_fov));
   if (options?.impact_frame != null) fd.append("impact_frame", String(options.impact_frame));
   if (options?.track_frames != null) fd.append("track_frames", String(options.track_frames));
-  const res = await client.post<UploadRes>("/api/upload?analyze=true", fd);
-  if (res.shot) {
-    return withVideoUrl(res.shot);
+
+  const send = async (url: string) => client.post<UploadRes>(url, fd);
+
+  let res: UploadRes;
+  try {
+    res = await send("/api/analyze");
+  } catch (primaryError) {
+    console.warn("createAnalysisJob: /api/analyze failed, fallback to /api/upload?analyze=true", primaryError);
+    res = await send("/api/upload?analyze=true");
   }
-  return withVideoUrl({
-    id: res.file,
-    filename: res.file,
-    videoUrl: `${API_BASE}/uploads/${encodeURIComponent(res.file)}`,
+
+  const filename = resolveFilename(res) || file.name;
+  const jobId = res.jobId ?? res.shotId ?? filename;
+  const analysis = res.analysis
+    ? normalizeAnalysis(res.analysis, jobId, res.analysis.status ?? res.status)
+    : null;
+
+  return mapToShot({
+    id: res.shotId ?? jobId ?? filename,
+    filename,
+    jobId,
     sourceType,
+    status: res.status ?? analysis?.status ?? "queued",
     createdAt: new Date().toISOString(),
-  } as Shot);
+    analysis,
+  });
 };
 
-export const fetchAnalysis = async (shotId: string): Promise<ShotAnalysis | null> => {
+export const fetchAnalysisStatus = async (
+  jobId: string
+): Promise<{ jobId: string; status: JobStatus; analysis?: AnalysisResult | null; errorMessage?: string }> => {
   try {
-    const res = await client.get<{ analysis?: ShotAnalysis }>(
-      `/api/shots/${encodeURIComponent(shotId)}/analysis`
-    );
-    return res.analysis ?? null;
+    const res = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}`);
+    const status = (res.status as JobStatus) ?? "queued";
+    const analysis = res.analysis
+      ? normalizeAnalysis(res.analysis, res.jobId ?? jobId, status)
+      : undefined;
+    return {
+      jobId: res.jobId ?? jobId,
+      status,
+      analysis,
+      errorMessage: res.error ?? res.message,
+    };
   } catch (err) {
-    console.warn("fetchAnalysis failed (ignored):", err);
+    console.warn("fetchAnalysisStatus failed", err);
+    throw err;
+  }
+};
+
+export const fetchAnalysisResult = async (jobId: string): Promise<AnalysisResult | null> => {
+  try {
+    const result = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}/result`);
+    if (!result) return null;
+    return normalizeAnalysis(result, jobId, "succeeded");
+  } catch (err) {
+    console.warn("fetchAnalysisResult failed (ignored):", err);
     return null;
   }
 };
+
+// 호환성을 위해 유지
+export const fetchAnalysis = fetchAnalysisResult;
+export const createShot = createAnalysisJob;

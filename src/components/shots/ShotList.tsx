@@ -26,6 +26,21 @@ export function ShotList({
   deletingId,
   openIds,
 }: ShotListProps) {
+  const statusLabel = (status?: string) => {
+    switch (status) {
+      case "queued":
+        return "대기열";
+      case "running":
+        return "분석 중";
+      case "succeeded":
+        return "완료";
+      case "failed":
+        return "실패";
+      default:
+        return "대기";
+    }
+  };
+
   return (
     <Card>
       <div className="flex items-center justify-between mb-2">
@@ -56,8 +71,12 @@ export function ShotList({
             <div className="flex flex-col flex-1 min-w-0 gap-1">
               <span className="font-semibold break-words text-sm">{shot.filename}</span>
               <span className="text-xs text-slate-500 break-words">
-                {shot.sourceType} · {shot.shot_type ?? "분류 없음"} · {new Date(shot.createdAt).toLocaleString()}
+                {shot.sourceType} · {statusLabel(shot.status ?? shot.analysis?.status)} ·{" "}
+                {new Date(shot.createdAt).toLocaleString()}
               </span>
+              {shot.jobId && (
+                <span className="text-xs text-slate-400 break-words">Job ID: {shot.jobId}</span>
+              )}
               <div className="flex flex-wrap items-center justify-end gap-2 mt-1 ">
                 <Button
                     type="button"

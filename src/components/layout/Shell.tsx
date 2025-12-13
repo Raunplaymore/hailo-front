@@ -24,14 +24,16 @@ export function Shell<T extends string>({
       <main className="w-full max-w-3xl mx-auto space-y-4" style={{ maxWidth: "640px" }}>
         <header className="mb-2 flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm text-slate-500 mb-1">나의 스윙 영상 업로드</p>
-            <h1 className="text-2xl font-semibold text-slate-900 leading-tight">Hailo App</h1>
+            <p className="text-sm text-slate-500 mb-1">DTL 단일 카메라 기반</p>
+            <h1 className="text-2xl font-semibold text-slate-900 leading-tight">
+              스윙 업로드 & 분석
+            </h1>
           </div>
           <Button
             type="button"
             variant="outline"
             fullWidth={false}
-            className="py-2 px-3 text-sm"
+            className="py-1 px-2 text-sm"
             onClick={onSettingsClick}
           >
             ⚙️ {settingsLabel}

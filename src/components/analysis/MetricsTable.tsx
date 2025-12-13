@@ -1,191 +1,198 @@
-import { useState } from "react";
-import { ShotAnalysis } from "../../types/shots";
+import { AnalysisResult, JobStatus, SwingEventKey } from "../../types/shots";
 import { Card } from "../Card";
 import { Button } from "../Button";
 
 type MetricsTableProps = {
-  analysis?: ShotAnalysis;
+  analysis?: AnalysisResult | null;
+  status?: JobStatus;
   onOpenVideo?: () => void;
 };
 
-const metricDefs = [
-  { key: "club_path_angle", label: "Club path angle", labelKor: "클럽 패스 각도" },
-  {
-    key: "path_direction",
-    label: "Path direction",
-    labelKor: "스윙 패스 방향",
-  },
-  {
-    key: "downswing_path_curve",
-    label: "Downswing path curve",
-    labelKor: "다운스윙 경로 곡률(0~0.5, 높을수록 더 굽음)",
-  },
-  {
-    key: "shaft_forward_lean_at_impact",
-    label: "Shaft forward lean",
-    labelKor: "임팩트 시 샤프트 전방 기울기(도)",
-  },
-  {
-    key: "shaft_angle_change_rate",
-    label: "Shaft angle change rate",
-    labelKor: "다운스윙 중 샤프트 각도 변화율(도/프레임)",
-  },
-  { key: "on_plane_ratio", label: "On plane ratio", labelKor: "스윙이 플레인에 올라탄 비율(0~1)" },
-  { key: "plane_deviation_std", label: "Plane deviation std", labelKor: "플레인 편차 표준편차(작을수록 안정)" },
-  { key: "vertical_launch_angle", label: "Vertical launch angle", labelKor: "수직 런치 각도(도)" },
-  {
-    key: "horizontal_launch_direction",
-    label: "Horizontal launch direction",
-    labelKor: "수평 발사 방향(+: 우측, -: 좌측)",
-  },
-  { key: "initial_velocity", label: "Initial velocity", labelKor: "초기 속도(상대값)" },
-  { key: "spin_bias", label: "Spin bias", labelKor: "스핀 성향(fade/draw)" },
-  { key: "side_curve_intensity", label: "Side curve intensity", labelKor: "사이드 커브 강도" },
-  { key: "apex_height_relative", label: "Apex height relative", labelKor: "상대 최고점" },
-  { key: "projected_carry_distance", label: "Projected carry distance", labelKor: "예상 캐리 거리" },
-  {
-    key: "head_movement.horizontal",
-    label: "Head movement (H)",
-    labelKor: "머리 이동량(가로)",
-  },
-  {
-    key: "head_movement.vertical",
-    label: "Head movement (V)",
-    labelKor: "머리 이동량(세로)",
-  },
-  { key: "upper_body_tilt_change", label: "Upper body tilt change", labelKor: "상체 기울기 변화" },
-  { key: "shot_type", label: "Shot type", labelKor: "샷 구질 분류" },
-];
-
-const keyMetricsSet = new Set([
-  "club_path_angle",
-  "path_direction",
-  "on_plane_ratio",
-  "plane_deviation_std",
-  "vertical_launch_angle",
-  "horizontal_launch_direction",
-  "spin_bias",
-  "shot_type",
-  "projected_carry_distance",
-]);
-
-const extraMetricsSet = new Set([
-  "downswing_path_curve",
-  "shaft_forward_lean_at_impact",
-  "shaft_angle_change_rate",
-  "head_movement.horizontal",
-  "head_movement.vertical",
-  "upper_body_tilt_change",
-  "side_curve_intensity",
-  "apex_height_relative",
-  "initial_velocity",
-]);
-
-// 다양한 스키마(swing, swing_plane, ballFlight 등)를 포괄적으로 탐색
-const getValue = (analysis: ShotAnalysis & Record<string, any>, key: string) => {
-  const candidates: any[] = [
-    analysis,
-    analysis.swing_plane,
-    analysis.swing,
-    analysis.ballFlight,
-    analysis.impact,
-    analysis.low_point,
-    analysis.tempo,
-    analysis.body_motion,
-  ].filter(Boolean);
-
-  const parts = key.split(".");
-
-  for (const root of candidates) {
-    let current: any = root;
-    let found = true;
-    for (const part of parts) {
-      if (current == null || !(part in current)) {
-        found = false;
-        break;
-      }
-      current = current[part];
-    }
-    if (found && current !== undefined) return current;
-  }
-
-  return undefined;
+const EVENT_LABELS: Record<SwingEventKey, string> = {
+  address: "Address",
+  top: "Top",
+  impact: "Impact",
+  finish: "Finish",
 };
 
-export function MetricsTable({ analysis, onOpenVideo }: MetricsTableProps) {
-  const [showMore, setShowMore] = useState(false);
+const PENDING_FALLBACK = [
+  { key: "clubPath", label: "Club Path", description: "YOLO 클럽 트래킹 적용 후 활성화 예정" },
+  { key: "swingPlane", label: "Swing Plane", description: "단일 카메라 신뢰도 확보 후 제공" },
+  { key: "attackAngle", label: "Attack Angle", description: "헤드 궤적 안정화 후 제공" },
+];
 
-  if (!analysis) {
+const STATUS_LABELS: Record<JobStatus, string> = {
+  idle: "대기",
+  queued: "대기열",
+  running: "분석 중",
+  succeeded: "완료",
+  failed: "실패",
+};
+
+const STATUS_TONES: Record<JobStatus, string> = {
+  idle: "bg-slate-100 text-slate-700 border border-slate-200",
+  queued: "bg-amber-50 text-amber-700 border border-amber-200",
+  running: "bg-blue-50 text-blue-700 border border-blue-200",
+  succeeded: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  failed: "bg-red-50 text-red-700 border border-red-200",
+};
+
+const formatMs = (value?: number | null) => (value == null ? "-" : `${Math.round(value)} ms`);
+const formatAngle = (value?: number | null) => (value == null ? "-" : `${value.toFixed(1)}°`);
+
+export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProps) {
+  const currentStatus: JobStatus = analysis?.status ?? status ?? "idle";
+
+  if (!analysis && currentStatus === "idle") {
     return (
       <Card>
-        <p className="text-slate-500 text-sm">분석 데이터가 없습니다.</p>
+        <p className="text-slate-500 text-sm">샷을 선택하면 분석 상태와 지표가 표시됩니다.</p>
       </Card>
     );
   }
 
-  const keyed = metricDefs.map((def) => ({
-    ...def,
-    value: getValue(analysis, def.key),
-  }));
+  if (!analysis && (currentStatus === "queued" || currentStatus === "running")) {
+    return (
+      <Card className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">분석 상태</p>
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_TONES[currentStatus]}`}>
+            {STATUS_LABELS[currentStatus]}
+          </span>
+        </div>
+        <p className="text-base text-slate-800">
+          서버에서 영상을 처리 중입니다. 완료되면 지표가 자동으로 갱신됩니다.
+        </p>
+      </Card>
+    );
+  }
 
-  const keyMetrics = keyed.filter((k) => keyMetricsSet.has(k.key));
-  const extraMetrics = keyed.filter((k) => extraMetricsSet.has(k.key));
+  if (currentStatus === "failed") {
+    return (
+      <Card className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">분석 상태</p>
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_TONES[currentStatus]}`}>
+            {STATUS_LABELS[currentStatus]}
+          </span>
+        </div>
+        <p className="text-base text-red-600">
+          {analysis?.errorMessage ?? "분석이 실패했습니다. 다시 시도해주세요."}
+        </p>
+      </Card>
+    );
+  }
+
+  const tempo = analysis?.metrics.tempo;
+  const eventTiming = analysis?.metrics.eventTiming;
+  const ball = analysis?.metrics.ball;
+  const pending = analysis?.pending ?? PENDING_FALLBACK;
 
   return (
-    <Card>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-slate-500">핵심 지표</p>
-        {onOpenVideo && (
-          <Button
-            type="button"
-            onClick={onOpenVideo}
-            variant="outline"
-            className="w-auto px-3 py-1 text-sm"
-            fullWidth={false}
-          >
-            영상 보기
-          </Button>
-        )}
-      </div>
-      <div className="divide-y divide-slate-200">
-        {keyMetrics.map((row) => (
-          <div
-            key={row.label}
-            className="flex items-center justify-between py-2 text-sm"
-          >
-            <div className="flex items-center gap-2 text-slate-600">
-              <span>{row.labelKor}</span>
-            </div>
-            <span className="font-semibold text-slate-900">{row.value ?? "-"}</span>
-          </div>
-        ))}
-      </div>
-      {extraMetrics.length > 0 && (
-        <div className="mt-3">
-          <button
-            type="button"
-            className="text-sm text-blue-600 font-semibold hover:underline"
-            onClick={() => setShowMore((prev) => !prev)}
-          >
-            {showMore ? "접기" : "더보기"}
-          </button>
-          {showMore && (
-            <div className="mt-2 divide-y divide-slate-200">
-              {extraMetrics.map((row) => (
-                <div
-                  key={row.label}
-                  className="flex items-center justify-between py-2 text-sm"
-                >
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <span>{row.labelKor}</span>
-                  </div>
-                  <span className="font-semibold text-slate-900">{row.value ?? "-"}</span>
-                </div>
-              ))}
-            </div>
+    <Card className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="space-y-0.5">
+          <p className="text-sm text-slate-500">분석 상태</p>
+          <p className="text-lg font-semibold text-slate-900">{STATUS_LABELS[currentStatus]}</p>
+          {analysis?.jobId && (
+            <p className="text-xs text-slate-500">Job ID: {analysis.jobId}</p>
           )}
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_TONES[currentStatus]}`}>
+            {STATUS_LABELS[currentStatus]}
+          </span>
+          {onOpenVideo && (
+            <Button
+              type="button"
+              onClick={onOpenVideo}
+              variant="outline"
+              className="w-auto px-3 py-1 text-sm"
+              fullWidth={false}
+            >
+              영상 크게 보기
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">Tempo</p>
+          <span className="text-xs text-slate-400">백스윙 : 다운스윙</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <MetricCard label="비율" value={tempo?.ratio ?? "-"} />
+          <MetricCard label="다운스윙 시간" value={formatMs(tempo?.downswingMs)} />
+          <MetricCard label="백스윙 시간" value={formatMs(tempo?.backswingMs)} />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">Event Timing (상대 시점)</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => (
+            <MetricCard key={key} label={EVENT_LABELS[key]} value={formatMs(eventTiming?.[key])} />
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">Ball (근사)</p>
+          <span className="text-xs text-slate-400">단일 카메라 기준</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <MetricCard
+            label="Launch Direction"
+            value={ball?.launchDirection ? ball.launchDirection : "-"}
+          />
+          <MetricCard label="Launch Angle" value={formatAngle(ball?.launchAngle)} />
+          <MetricCard
+            label="Speed Relative"
+            value={ball?.speedRelative ? ball.speedRelative : "-"}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-500">준비 중 지표</p>
+          <span className="text-xs text-slate-400">YOLO 기반 클럽 트래킹 후 공개</span>
+        </div>
+        <div className="space-y-1">
+          {pending.map((p) => (
+            <div
+              key={p.key}
+              className="flex items-center justify-between rounded-lg border border-dashed border-slate-200 px-3 py-2"
+            >
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-slate-800">{p.label}</span>
+                <span className="text-xs text-slate-500">{p.description}</span>
+              </div>
+              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">
+                준비 중
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
     </Card>
+  );
+}
+
+type MetricCardProps = {
+  label: string;
+  value: string | number;
+};
+
+function MetricCard({ label, value }: MetricCardProps) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-base font-semibold text-slate-900">{value}</p>
+    </div>
   );
 }

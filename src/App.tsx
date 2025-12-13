@@ -3,6 +3,7 @@ import { Shell } from "./components/layout/Shell";
 import { UploadCard } from "./components/upload/UploadCard";
 import { ShotList } from "./components/shots/ShotList";
 import { MetricsTable } from "./components/analysis/MetricsTable";
+import { AnalysisPlayer } from "./components/analysis/AnalysisPlayer";
 import { CoachSummary } from "./components/analysis/CoachSummary";
 import { Button } from "./components/Button";
 import { useUpload } from "./hooks/useUpload";
@@ -19,7 +20,6 @@ function App() {
   const upload = useUpload({
     onSuccess: () => {
       refresh();
-      setActiveTab("list");
     },
   });
   const [activeTab, setActiveTab] = useState<TabKey>("upload");
@@ -59,10 +59,18 @@ function App() {
   };
 
   const selectedVideoUrl =
-    selected?.videoUrl ||
-    (selected ? `${API_BASE}/uploads/${encodeURIComponent(selected.filename)}` : "");
+    selected?.videoUrl && selected.videoUrl !== ""
+      ? selected.videoUrl
+      : selected
+      ? `${API_BASE}/uploads/${encodeURIComponent(selected.filename)}`
+      : "";
 
-  const { analysis, isLoading: isAnalysisLoading, error: analysisError } = useAnalysis(selected);
+  const {
+    analysis,
+    status: jobStatus,
+    isLoading: isAnalysisLoading,
+    error: analysisError,
+  } = useAnalysis(selected);
 
   const toggleOpen = (shot: Shot) => {
     const next = new Set(openShotIds);
@@ -118,14 +126,22 @@ function App() {
       {activeTab === "analysis" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            {isAnalysisLoading && <p className="text-sm text-slate-500">분석 불러오는 중...</p>}
+            {isAnalysisLoading && <p className="text-sm text-slate-500">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
             <MetricsTable
               analysis={analysis}
+              status={jobStatus}
               onOpenVideo={selected ? () => setShowVideoModal(true) : undefined}
             />
           </div>
-          {/* <CoachSummary comments={analysis?.coach_summary ?? []} /> */}
+          <div className="space-y-2">
+            <AnalysisPlayer
+              videoUrl={selectedVideoUrl}
+              events={analysis?.events}
+              isModalOpen={showVideoModal}
+            />
+            {/* <CoachSummary comments={analysis?.coach_summary ?? []} /> */}
+          </div>
         </div>
       )}
 
@@ -138,8 +154,12 @@ function App() {
       )}
 
       {showVideoModal && selected && (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/60 px-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-4 space-y-3">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-4 space-y-3 relative">
             <div className="flex justify-end items-center">
               <Button
                 type="button"

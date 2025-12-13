@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createShot } from "../api/shots";
+import { createAnalysisJob } from "../api/shots";
 import { Shot } from "../types/shots";
 
 type UseUploadOptions = {
@@ -28,8 +28,10 @@ export function useUpload(options?: UseUploadOptions) {
     setIsUploading(true);
     setMessage("업로드 중...");
     try {
-      const shot = await createShot(file, sourceType, options);
-      setMessage("업로드 완료!");
+      const shot = await createAnalysisJob(file, sourceType, options);
+      setMessage(
+        `업로드 완료. 분석 Job ${shot.jobId ?? shot.id}이 ${shot.status ?? "대기"} 상태입니다.`
+      );
       options?.onSuccess?.(shot);
       return shot;
     } catch (error) {

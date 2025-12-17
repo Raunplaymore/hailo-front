@@ -44,6 +44,10 @@ export function CameraStatusPanel({
         <StatusRow label="Busy" value={status ? (status.busy ? "사용 중" : "대기") : "-"} />
         <StatusRow label="Streaming" value={status ? (status.streaming ? "ON" : "OFF") : "-"} />
         <StatusRow
+          label="스트림 접속자"
+          value={status?.streamClients !== undefined ? String(status.streamClients) : "-"}
+        />
+        <StatusRow
           label="마지막 촬영"
           value={status?.lastCaptureAt ? new Date(status.lastCaptureAt).toLocaleString() : "-"}
         />

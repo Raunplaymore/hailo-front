@@ -90,6 +90,8 @@ function App() {
   const [captureBusyMessage, setCaptureBusyMessage] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
+  const isCameraBusy = cameraStatus?.busy === true;
+  const streamClients = cameraStatus?.streamClients;
 
   const tabs: { key: TabKey; label: string }[] = useMemo(
     () => [
@@ -181,6 +183,10 @@ function App() {
   };
 
   const handleStartPreview = () => {
+    if (isCameraBusy) {
+      setPreviewError("카메라 사용 중(스트리밍/녹화). 잠시 후 다시 시도하세요.");
+      return;
+    }
     setPreviewError(null);
     try {
       const url = buildStreamUrl(cameraSettings.baseUrl, {
@@ -217,6 +223,11 @@ function App() {
   const runCapture = async (payload: CapturePayload, analyze = false) => {
     if (!cameraSettings.baseUrl) {
       setCaptureBusyMessage("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+
+    if (isCameraBusy && !isPreviewOn) {
+      setCaptureBusyMessage("카메라 사용 중(409): 스트리밍/녹화 종료 후 다시 시도하세요.");
       return;
     }
 
@@ -332,11 +343,13 @@ function App() {
             onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
             onFpsChange={(value) => setCaptureFps(value)}
             onDurationChange={(seconds) => setCaptureDuration(seconds)}
-            onCaptureJpg={handleCaptureJpg}
-            onCaptureMp4={handleCaptureMp4}
-            onCaptureAnalyze={handleCaptureAndAnalyze}
-            busyMessage={captureBusyMessage}
-          />
+          onCaptureJpg={handleCaptureJpg}
+          onCaptureMp4={handleCaptureMp4}
+          onCaptureAnalyze={handleCaptureAndAnalyze}
+          busyMessage={captureBusyMessage}
+          isBusy={isCameraBusy}
+          streamClients={streamClients}
+        />
           <CaptureGallery items={captures} />
         </div>
       )}

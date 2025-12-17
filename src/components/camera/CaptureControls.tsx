@@ -3,6 +3,7 @@ import { Card } from "../Card";
 
 type CaptureControlsProps = {
   isCapturing: boolean;
+  isBusy?: boolean;
   resolution: { width: number; height: number };
   fps: number;
   durationSec: number;
@@ -13,6 +14,7 @@ type CaptureControlsProps = {
   onCaptureMp4: (seconds: number) => void;
   onCaptureAnalyze: (seconds: number) => void;
   busyMessage?: string | null;
+  streamClients?: number;
 };
 
 const captureResolutionPresets = [
@@ -22,6 +24,7 @@ const captureResolutionPresets = [
 
 export function CaptureControls({
   isCapturing,
+  isBusy = false,
   resolution,
   fps,
   durationSec,
@@ -32,6 +35,7 @@ export function CaptureControls({
   onCaptureMp4,
   onCaptureAnalyze,
   busyMessage,
+  streamClients,
 }: CaptureControlsProps) {
   return (
     <Card>
@@ -42,6 +46,12 @@ export function CaptureControls({
         </div>
       </div>
       {busyMessage && <p className="text-sm text-red-600 mb-2">{busyMessage}</p>}
+      {isBusy && (
+        <p className="text-sm text-amber-600 mb-2">
+          카메라 사용 중(스트리밍/녹화). 스트림을 끄거나 완료된 뒤에 캡처를 시도하세요.
+          {typeof streamClients === "number" && streamClients > 0 && ` 접속자: ${streamClients}명`}
+        </p>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-3">
           <p className="text-xs text-slate-500">해상도</p>
@@ -106,7 +116,13 @@ export function CaptureControls({
       </div>
 
       <div className="grid gap-3 mt-4 md:grid-cols-2">
-        <Button type="button" onClick={onCaptureJpg} isLoading={isCapturing} loadingText="캡처 중...">
+        <Button
+          type="button"
+          onClick={onCaptureJpg}
+          isLoading={isCapturing}
+          loadingText="캡처 중..."
+          disabled={isBusy}
+        >
           사진 찍기 (JPG)
         </Button>
         <Button
@@ -114,6 +130,7 @@ export function CaptureControls({
           onClick={() => onCaptureMp4(5)}
           isLoading={isCapturing}
           loadingText="녹화 중..."
+          disabled={isBusy}
         >
           녹화(MP4) 5초
         </Button>
@@ -122,6 +139,7 @@ export function CaptureControls({
           onClick={() => onCaptureMp4(durationSec || 5)}
           isLoading={isCapturing}
           loadingText="녹화 중..."
+          disabled={isBusy}
         >
           녹화(MP4) 사용자 지정
         </Button>
@@ -130,6 +148,7 @@ export function CaptureControls({
           onClick={() => onCaptureAnalyze(durationSec || 5)}
           isLoading={isCapturing}
           loadingText="요청 중..."
+          disabled={isBusy}
         >
           녹화 후 분석 요청
         </Button>

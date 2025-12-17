@@ -1,7 +1,9 @@
 export type CameraStatus = {
+  ok?: boolean;
   cameraDetected: boolean;
   busy: boolean;
   streaming?: boolean;
+  streamClients?: number;
   lastCaptureAt?: string | null;
   lastError?: string | null;
 };
@@ -21,6 +23,15 @@ export type CaptureJpgPayload = {
   filename: string;
 };
 
+export type CaptureH264Payload = {
+  format: "h264";
+  fps: number;
+  durationSec: number;
+  width: number;
+  height: number;
+  filename: string;
+};
+
 export type CaptureMp4Payload = {
   format: "mp4";
   fps: number;
@@ -30,7 +41,7 @@ export type CaptureMp4Payload = {
   filename: string;
 };
 
-export type CapturePayload = CaptureJpgPayload | CaptureMp4Payload;
+export type CapturePayload = CaptureJpgPayload | CaptureH264Payload | CaptureMp4Payload;
 
 export type CaptureResponse = {
   ok: boolean;

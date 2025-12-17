@@ -21,7 +21,7 @@ export function Shell<T extends string>({
 }: ShellProps<T>) {
   return (
     <div className="min-h-screen bg-slate-50 flex justify-center px-4 py-6 sm:px-6">
-      <main className="w-full max-w-3xl mx-auto space-y-4" style={{ maxWidth: "640px" }}>
+      <main className="w-full max-w-3xl mx-auto space-y-4" style={{ maxWidth: "840px" }}>
         <header className="mb-2 flex items-center justify-between gap-3">
           <div>
             <p className="text-sm text-slate-500 mb-1">DTL 단일 카메라 기반</p>

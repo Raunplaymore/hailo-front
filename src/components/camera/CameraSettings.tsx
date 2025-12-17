@@ -41,22 +41,22 @@ export function CameraSettings({
             value={value.baseUrl}
             onChange={(e) => onChange({ ...value, baseUrl: e.target.value })}
             placeholder="예: http://192.168.45.89:3001"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            className="w-full px-3 py-2 border shadow-sm rounded-xl border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
           <p className="text-xs text-slate-500">핫스팟 연결 시 IP를 직접 입력하고 저장해 두세요.</p>
         </label>
 
-        <label className="block space-y-1">
+        {/* <label className="block space-y-1">
           <span className="text-sm font-medium text-slate-700">액세스 토큰 (선택)</span>
           <input
             type="password"
             value={value.token}
             onChange={(e) => onChange({ ...value, token: e.target.value })}
             placeholder="Bearer 토큰"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            className="w-full px-3 py-2 border shadow-sm rounded-xl border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
           <p className="text-xs text-slate-500">API 호출 시 Authorization 헤더로 전송됩니다. 프리뷰는 token 쿼리로 전달됩니다.</p>
-        </label>
+        </label> */}
 
         <label className="block space-y-1">
           <span className="text-sm font-medium text-slate-700">세션 이름 (파일명 prefix)</span>
@@ -65,7 +65,7 @@ export function CameraSettings({
             value={value.sessionPrefix}
             onChange={(e) => onChange({ ...value, sessionPrefix: e.target.value.trim() })}
             placeholder="예: rangenight 또는 club9"
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            className="w-full px-3 py-2 border shadow-sm rounded-xl border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
           <p className="text-xs text-slate-500">파일명: [세션_]golf_YYYYMMDD_HHmmss_mmm_type.ext</p>
         </label>
@@ -75,7 +75,7 @@ export function CameraSettings({
             type="checkbox"
             checked={value.autoStopPreviewOnCapture}
             onChange={(e) => onChange({ ...value, autoStopPreviewOnCapture: e.target.checked })}
-            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
           />
           <span className="text-sm text-slate-700">녹화 전에 프리뷰 자동 종료</span>
         </label>
@@ -95,7 +95,7 @@ export function CameraSettings({
             </Button>
           </div>
           {history.length === 0 ? (
-            <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            <p className="px-3 py-2 text-xs border rounded-lg text-slate-500 bg-slate-50 border-slate-200">
               기록이 없습니다. 주소를 입력 후 프리뷰/상태 확인 시 자동으로 저장됩니다.
             </p>
           ) : (
@@ -105,7 +105,7 @@ export function CameraSettings({
                   key={item}
                   type="button"
                   onClick={() => onSelectHistory(item)}
-                  className="px-3 py-1 rounded-full border border-slate-200 bg-slate-50 text-xs text-slate-700 hover:border-blue-400 hover:text-blue-600"
+                  className="px-3 py-1 text-xs border rounded-full border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-400 hover:text-blue-600"
                 >
                   {item}
                 </button>

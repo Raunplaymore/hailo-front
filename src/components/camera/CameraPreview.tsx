@@ -12,6 +12,7 @@ type CameraPreviewProps = {
   onStart: () => void;
   onStop: () => void;
   error?: string | null;
+  startDisabled?: boolean;
 };
 
 const resolutionPresets = [
@@ -33,6 +34,7 @@ export function CameraPreview({
   onStart,
   onStop,
   error,
+  startDisabled = false,
 }: CameraPreviewProps) {
   return (
     <Card>
@@ -56,6 +58,7 @@ export function CameraPreview({
               type="button"
               className="w-auto px-3 py-1 text-sm"
               onClick={onStart}
+              disabled={startDisabled}
             >
               프리뷰 켜기
             </Button>

@@ -91,7 +91,7 @@ function App() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
   const isCameraBusy = cameraStatus?.busy === true;
-  const streamClients = cameraStatus?.streamClients;
+  const hasExternalStream = cameraStatus?.streaming && !isPreviewOn;
 
   const tabs: { key: TabKey; label: string }[] = useMemo(
     () => [
@@ -185,6 +185,10 @@ function App() {
   const handleStartPreview = () => {
     if (isCameraBusy) {
       setPreviewError("카메라 사용 중(스트리밍/녹화). 잠시 후 다시 시도하세요.");
+      return;
+    }
+    if (hasExternalStream) {
+      setPreviewError("스트림은 동시 1명만 허용됩니다. 다른 기기에서 프리뷰를 종료하세요.");
       return;
     }
     setPreviewError(null);
@@ -329,12 +333,18 @@ function App() {
             width={previewParams.width}
             height={previewParams.height}
             fps={previewParams.fps}
-            onChangeResolution={(width, height) => setPreviewParams((prev) => ({ ...prev, width, height }))}
-            onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
-            onStart={handleStartPreview}
-            onStop={handleStopPreview}
-            error={previewError}
-          />
+          onChangeResolution={(width, height) => setPreviewParams((prev) => ({ ...prev, width, height }))}
+          onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
+          onStart={handleStartPreview}
+          onStop={handleStopPreview}
+          error={previewError}
+          startDisabled={hasExternalStream}
+          startDisabledReason={
+            hasExternalStream
+              ? `스트림은 1명만 접속 가능합니다. 현재 접속자 ${streamClients ?? 1}명입니다.`
+              : null
+          }
+        />
           <CaptureControls
             isCapturing={isCapturing}
             resolution={captureResolution}
@@ -348,7 +358,6 @@ function App() {
           onCaptureAnalyze={handleCaptureAndAnalyze}
           busyMessage={captureBusyMessage}
           isBusy={isCameraBusy}
-          streamClients={streamClients}
         />
           <CaptureGallery items={captures} />
         </div>

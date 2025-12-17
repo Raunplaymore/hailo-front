@@ -14,7 +14,6 @@ type CaptureControlsProps = {
   onCaptureMp4: (seconds: number) => void;
   onCaptureAnalyze: (seconds: number) => void;
   busyMessage?: string | null;
-  streamClients?: number;
 };
 
 const captureResolutionPresets = [
@@ -35,7 +34,6 @@ export function CaptureControls({
   onCaptureMp4,
   onCaptureAnalyze,
   busyMessage,
-  streamClients,
 }: CaptureControlsProps) {
   return (
     <Card>
@@ -49,7 +47,6 @@ export function CaptureControls({
       {isBusy && (
         <p className="text-sm text-amber-600 mb-2">
           카메라 사용 중(스트리밍/녹화). 스트림을 끄거나 완료된 뒤에 캡처를 시도하세요.
-          {typeof streamClients === "number" && streamClients > 0 && ` 접속자: ${streamClients}명`}
         </p>
       )}
       <div className="grid gap-4 md:grid-cols-2">

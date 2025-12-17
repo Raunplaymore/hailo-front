@@ -19,8 +19,15 @@ export class CameraApiError extends Error {
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
 const buildError = async (res: Response, fallback: string) => {
-  const text = await res.text();
   const status = res.status;
+  let bodyText: string | undefined;
+  let bodyJson: { error?: string } | undefined;
+  try {
+    bodyJson = (await res.clone().json()) as { error?: string };
+  } catch (_) {
+    bodyText = await res.text();
+  }
+
   const friendly = (() => {
     switch (status) {
       case 401:
@@ -33,7 +40,8 @@ const buildError = async (res: Response, fallback: string) => {
         return fallback;
     }
   })();
-  return new CameraApiError(text || `${friendly} (HTTP ${status})`, status, text);
+  const message = bodyJson?.error || bodyText || `${friendly} (HTTP ${status})`;
+  return new CameraApiError(message, status, bodyText);
 };
 
 const authHeaders = (token?: string) => (token ? { Authorization: `Bearer ${token}` } : {});
@@ -75,11 +83,12 @@ export const startCapture = async (
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    throw await buildError(res, "촬영을 시작하지 못했습니다.");
+  const json = (await res.json()) as CaptureResponse & { error?: string };
+  if (!res.ok || json.ok === false) {
+    throw await buildError(res, json.error || "촬영을 시작하지 못했습니다.");
   }
 
-  return (await res.json()) as CaptureResponse;
+  return json;
 };
 
 export const captureAndAnalyze = async (
@@ -97,11 +106,12 @@ export const captureAndAnalyze = async (
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) {
-    throw await buildError(res, "촬영+분석을 시작하지 못했습니다.");
+  const json = (await res.json()) as CaptureResponse & { error?: string };
+  if (!res.ok || json.ok === false) {
+    throw await buildError(res, json.error || "촬영+분석을 시작하지 못했습니다.");
   }
 
-  return (await res.json()) as CaptureResponse;
+  return json;
 };
 
 export const buildStreamUrl = (baseUrl: string, params: CameraStreamParams): string => {

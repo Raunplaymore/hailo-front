@@ -90,8 +90,10 @@ function App() {
   const [captureBusyMessage, setCaptureBusyMessage] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
-  const isCameraBusy = cameraStatus?.busy === true;
-  const hasExternalStream = cameraStatus?.streaming && !isPreviewOn;
+  const streamClients = cameraStatus?.streamClients ?? 0;
+  const isStreaming = cameraStatus?.streaming === true;
+  const isCameraBusy = cameraStatus?.busy === true || isStreaming;
+  const hasExternalStream = isStreaming && !isPreviewOn && streamClients > 0;
 
   const tabs: { key: TabKey; label: string }[] = useMemo(
     () => [
@@ -182,13 +184,24 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    if (activeTab !== "camera") return;
+    handleCheckStatus();
+    const interval = window.setInterval(() => {
+      handleCheckStatus();
+    }, 5000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [activeTab, cameraSettings.baseUrl, cameraSettings.token]);
+
   const handleStartPreview = () => {
-    if (isCameraBusy) {
-      setPreviewError("카메라 사용 중(스트리밍/녹화). 잠시 후 다시 시도하세요.");
-      return;
-    }
-    if (hasExternalStream) {
-      setPreviewError("스트림은 동시 1명만 허용됩니다. 다른 기기에서 프리뷰를 종료하세요.");
+    if (isCameraBusy || hasExternalStream) {
+      setPreviewError(
+        hasExternalStream
+          ? `스트림은 동시 1명만 허용됩니다. 다른 기기에서 프리뷰를 종료하세요. (현재 ${streamClients}명 접속)`
+          : "카메라 사용 중(스트리밍/녹화). 잠시 후 다시 시도하세요."
+      );
       return;
     }
     setPreviewError(null);
@@ -211,6 +224,20 @@ function App() {
   const handleStopPreview = () => {
     setIsPreviewOn(false);
     setStreamUrl(null);
+    // 낙관적으로 busy/streaming을 해제하고 후속 폴링으로 정합성을 맞춥니다.
+    setCameraStatus((prev) =>
+      prev
+        ? {
+            ...prev,
+            busy: false,
+            streaming: false,
+            streamClients: 0,
+          }
+        : prev
+    );
+    handleCheckStatus();
+    window.setTimeout(handleCheckStatus, 800);
+    window.setTimeout(handleCheckStatus, 2500);
   };
 
   const makeFilename = (ext: "jpg" | "mp4", type: string) => {
@@ -227,6 +254,11 @@ function App() {
   const runCapture = async (payload: CapturePayload, analyze = false) => {
     if (!cameraSettings.baseUrl) {
       setCaptureBusyMessage("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+
+    if (hasExternalStream) {
+      setCaptureBusyMessage("스트림 중입니다. 다른 기기에서 프리뷰를 종료 후 다시 시도하세요.");
       return;
     }
 
@@ -261,6 +293,7 @@ function App() {
       setCaptures((prev) => [item, ...prev].slice(0, 12));
       rememberBase(cameraSettings.baseUrl);
       setCaptureBusyMessage(analyze ? "녹화+분석 요청 완료" : "촬영 완료");
+      handleCheckStatus();
     } catch (err) {
       if (err instanceof CameraApiError && err.status === 409) {
         setCaptureBusyMessage("카메라 사용 중(409): 프리뷰나 다른 녹화를 종료 후 재시도하세요.");
@@ -333,18 +366,13 @@ function App() {
             width={previewParams.width}
             height={previewParams.height}
             fps={previewParams.fps}
-          onChangeResolution={(width, height) => setPreviewParams((prev) => ({ ...prev, width, height }))}
-          onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
-          onStart={handleStartPreview}
-          onStop={handleStopPreview}
-          error={previewError}
-          startDisabled={hasExternalStream}
-          startDisabledReason={
-            hasExternalStream
-              ? `스트림은 1명만 접속 가능합니다. 현재 접속자 ${streamClients ?? 1}명입니다.`
-              : null
-          }
-        />
+            onChangeResolution={(width, height) => setPreviewParams((prev) => ({ ...prev, width, height }))}
+            onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
+            onStart={handleStartPreview}
+            onStop={handleStopPreview}
+            error={previewError}
+            startDisabled={hasExternalStream || isCameraBusy}
+          />
           <CaptureControls
             isCapturing={isCapturing}
             resolution={captureResolution}
@@ -353,12 +381,12 @@ function App() {
             onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
             onFpsChange={(value) => setCaptureFps(value)}
             onDurationChange={(seconds) => setCaptureDuration(seconds)}
-          onCaptureJpg={handleCaptureJpg}
-          onCaptureMp4={handleCaptureMp4}
-          onCaptureAnalyze={handleCaptureAndAnalyze}
-          busyMessage={captureBusyMessage}
-          isBusy={isCameraBusy}
-        />
+            onCaptureJpg={handleCaptureJpg}
+            onCaptureMp4={handleCaptureMp4}
+            onCaptureAnalyze={handleCaptureAndAnalyze}
+            busyMessage={captureBusyMessage}
+            isBusy={isCameraBusy || hasExternalStream}
+          />
           <CaptureGallery items={captures} />
         </div>
       )}

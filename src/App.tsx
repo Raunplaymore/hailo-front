@@ -84,6 +84,7 @@ function App() {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isPreviewOn, setIsPreviewOn] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewSessionId, setPreviewSessionId] = useState<number>(0);
   const [captureResolution, setCaptureResolution] = useState({ width: 1920, height: 1080 });
   const [captureFps, setCaptureFps] = useState(30);
   const [captureDuration, setCaptureDuration] = useState(5);
@@ -213,6 +214,7 @@ function App() {
       });
       setStreamUrl(url);
       setIsPreviewOn(true);
+      setPreviewSessionId((id) => id + 1);
       rememberBase(cameraSettings.baseUrl);
     } catch (err) {
       setIsPreviewOn(false);
@@ -223,7 +225,9 @@ function App() {
 
   const handleStopPreview = () => {
     setIsPreviewOn(false);
-    setStreamUrl(null);
+    // about:blank으로 잠깐 전환해 스트림 커넥션을 끊고, 곧바로 언마운트합니다.
+    setStreamUrl("about:blank");
+    window.setTimeout(() => setStreamUrl(null), 50);
     // 낙관적으로 busy/streaming을 해제하고 후속 폴링으로 정합성을 맞춥니다.
     setCameraStatus((prev) =>
       prev
@@ -363,6 +367,7 @@ function App() {
           <CameraPreview
             isActive={isPreviewOn}
             streamUrl={streamUrl}
+            key={previewSessionId}
             width={previewParams.width}
             height={previewParams.height}
             fps={previewParams.fps}

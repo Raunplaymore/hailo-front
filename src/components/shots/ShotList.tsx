@@ -14,6 +14,8 @@ type ShotListProps = {
   deletingId?: string | null;
   analyzingId?: string | null;
   openIds?: Set<string>;
+  title?: string;
+  emptyMessage?: string;
 };
 
 export function ShotList({
@@ -27,6 +29,8 @@ export function ShotList({
   deletingId,
   analyzingId,
   openIds,
+  title = "업로드된 파일",
+  emptyMessage = "아직 등록된 파일이 없습니다.",
 }: ShotListProps) {
   const statusLabel = (status?: string, analyzed?: boolean) => {
     if (analyzed) return "분석 완료";
@@ -47,7 +51,7 @@ export function ShotList({
   return (
     <Card>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-slate-500">업로드된 파일</p>
+        <p className="text-sm text-slate-500">{title}</p>
         <Button
           type="button"
           onClick={onRefresh}
@@ -62,7 +66,7 @@ export function ShotList({
       {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
       {shots.length === 0 ? (
         <div className="p-4 rounded-xl border border-slate-200 text-slate-500 bg-slate-50">
-          아직 등록된 파일이 없습니다.
+          {emptyMessage}
         </div>
       ) : (
         <ul className="list-none p-0 m-0 grid gap-2">

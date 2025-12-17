@@ -20,12 +20,12 @@ export function Shell<T extends string>({
   settingsLabel = "설정",
 }: ShellProps<T>) {
   return (
-    <div className="min-h-screen bg-slate-50 flex justify-center px-4 py-6 sm:px-6">
+    <div className="flex justify-center min-h-screen px-4 pt-6 pb-24 bg-slate-50 sm:px-6">
       <main className="w-full max-w-3xl mx-auto space-y-4" style={{ maxWidth: "840px" }}>
-        <header className="mb-2 flex items-center justify-between gap-3">
+        <header className="flex items-center justify-between gap-3 mb-2">
           <div>
-            <p className="text-sm text-slate-500 mb-1">DTL 단일 카메라 기반</p>
-            <h1 className="text-2xl font-semibold text-slate-900 leading-tight">
+            <p className="mb-1 text-sm text-slate-500">DTL 단일 카메라 기반</p>
+            <h1 className="text-2xl font-semibold leading-tight text-slate-900">
               스윙 업로드 & 분석
             </h1>
           </div>
@@ -33,29 +33,32 @@ export function Shell<T extends string>({
             type="button"
             variant="outline"
             fullWidth={false}
-            className="py-1 px-2 text-sm"
+            className="px-2 py-1 text-sm"
             onClick={onSettingsClick}
           >
             ⚙️ {settingsLabel}
           </Button>
         </header>
-        <nav className="flex gap-2 mb-2 sticky top-0 bg-slate-50/90 backdrop-blur z-10">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => onChange(tab.key)}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold border transition ${
-                active === tab.key
-                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
         {children}
       </main>
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur shadow-[0_-4px_12px_rgba(15,23,42,0.06)]">
+        <ul className="grid w-full max-w-3xl grid-cols-4 mx-auto">
+          {tabs.map((tab) => (
+            <li key={tab.key}>
+              <button
+                onClick={() => onChange(tab.key)}
+                className={`w-full py-4 text-sm font-semibold transition ${
+                  active === tab.key
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {tab.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </div>
   );
 }

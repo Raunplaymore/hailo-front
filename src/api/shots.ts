@@ -216,6 +216,8 @@ const withVideoUrl = (shot: Shot): Shot => {
 const mapToShot = (item: any): Shot => {
   const filename = resolveFilename(item);
   const jobId = item?.jobId ?? item?.analysis?.jobId ?? item?.id ?? filename;
+  const analyzedFlag =
+    item?.analyzed ?? Boolean(item?.analysis) ?? item?.status === "succeeded";
   const analysis = item?.analysis
     ? normalizeAnalysis(item.analysis, jobId, item.analysis.status ?? item.status)
     : null;
@@ -228,7 +230,7 @@ const mapToShot = (item: any): Shot => {
     videoUrl: item?.url,
     createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
     status: item?.status ?? analysis?.status,
-    analyzed: item?.analyzed ?? Boolean(item?.analysis),
+    analyzed: analyzedFlag,
     modifiedAt: item?.modifiedAt,
     size: item?.size,
     club: item?.club,

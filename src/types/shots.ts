@@ -1,6 +1,6 @@
 export type SourceType = "upload" | "camera";
 
-export type JobStatus = "idle" | "queued" | "running" | "succeeded" | "failed";
+export type JobStatus = "idle" | "queued" | "running" | "succeeded" | "failed" | "not-analyzed";
 
 export type SwingEventKey = "address" | "top" | "impact" | "finish";
 

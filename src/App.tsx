@@ -364,6 +364,13 @@ function App() {
     }
   };
 
+  const analyzedShots = shots.filter(
+    (shot) => shot.analyzed || Boolean(shot.analysis) || shot.status === "succeeded"
+  );
+  const pendingShots = shots.filter(
+    (shot) => !(shot.analyzed || Boolean(shot.analysis) || shot.status === "succeeded")
+  );
+
   return (
     <Shell
       tabs={tabs}
@@ -422,18 +429,34 @@ function App() {
       )}
 
       {activeTab === "list" && (
-        <ShotList
-          shots={shots}
-          isLoading={isLoading}
-          error={error || analyzeError}
-          onRefresh={refresh}
-          onSelect={toggleOpen}
-          onAnalyze={(shot) => handleAnalyzeShot(shot)}
-          onDelete={(shot) => handleDelete(shot)}
-          deletingId={deletingId}
-          analyzingId={analyzingId}
-          openIds={openShotIds}
-        />
+        <div className="space-y-4">
+          <ShotList
+            title="분석 전 파일(mp4)"
+            emptyMessage="분석 대기 중인 mp4가 없습니다."
+            shots={pendingShots}
+            isLoading={isLoading}
+            error={error || analyzeError}
+            onRefresh={refresh}
+            onSelect={toggleOpen}
+            onAnalyze={(shot) => handleAnalyzeShot(shot)}
+            onDelete={(shot) => handleDelete(shot)}
+            deletingId={deletingId}
+            analyzingId={analyzingId}
+            openIds={openShotIds}
+          />
+          <ShotList
+            title="분석 완료 파일"
+            emptyMessage="분석 완료된 파일이 없습니다."
+            shots={analyzedShots}
+            isLoading={isLoading}
+            error={error || analyzeError}
+            onRefresh={refresh}
+            onSelect={toggleOpen}
+            onDelete={(shot) => handleDelete(shot)}
+            deletingId={deletingId}
+            openIds={openShotIds}
+          />
+        </div>
       )}
 
       {activeTab === "analysis" && (

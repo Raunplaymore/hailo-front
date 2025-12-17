@@ -13,7 +13,20 @@ import {
 } from "../types/shots";
 
 type UploadRes = { jobId: string; filename?: string; shotId?: string; status?: JobStatus; analysis?: any };
-type FilesDetailRes = { ok: boolean; files: any[] };
+type FilesDetailRes = {
+  ok: boolean;
+  files: Array<{
+    filename: string;
+    url?: string;
+    shotId?: string;
+    jobId?: string;
+    analyzed?: boolean;
+    status?: JobStatus;
+    size?: number;
+    modifiedAt?: string;
+    analysis?: any;
+  }>;
+};
 
 const PENDING_METRICS: PendingMetric[] = [
   {
@@ -212,57 +225,71 @@ const mapToShot = (item: any): Shot => {
     filename,
     jobId,
     sourceType: (item?.sourceType as SourceType) ?? "upload",
+    videoUrl: item?.url,
     createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
     status: item?.status ?? analysis?.status,
+    analyzed: item?.analyzed ?? Boolean(item?.analysis),
+    modifiedAt: item?.modifiedAt,
+    size: item?.size,
     club: item?.club,
     analysis,
   } as Shot);
 };
 
 export const fetchShots = async (): Promise<Shot[]> => {
-  // 1) 우선순위: /api/files (신규 스펙)
+  // 1) /api/files/detail (확장 스펙)
+  try {
+    const detail = await client.get<FilesDetailRes>("/api/files/detail");
+    if (detail && Array.isArray(detail.files)) {
+      return detail.files
+        .filter((f) => typeof f.filename === "string" && f.filename.toLowerCase().endsWith(".mp4"))
+        .map((f) =>
+          mapToShot({
+            id: f.shotId || f.filename,
+            filename: f.filename,
+            createdAt: f.modifiedAt || new Date().toISOString(),
+            url: f.url,
+            jobId: f.jobId,
+            analyzed: f.analyzed,
+            status: f.status,
+            analysis: f.analysis,
+            size: f.size,
+            modifiedAt: f.modifiedAt,
+          })
+        );
+    }
+  } catch (err) {
+    console.warn("fetchShots /api/files/detail failed, fallback to /api/files", err);
+  }
+
+  // 2) 우선순위: /api/files (기존)
   try {
     const data = await client.get<unknown>("/api/files");
     if (Array.isArray(data)) {
-      return (data as any[]).map((entry) =>
-        typeof entry === "string" ? mapToShot({ filename: entry }) : mapToShot(entry)
-      );
+      return (data as any[])
+        .filter((entry) => {
+          const filename = typeof entry === "string" ? entry : entry?.filename;
+          return typeof filename === "string" && filename.toLowerCase().endsWith(".mp4");
+        })
+        .map((entry) =>
+          typeof entry === "string" ? mapToShot({ filename: entry }) : mapToShot(entry)
+        );
     }
   } catch (err) {
     console.warn("fetchShots /api/files failed, fallback to legacy", err);
   }
 
-  // 2) 레거시: /api/shots
+  // 3) 레거시: /api/shots
   try {
     const data = await client.get<unknown>("/api/shots");
     if (Array.isArray(data)) {
       return (data as any[]).map((entry) => mapToShot(entry));
     }
   } catch (err) {
-    console.warn("fetchShots /api/shots failed, fallback to /api/files/detail", err);
+    console.error("fetchShots /api/shots failed", err);
   }
 
-  // 3) 레거시 디테일: /api/files/detail
-  try {
-    const detail = await client.get<unknown>("/api/files/detail");
-    if (!detail || typeof detail !== "object" || !Array.isArray((detail as FilesDetailRes).files)) {
-      console.warn("fetchShots fallback returned unexpected shape", detail);
-      return [];
-    }
-    const filesDetail = detail as FilesDetailRes;
-    const now = new Date().toISOString();
-    return filesDetail.files.map((f) =>
-      mapToShot({
-        id: f.shotId || f.filename,
-        filename: f.filename,
-        createdAt: now,
-        analysis: f.analysis,
-      })
-    );
-  } catch (err) {
-    console.error("fetchShots fallback failed", err);
-    return [];
-  }
+  return [];
 };
 
 export const fetchShot = async (id: string): Promise<Shot> => {

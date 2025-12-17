@@ -12,6 +12,7 @@ type ShotListProps = {
   onAnalyze?: (shot: Shot) => void;
   onDelete?: (shot: Shot) => void;
   deletingId?: string | null;
+  analyzingId?: string | null;
   openIds?: Set<string>;
 };
 
@@ -24,9 +25,11 @@ export function ShotList({
   onAnalyze,
   onDelete,
   deletingId,
+  analyzingId,
   openIds,
 }: ShotListProps) {
-  const statusLabel = (status?: string) => {
+  const statusLabel = (status?: string, analyzed?: boolean) => {
+    if (analyzed) return "분석 완료";
     switch (status) {
       case "queued":
         return "대기열";
@@ -71,46 +74,53 @@ export function ShotList({
             <div className="flex flex-col flex-1 min-w-0 gap-1">
               <span className="font-semibold break-words text-sm">{shot.filename}</span>
               <span className="text-xs text-slate-500 break-words">
-                {shot.sourceType} · {statusLabel(shot.status ?? shot.analysis?.status)} ·{" "}
+                {shot.sourceType} · {statusLabel(shot.status ?? shot.analysis?.status, shot.analyzed)} ·{" "}
                 {new Date(shot.createdAt).toLocaleString()}
               </span>
+              {shot.analyzed && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-1 w-fit">
+                  분석 완료
+                </span>
+              )}
               {shot.jobId && (
                 <span className="text-xs text-slate-400 break-words">Job ID: {shot.jobId}</span>
               )}
               <div className="flex flex-wrap items-center justify-end gap-2 mt-1 ">
                 <Button
+                  type="button"
+                  onClick={() => onSelect(shot)}
+                  variant="outline"
+                  className="px-3 py-1 text-sm"
+                  fullWidth={false}
+                >
+                  {openIds?.has(shot.id) ? "접기" : "보기"}
+                </Button>
+                {onAnalyze && !shot.analyzed && (
+                  <Button
                     type="button"
-                    onClick={() => onSelect(shot)}
+                    onClick={() => onAnalyze(shot)}
                     variant="outline"
                     className="px-3 py-1 text-sm"
+                    isLoading={analyzingId === shot.id}
+                    loadingText="분석중..."
                     fullWidth={false}
                   >
-                    {openIds?.has(shot.id) ? "접기" : "보기"}
+                    분석
                   </Button>
-                  {onAnalyze && (
-                    <Button
-                      type="button"
-                      onClick={() => onAnalyze(shot)}
-                      variant="outline"
-                      className="px-3 py-1 text-sm"
-                      fullWidth={false}
-                    >
-                      분석
-                    </Button>
-                  )}
-                  {onDelete && (
-                    <Button
-                      type="button"
-                      onClick={() => onDelete(shot)}
-                      isLoading={deletingId === shot.id}
-                      loadingText="삭제중"
-                      variant="danger"
-                      fullWidth={false}
-                      aria-label={`${shot.filename} 삭제`}
-                    >
-                      삭제
-                    </Button>
-                  )}
+                )}
+                {onDelete && (
+                  <Button
+                    type="button"
+                    onClick={() => onDelete(shot)}
+                    isLoading={deletingId === shot.id}
+                    loadingText="삭제중"
+                    variant="danger"
+                    fullWidth={false}
+                    aria-label={`${shot.filename} 삭제`}
+                  >
+                    삭제
+                  </Button>
+                )}
               </div>
             </div>
             {openIds?.has(shot.id) && (

@@ -24,6 +24,7 @@ import {
   getStatus as getCameraStatus,
   startCapture,
 } from "./api/cameraApi";
+import { createAnalysisJob } from "./api/shots";
 
 type TabKey = "camera" | "upload" | "list" | "analysis" | "settings";
 
@@ -91,6 +92,8 @@ function App() {
   const [captureBusyMessage, setCaptureBusyMessage] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const streamClients = cameraStatus?.streamClients ?? 0;
   const isStreaming = cameraStatus?.streaming === true;
   const isCameraBusy = cameraStatus?.busy === true || isStreaming;
@@ -341,6 +344,26 @@ function App() {
       true
     );
 
+  const handleAnalyzeShot = async (shot: Shot) => {
+    if (!shot.videoUrl) return;
+    setAnalyzingId(shot.id);
+    setAnalyzeError(null);
+    try {
+      const res = await fetch(shot.videoUrl);
+      const blob = await res.blob();
+      const file = new File([blob], shot.filename, { type: blob.type || "video/mp4" });
+      const analyzedShot = await createAnalysisJob(file, shot.sourceType ?? "upload");
+      await refresh();
+      select(analyzedShot);
+      setActiveTab("analysis");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "분석 요청 실패";
+      setAnalyzeError(message);
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
+
   return (
     <Shell
       tabs={tabs}
@@ -402,15 +425,13 @@ function App() {
         <ShotList
           shots={shots}
           isLoading={isLoading}
-          error={error}
+          error={error || analyzeError}
           onRefresh={refresh}
           onSelect={toggleOpen}
-          onAnalyze={(shot) => {
-            select(shot);
-            setActiveTab("analysis");
-          }}
+          onAnalyze={(shot) => handleAnalyzeShot(shot)}
           onDelete={(shot) => handleDelete(shot)}
           deletingId={deletingId}
+          analyzingId={analyzingId}
           openIds={openShotIds}
         />
       )}

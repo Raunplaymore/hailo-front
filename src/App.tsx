@@ -57,7 +57,7 @@ function App() {
       refresh();
     },
   });
-  const [activeTab, setActiveTab] = useState<TabKey>("upload");
+  const [activeTab, setActiveTab] = useState<TabKey>("camera");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openShotIds, setOpenShotIds] = useState<Set<string>>(new Set());
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -186,7 +186,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (activeTab !== "camera") return;
+    if (activeTab !== "camera" && activeTab !== "settings") return;
     handleCheckStatus();
     const interval = window.setInterval(() => {
       handleCheckStatus();
@@ -225,9 +225,7 @@ function App() {
 
   const handleStopPreview = () => {
     setIsPreviewOn(false);
-    // about:blank으로 잠깐 전환해 스트림 커넥션을 끊고, 곧바로 언마운트합니다.
-    setStreamUrl("about:blank");
-    window.setTimeout(() => setStreamUrl(null), 50);
+    setStreamUrl(null);
     // 낙관적으로 busy/streaming을 해제하고 후속 폴링으로 정합성을 맞춥니다.
     setCameraStatus((prev) =>
       prev
@@ -239,7 +237,9 @@ function App() {
           }
         : prev
     );
+    console.log('handleStopPreview')
     handleCheckStatus();
+    console.log('handleCheckStatus')
     window.setTimeout(handleCheckStatus, 800);
     window.setTimeout(handleCheckStatus, 2500);
   };
@@ -350,20 +350,6 @@ function App() {
     >
       {activeTab === "camera" && (
         <div className="space-y-4">
-          <CameraSettings
-            value={cameraSettings}
-            history={baseHistory}
-            onChange={(next) => setCameraSettings(next)}
-            onSelectHistory={(url) => setCameraSettings((prev) => ({ ...prev, baseUrl: url }))}
-            onClearHistory={() => setBaseHistory([])}
-          />
-          <CameraStatusPanel
-            status={cameraStatus}
-            onRefresh={handleCheckStatus}
-            isLoading={isStatusLoading}
-            error={statusError}
-            lastCheckedAt={lastStatusCheckedAt}
-          />
           <CameraPreview
             isActive={isPreviewOn}
             streamUrl={streamUrl}
@@ -452,21 +438,37 @@ function App() {
       )}
 
       {activeTab === "settings" && (
-        <SettingsForm
-          value={settings}
-          onChange={(next) => setSettings(next)}
-          onSubmit={() => setActiveTab("upload")}
-        />
+        <div className="space-y-4">
+          <CameraSettings
+            value={cameraSettings}
+            history={baseHistory}
+            onChange={(next) => setCameraSettings(next)}
+            onSelectHistory={(url) => setCameraSettings((prev) => ({ ...prev, baseUrl: url }))}
+            onClearHistory={() => setBaseHistory([])}
+          />
+          <CameraStatusPanel
+            status={cameraStatus}
+            onRefresh={handleCheckStatus}
+            isLoading={isStatusLoading}
+            error={statusError}
+            lastCheckedAt={lastStatusCheckedAt}
+          />
+          <SettingsForm
+            value={settings}
+            onChange={(next) => setSettings(next)}
+            onSubmit={() => setActiveTab("upload")}
+          />
+        </div>
       )}
 
       {showVideoModal && selected && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-4 space-y-3 relative">
-            <div className="flex justify-end items-center">
+          <div className="relative w-full max-w-xl p-4 space-y-3 bg-white shadow-xl rounded-xl">
+            <div className="flex items-center justify-end">
               <Button
                 type="button"
                 onClick={() => setShowVideoModal(false)}

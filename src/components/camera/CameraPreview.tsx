@@ -1,5 +1,6 @@
 import { Button } from "../Button";
 import { Card } from "../Card";
+import { useEffect, useRef } from "react";
 
 type CameraPreviewProps = {
   isActive: boolean;
@@ -36,6 +37,28 @@ export function CameraPreview({
   error,
   startDisabled = false,
 }: CameraPreviewProps) {
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const handleStopClick = () => {
+    if (imgRef.current) {
+      imgRef.current.src = "";
+    }
+    onStop();
+  };
+
+  useEffect(() => {
+    // isActive=false 또는 streamUrl이 비어질 때 명시적으로 src를 비워 스트림을 끊어준다.
+    if (!isActive || !streamUrl) {
+      if (imgRef.current) {
+        imgRef.current.src = "";
+      }
+    }
+    return () => {
+      if (imgRef.current) {
+        imgRef.current.src = "";
+      }
+    };
+  }, [isActive, streamUrl]);
+
   return (
     <Card>
       <div className="flex items-center justify-between mb-3">
@@ -49,7 +72,7 @@ export function CameraPreview({
               type="button"
               variant="outline"
               className="w-auto px-3 py-1 text-sm"
-              onClick={onStop}
+              onClick={handleStopClick}
             >
               프리뷰 끄기
             </Button>
@@ -123,6 +146,7 @@ export function CameraPreview({
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
         {isActive && streamUrl ? (
           <img
+            ref={imgRef}
             key={streamUrl}
             src={streamUrl}
             alt="Camera preview"

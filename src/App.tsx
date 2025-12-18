@@ -24,7 +24,7 @@ import {
   getStatus as getCameraStatus,
   startCapture,
 } from "./api/cameraApi";
-import { createAnalysisJob } from "./api/shots";
+import { createAnalysisJob, createAnalysisJobFromFile } from "./api/shots";
 
 type TabKey = "camera" | "upload" | "list" | "analysis" | "settings";
 
@@ -240,9 +240,7 @@ function App() {
           }
         : prev
     );
-    console.log('handleStopPreview')
     handleCheckStatus();
-    console.log('handleCheckStatus')
     window.setTimeout(handleCheckStatus, 800);
     window.setTimeout(handleCheckStatus, 2500);
   };
@@ -344,16 +342,32 @@ function App() {
     );
 
   const handleAnalyzeShot = async (shot: Shot) => {
-    if (!shot.videoUrl) return;
     setAnalyzingId(shot.id);
     setAnalyzeError(null);
     try {
-      const res = await fetch(shot.videoUrl);
-      const blob = await res.blob();
-      const file = new File([blob], shot.filename, { type: blob.type || "video/mp4" });
-      const analyzedShot = await createAnalysisJob(file, shot.sourceType ?? "upload");
+      let jobId: string | null = null;
+      let nextStatus: any = "queued";
+
+      try {
+        const res = await createAnalysisJobFromFile(shot.filename);
+        jobId = res.jobId;
+        nextStatus = res.status ?? "queued";
+      } catch (err) {
+        // 백엔드가 from-file API를 아직 제공하지 않는 경우 fallback (재업로드 방식)
+        console.warn("createAnalysisJobFromFile failed, fallback to upload", err);
+        if (!shot.videoUrl) throw err;
+        const videoRes = await fetch(shot.videoUrl);
+        const blob = await videoRes.blob();
+        const file = new File([blob], shot.filename, { type: blob.type || "video/mp4" });
+        const analyzedShot = await createAnalysisJob(file, shot.sourceType ?? "upload");
+        jobId = analyzedShot.jobId ?? analyzedShot.id;
+        nextStatus = analyzedShot.status ?? "queued";
+      }
+
+      if (jobId) {
+        select({ ...shot, jobId, status: nextStatus });
+      }
       await refresh();
-      select(analyzedShot);
       setActiveTab("analysis");
     } catch (err) {
       const message = err instanceof Error ? err.message : "분석 요청 실패";
@@ -361,6 +375,29 @@ function App() {
     } finally {
       setAnalyzingId(null);
     }
+  };
+
+  const handleForceAnalyzeShot = async (shot: Shot) => {
+    setAnalyzingId(shot.id);
+    setAnalyzeError(null);
+    try {
+      const res = await createAnalysisJobFromFile(shot.filename, { force: true });
+      select({ ...shot, jobId: res.jobId, status: res.status ?? "queued" });
+      await refresh();
+      setActiveTab("analysis");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "강제 분석 요청 실패";
+      setAnalyzeError(message);
+    } finally {
+      setAnalyzingId(null);
+    }
+  };
+
+  const handleRetake = () => {
+    setActiveTab("camera");
+    window.setTimeout(() => {
+      document.getElementById("camera-preview")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const toTime = (value?: string) => {
@@ -380,6 +417,19 @@ function App() {
   const analyzedShots = sortedShots.filter((shot) => isAnalyzedDone(shot));
   const pendingShots = sortedShots.filter((shot) => !isAnalyzedDone(shot));
 
+  useEffect(() => {
+    if (activeTab !== "list") return;
+    const hasInProgress = shots.some((shot) => {
+      const status = (shot.status ?? shot.analysis?.status) as string | undefined;
+      return status === "queued" || status === "running";
+    });
+    if (!hasInProgress) return;
+    const interval = window.setInterval(() => {
+      refresh();
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [activeTab, shots, refresh]);
+
   return (
     <Shell
       tabs={tabs}
@@ -389,6 +439,7 @@ function App() {
     >
       {activeTab === "camera" && (
         <div className="space-y-4">
+          <div id="camera-preview" />
           <CameraPreview
             isActive={isPreviewOn}
             streamUrl={streamUrl}
@@ -448,6 +499,8 @@ function App() {
             onRefresh={refresh}
             onSelect={toggleOpen}
             onAnalyze={(shot) => handleAnalyzeShot(shot)}
+            onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
+            onRetake={handleRetake}
             onDelete={(shot) => handleDelete(shot)}
             deletingId={deletingId}
             analyzingId={analyzingId}
@@ -473,6 +526,25 @@ function App() {
           <div className="space-y-2">
             {isAnalysisLoading && <p className="text-sm text-slate-500">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
+            {selected?.errorCode === "NOT_SWING" && (jobStatus === "failed" || selected.status === "failed") && !analysis && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-900">스윙 영상이 아닌 것 같아요</p>
+                <p className="text-xs text-amber-800 mt-1 break-words">
+                  {selected.errorMessage || "스윙 동작이 충분히 담기지 않았을 수 있어요. 다시 촬영해 주세요."}
+                </p>
+                <div className="flex justify-end mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-auto px-3 py-1 text-sm"
+                    fullWidth={false}
+                    onClick={handleRetake}
+                  >
+                    다시 촬영
+                  </Button>
+                </div>
+              </div>
+            )}
             <MetricsTable
               analysis={analysis}
               status={jobStatus}

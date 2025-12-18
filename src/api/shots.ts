@@ -25,6 +25,8 @@ type FilesDetailRes = {
     size?: number;
     modifiedAt?: string;
     analysis?: any;
+    errorCode?: string | null;
+    errorMessage?: string | null;
   }>;
 };
 
@@ -234,8 +236,10 @@ const mapToShot = (item: any): Shot => {
   const jobId = item?.jobId ?? item?.analysis?.jobId ?? item?.id ?? filename;
   const analyzedFlag =
     item?.analyzed ?? Boolean(item?.analysis) ?? item?.status === "succeeded";
+  const normalizedStatus: JobStatus | undefined =
+    item?.status === "completed" ? "succeeded" : item?.status;
   const analysis = item?.analysis
-    ? normalizeAnalysis(item.analysis, jobId, item.analysis.status ?? item.status)
+    ? normalizeAnalysis(item.analysis, jobId, item.analysis.status ?? normalizedStatus)
     : null;
 
   return withVideoUrl({
@@ -245,10 +249,12 @@ const mapToShot = (item: any): Shot => {
     sourceType: (item?.sourceType as SourceType) ?? "upload",
     videoUrl: item?.url,
     createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
-    status: item?.status ?? analysis?.status,
+    status: normalizedStatus ?? analysis?.status,
     analyzed: analyzedFlag,
     modifiedAt: item?.modifiedAt,
     size: item?.size,
+    errorCode: item?.errorCode ?? item?.analysis?.errorCode ?? null,
+    errorMessage: item?.errorMessage ?? item?.analysis?.errorMessage ?? null,
     club: item?.club,
     analysis,
   } as Shot);
@@ -274,6 +280,8 @@ export const fetchShots = async (): Promise<Shot[]> => {
             analysis: f.analysis,
             size: f.size,
             modifiedAt: f.modifiedAt,
+            errorCode: f.errorCode,
+            errorMessage: f.errorMessage,
           })
         )
         .sort((a, b) => toTime(b.modifiedAt ?? b.createdAt) - toTime(a.modifiedAt ?? a.createdAt));
@@ -417,3 +425,30 @@ export const fetchAnalysisResult = async (jobId: string): Promise<AnalysisResult
 // 호환성을 위해 유지
 export const fetchAnalysis = fetchAnalysisResult;
 export const createShot = createAnalysisJob;
+
+export const createAnalysisJobFromFile = async (
+  filename: string,
+  options?: { force?: boolean; sessionId?: string; meta?: Record<string, unknown> }
+): Promise<{ jobId: string; filename: string; status?: JobStatus }> => {
+  const res = await fetch(`${API_BASE}/api/analyze/from-file`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      filename,
+      ...(options?.force ? { force: true } : {}),
+      ...(options?.sessionId ? { sessionId: options.sessionId } : {}),
+      ...(options?.meta ? { meta: options.meta } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || res.statusText);
+  }
+  const json = (await res.json()) as { jobId: string; filename: string; status?: JobStatus; ok?: boolean; error?: string };
+  if (json.ok === false) {
+    throw new Error(json.error || "분석을 시작하지 못했습니다.");
+  }
+  return { jobId: json.jobId, filename: json.filename, status: json.status };
+};

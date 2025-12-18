@@ -10,6 +10,8 @@ type ShotListProps = {
   onRefresh: () => void;
   onSelect: (shot: Shot) => void;
   onAnalyze?: (shot: Shot) => void;
+  onForceAnalyze?: (shot: Shot) => void;
+  onRetake?: () => void;
   onDelete?: (shot: Shot) => void;
   deletingId?: string | null;
   analyzingId?: string | null;
@@ -25,6 +27,8 @@ export function ShotList({
   onRefresh,
   onSelect,
   onAnalyze,
+  onForceAnalyze,
+  onRetake,
   onDelete,
   deletingId,
   analyzingId,
@@ -75,6 +79,11 @@ export function ShotList({
           {shots.map((shot) => {
             const effectiveStatus = (shot.status ?? shot.analysis?.status) as string | undefined;
             const isDone = effectiveStatus === "succeeded" && Boolean(shot.analysis);
+            const isProcessing = effectiveStatus === "queued" || effectiveStatus === "running";
+            const isFailed = effectiveStatus === "failed";
+            const isNotSwing = isFailed && shot.errorCode === "NOT_SWING";
+            const isAnalyzeAvailable = Boolean(onAnalyze) && !isDone && !isProcessing && !isNotSwing;
+            const analyzeButtonLabel = isFailed ? "재시도" : "분석";
             return (
               <li
                 key={shot.id}
@@ -86,10 +95,56 @@ export function ShotList({
                     {shot.sourceType} · {statusLabel(effectiveStatus, isDone)} ·{" "}
                     {new Date(shot.modifiedAt ?? shot.createdAt).toLocaleString()}
                   </span>
+                  {isProcessing && (
+                    <span className="inline-flex items-center gap-2 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-1 w-fit">
+                      <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                      분석중...
+                    </span>
+                  )}
                   {isDone && (
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-1 w-fit">
                       분석 완료
                     </span>
+                  )}
+                  {isNotSwing && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      <p className="font-semibold">스윙 영상이 아닌 것 같아요</p>
+                      <p className="text-xs text-amber-800 mt-1 break-words">
+                        {shot.errorMessage || "스윙 동작이 충분히 담기지 않았을 수 있어요. 다시 촬영해 주세요."}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-2 justify-end">
+                        {onRetake && (
+                          <Button
+                            type="button"
+                            onClick={onRetake}
+                            variant="outline"
+                            className="px-3 py-1 text-sm"
+                            fullWidth={false}
+                          >
+                            다시 촬영
+                          </Button>
+                        )}
+                        {onForceAnalyze && (
+                          <Button
+                            type="button"
+                            onClick={() => onForceAnalyze(shot)}
+                            variant="outline"
+                            className="px-3 py-1 text-sm"
+                            fullWidth={false}
+                            disabled={analyzingId === shot.id}
+                            isLoading={analyzingId === shot.id}
+                            loadingText="분석중..."
+                          >
+                            강제 분석
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {isFailed && !isNotSwing && (shot.errorMessage || shot.errorCode) && (
+                    <p className="text-xs text-red-600 break-words">
+                      {shot.errorMessage || shot.errorCode}
+                    </p>
                   )}
                   {shot.jobId && (
                     <span className="text-xs text-slate-400 break-words">Job ID: {shot.jobId}</span>
@@ -104,7 +159,7 @@ export function ShotList({
                     >
                       {openIds?.has(shot.id) ? "접기" : "보기"}
                     </Button>
-                    {onAnalyze && !isDone && (
+                    {isAnalyzeAvailable && (
                       <Button
                         type="button"
                         onClick={() => onAnalyze(shot)}
@@ -114,7 +169,7 @@ export function ShotList({
                         loadingText="분석중..."
                         fullWidth={false}
                       >
-                        분석
+                        {analyzeButtonLabel}
                       </Button>
                     )}
                     {onDelete && (

@@ -61,6 +61,8 @@ export type Shot = {
   analyzed?: boolean;
   modifiedAt?: string;
   size?: number;
+  errorCode?: string | null;
+  errorMessage?: string | null;
   jobId?: string;
   status?: JobStatus;
   club?: string;

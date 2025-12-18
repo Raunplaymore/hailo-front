@@ -48,7 +48,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   if (!analysis && (currentStatus === "idle" || currentStatus === "not-analyzed")) {
     return (
       <Card>
-        <p className="text-slate-500 text-sm">
+        <p className="text-sm text-slate-500">
           {currentStatus === "not-analyzed"
             ? "아직 분석 결과가 없습니다. 목록에서 분석을 실행해 주세요."
             : "샷을 선택하면 분석 상태와 지표가 표시됩니다."}
@@ -127,7 +127,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
           <p className="text-sm text-slate-500">Tempo</p>
           <span className="text-xs text-slate-400">백스윙 : 다운스윙</span>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           <MetricCard label="비율" value={tempo?.ratio ?? "-"} />
           <MetricCard label="다운스윙 시간" value={formatMs(tempo?.downswingMs)} />
           <MetricCard label="백스윙 시간" value={formatMs(tempo?.backswingMs)} />
@@ -172,13 +172,13 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
           {pending.map((p) => (
             <div
               key={p.key}
-              className="flex items-center justify-between rounded-lg border border-dashed border-slate-200 px-3 py-2"
+              className="flex items-center justify-between px-3 py-2 border border-dashed rounded-lg border-slate-200"
             >
               <div className="flex flex-col">
                 <span className="text-sm font-semibold text-slate-800">{p.label}</span>
                 <span className="text-xs text-slate-500">{p.description}</span>
               </div>
-              <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold">
+              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-600">
                 준비 중
               </span>
             </div>
@@ -196,7 +196,7 @@ type MetricCardProps = {
 
 function MetricCard({ label, value }: MetricCardProps) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <div className="px-3 py-2 border rounded-xl border-slate-200 bg-slate-50">
       <p className="text-xs text-slate-500">{label}</p>
       <p className="text-base font-semibold text-slate-900">{value}</p>
     </div>

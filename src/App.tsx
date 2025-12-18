@@ -11,6 +11,7 @@ import { useShots } from "./hooks/useShots";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { Shot } from "./types/shots";
 import { SettingsForm, UploadSettings } from "./components/settings/SettingsForm";
+import { API_BASE } from "./api/client";
 import { CameraSettings, CameraSettingsValue } from "./components/camera/CameraSettings";
 import { CameraStatusPanel } from "./components/camera/CameraStatusPanel";
 import { CameraPreview } from "./components/camera/CameraPreview";
@@ -51,7 +52,6 @@ const loadLocalJson = <T,>(key: string): T | null => {
 const normalizeBase = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
 function App() {
-  const API_BASE = import.meta.env.VITE_API_BASE || "";
   const { shots, selected, select, isLoading, error, refresh } = useShots();
   const upload = useUpload({
     onSuccess: () => {

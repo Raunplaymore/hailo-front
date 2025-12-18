@@ -514,6 +514,10 @@ function App() {
             error={error || analyzeError}
             onRefresh={refresh}
             onSelect={toggleOpen}
+            onTitleClick={(shot) => {
+              select(shot);
+              setActiveTab("analysis");
+            }}
             onDelete={(shot) => handleDelete(shot)}
             deletingId={deletingId}
             openIds={openShotIds}

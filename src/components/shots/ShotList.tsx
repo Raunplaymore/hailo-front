@@ -9,6 +9,7 @@ type ShotListProps = {
   error?: string | null;
   onRefresh: () => void;
   onSelect: (shot: Shot) => void;
+  onTitleClick?: (shot: Shot) => void;
   onAnalyze?: (shot: Shot) => void;
   onForceAnalyze?: (shot: Shot) => void;
   onRetake?: () => void;
@@ -26,6 +27,7 @@ export function ShotList({
   error,
   onRefresh,
   onSelect,
+  onTitleClick,
   onAnalyze,
   onForceAnalyze,
   onRetake,
@@ -90,9 +92,19 @@ export function ShotList({
                 className="p-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-base break-words flex flex-col gap-3 w-full"
               >
                 <div className="flex flex-col flex-1 min-w-0 gap-1">
-                  <span className="font-semibold break-words text-sm">
-                    {shot.originalName || shot.filename}
-                  </span>
+                  {onTitleClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onTitleClick(shot)}
+                      className="text-left font-semibold break-words text-sm text-blue-700 hover:underline"
+                    >
+                      {shot.originalName || shot.filename}
+                    </button>
+                  ) : (
+                    <span className="font-semibold break-words text-sm">
+                      {shot.originalName || shot.filename}
+                    </span>
+                  )}
                   <span className="text-xs text-slate-500 break-words">
                     {shot.sourceType} · {statusLabel(effectiveStatus, isDone)} ·{" "}
                     {new Date(shot.modifiedAt ?? shot.createdAt).toLocaleString()}

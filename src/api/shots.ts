@@ -12,7 +12,19 @@ import {
   TempoMetrics,
 } from "../types/shots";
 
-type UploadRes = { jobId: string; filename?: string; shotId?: string; status?: JobStatus; analysis?: any };
+type UploadRes = {
+  ok?: boolean;
+  jobId?: string;
+  filename?: string;
+  url?: string;
+  originalName?: string;
+  file?: { filename?: string; url?: string; originalName?: string };
+  shot?: { id?: string; filename?: string; url?: string; originalName?: string; jobId?: string; status?: JobStatus };
+  shotId?: string;
+  status?: JobStatus;
+  analysis?: any;
+  error?: string;
+};
 type FilesDetailRes = {
   ok: boolean;
   files: Array<{
@@ -54,7 +66,51 @@ const PENDING_METRICS: PendingMetric[] = [
 const resolveFilename = (input: any): string => {
   if (!input) return "";
   if (typeof input === "string") return input;
-  return input.filename || input.media?.filename || input.name || "";
+  return (
+    input.filename ||
+    input.file?.filename ||
+    input.shot?.filename ||
+    input.media?.filename ||
+    input.name ||
+    ""
+  );
+};
+
+const resolveUrl = (rawUrl: any): string => {
+  if (!rawUrl) return "";
+  if (typeof rawUrl === "string") return rawUrl;
+  return rawUrl.url || rawUrl.file?.url || rawUrl.shot?.url || "";
+};
+
+const resolveOriginalName = (input: any): string => {
+  if (!input) return "";
+  if (typeof input === "string") return input;
+  return input.originalName || input.file?.originalName || input.shot?.originalName || "";
+};
+
+const toTime = (value: any): number => {
+  if (!value) return 0;
+  if (typeof value === "number") return value;
+  const ts = Date.parse(String(value));
+  return Number.isFinite(ts) ? ts : 0;
+};
+
+const sortByModifiedDesc = <T extends { modifiedAt?: string; createdAt?: string }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => {
+    const bt = toTime(b.modifiedAt ?? b.createdAt);
+    const at = toTime(a.modifiedAt ?? a.createdAt);
+    if (bt !== at) return bt - at;
+    return String(b.modifiedAt ?? b.createdAt ?? "").localeCompare(String(a.modifiedAt ?? a.createdAt ?? ""));
+  });
+};
+
+const resolveMediaUrl = (url: string | undefined, filename: string): string => {
+  if (url && typeof url === "string") {
+    if (/^https?:\/\//i.test(url)) return url;
+    if (url.startsWith("/")) return `${API_BASE}${url}`;
+    return `${API_BASE}/${url}`;
+  }
+  return `${API_BASE}/uploads/${encodeURIComponent(filename)}`;
 };
 
 const toNumberOrNull = (value: any): number | null => {
@@ -206,28 +262,12 @@ const normalizeAnalysis = (
   };
 };
 
-const toTime = (value: any): number => {
-  if (!value) return 0;
-  if (typeof value === "number") return value;
-  const ts = Date.parse(String(value));
-  return Number.isFinite(ts) ? ts : 0;
-};
-
-const sortByModifiedDesc = <T extends { modifiedAt?: string; createdAt?: string }>(items: T[]): T[] => {
-  return [...items].sort((a, b) => {
-    const bt = toTime(b.modifiedAt ?? b.createdAt);
-    const at = toTime(a.modifiedAt ?? a.createdAt);
-    if (bt !== at) return bt - at;
-    return String(b.modifiedAt ?? b.createdAt ?? "").localeCompare(String(a.modifiedAt ?? a.createdAt ?? ""));
-  });
-};
-
 const withVideoUrl = (shot: Shot): Shot => {
   const filename = resolveFilename(shot);
   return {
     ...shot,
     filename,
-    videoUrl: shot.videoUrl || `${API_BASE}/uploads/${encodeURIComponent(filename)}`,
+    videoUrl: resolveMediaUrl(shot.videoUrl, filename),
   };
 };
 
@@ -247,7 +287,8 @@ const mapToShot = (item: any): Shot => {
     filename,
     jobId,
     sourceType: (item?.sourceType as SourceType) ?? "upload",
-    videoUrl: item?.url,
+    videoUrl: resolveUrl(item) || item?.url,
+    originalName: resolveOriginalName(item) || undefined,
     createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
     status: normalizedStatus ?? analysis?.status,
     analyzed: analyzedFlag,
@@ -373,18 +414,26 @@ export const createAnalysisJob = async (
     res = await send("/api/upload?analyze=true");
   }
 
+  if (res.ok === false) {
+    throw new Error(res.error || "업로드/분석 요청 실패");
+  }
+
   const filename = resolveFilename(res) || file.name;
-  const jobId = res.jobId ?? res.shotId ?? filename;
+  const url = resolveUrl(res) || res.url || res.file?.url || res.shot?.url;
+  const originalName = resolveOriginalName(res) || file.name;
+  const jobId = res.jobId ?? res.shot?.jobId ?? res.shotId ?? filename;
   const analysis = res.analysis
     ? normalizeAnalysis(res.analysis, jobId, res.analysis.status ?? res.status)
     : null;
 
   return mapToShot({
-    id: res.shotId ?? jobId ?? filename,
+    id: res.shotId ?? res.shot?.id ?? jobId ?? filename,
     filename,
+    url,
+    originalName,
     jobId,
     sourceType,
-    status: res.status ?? analysis?.status ?? "queued",
+    status: res.status ?? res.shot?.status ?? analysis?.status ?? "queued",
     createdAt: new Date().toISOString(),
     analysis,
   });

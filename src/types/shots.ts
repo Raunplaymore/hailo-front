@@ -58,6 +58,7 @@ export type Shot = {
   createdAt: string;
   sourceType: SourceType;
   videoUrl: string;
+  originalName?: string;
   analyzed?: boolean;
   modifiedAt?: string;
   size?: number;

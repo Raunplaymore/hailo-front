@@ -254,8 +254,7 @@ function App() {
       now.getHours()
     )}${pad(now.getMinutes())}${pad(now.getSeconds())}_${pad(now.getMilliseconds(), 3)}`;
     const cleanType = type.replace(/\s+/g, "_");
-    const prefix = cameraSettings.sessionPrefix ? `${cameraSettings.sessionPrefix}_` : "";
-    return `${prefix}golf_${stamp}_${cleanType}.${ext}`;
+    return `golf_${stamp}_${cleanType}.${ext}`;
   };
 
   const runCapture = async (payload: CapturePayload, analyze = false) => {
@@ -364,12 +363,22 @@ function App() {
     }
   };
 
-  const analyzedShots = shots.filter(
-    (shot) => shot.analyzed || Boolean(shot.analysis) || shot.status === "succeeded"
+  const toTime = (value?: string) => {
+    if (!value) return 0;
+    const ts = Date.parse(value);
+    return Number.isFinite(ts) ? ts : 0;
+  };
+
+  const isAnalyzedDone = (shot: Shot) => {
+    const status = (shot.status ?? shot.analysis?.status) as string | undefined;
+    return status === "succeeded" && Boolean(shot.analysis);
+  };
+
+  const sortedShots = [...shots].sort(
+    (a, b) => toTime(b.modifiedAt ?? b.createdAt) - toTime(a.modifiedAt ?? a.createdAt)
   );
-  const pendingShots = shots.filter(
-    (shot) => !(shot.analyzed || Boolean(shot.analysis) || shot.status === "succeeded")
-  );
+  const analyzedShots = sortedShots.filter((shot) => isAnalyzedDone(shot));
+  const pendingShots = sortedShots.filter((shot) => !isAnalyzedDone(shot));
 
   return (
     <Shell

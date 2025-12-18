@@ -23,6 +23,7 @@ const PENDING_FALLBACK = [
 
 const STATUS_LABELS: Record<JobStatus, string> = {
   idle: "대기",
+  "not-analyzed": "분석 전",
   queued: "대기열",
   running: "분석 중",
   succeeded: "완료",
@@ -31,6 +32,7 @@ const STATUS_LABELS: Record<JobStatus, string> = {
 
 const STATUS_TONES: Record<JobStatus, string> = {
   idle: "bg-slate-100 text-slate-700 border border-slate-200",
+  "not-analyzed": "bg-slate-50 text-slate-600 border border-slate-200",
   queued: "bg-amber-50 text-amber-700 border border-amber-200",
   running: "bg-blue-50 text-blue-700 border border-blue-200",
   succeeded: "bg-emerald-50 text-emerald-700 border border-emerald-200",
@@ -43,10 +45,14 @@ const formatAngle = (value?: number | null) => (value == null ? "-" : `${value.t
 export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProps) {
   const currentStatus: JobStatus = analysis?.status ?? status ?? "idle";
 
-  if (!analysis && currentStatus === "idle") {
+  if (!analysis && (currentStatus === "idle" || currentStatus === "not-analyzed")) {
     return (
       <Card>
-        <p className="text-slate-500 text-sm">샷을 선택하면 분석 상태와 지표가 표시됩니다.</p>
+        <p className="text-slate-500 text-sm">
+          {currentStatus === "not-analyzed"
+            ? "아직 분석 결과가 없습니다. 목록에서 분석을 실행해 주세요."
+            : "샷을 선택하면 분석 상태와 지표가 표시됩니다."}
+        </p>
       </Card>
     );
   }

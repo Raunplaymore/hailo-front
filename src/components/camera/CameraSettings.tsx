@@ -58,17 +58,9 @@ export function CameraSettings({
           <p className="text-xs text-slate-500">API 호출 시 Authorization 헤더로 전송됩니다. 프리뷰는 token 쿼리로 전달됩니다.</p>
         </label> */}
 
-        <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">세션 이름 (파일명 prefix)</span>
-          <input
-            type="text"
-            value={value.sessionPrefix}
-            onChange={(e) => onChange({ ...value, sessionPrefix: e.target.value.trim() })}
-            placeholder="예: rangenight 또는 club9"
-            className="w-full px-3 py-2 border shadow-sm rounded-xl border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-          />
-          <p className="text-xs text-slate-500">파일명: [세션_]golf_YYYYMMDD_HHmmss_mmm_type.ext</p>
-        </label>
+        <p className="text-xs text-slate-500">
+          파일명은 자동 생성됩니다: <span className="font-semibold">golf_YYYYMMDD_HHmmss_mmm_type.ext</span>
+        </p>
 
         <label className="flex items-center gap-2">
           <input

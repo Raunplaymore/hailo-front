@@ -204,6 +204,22 @@ const normalizeAnalysis = (
   };
 };
 
+const toTime = (value: any): number => {
+  if (!value) return 0;
+  if (typeof value === "number") return value;
+  const ts = Date.parse(String(value));
+  return Number.isFinite(ts) ? ts : 0;
+};
+
+const sortByModifiedDesc = <T extends { modifiedAt?: string; createdAt?: string }>(items: T[]): T[] => {
+  return [...items].sort((a, b) => {
+    const bt = toTime(b.modifiedAt ?? b.createdAt);
+    const at = toTime(a.modifiedAt ?? a.createdAt);
+    if (bt !== at) return bt - at;
+    return String(b.modifiedAt ?? b.createdAt ?? "").localeCompare(String(a.modifiedAt ?? a.createdAt ?? ""));
+  });
+};
+
 const withVideoUrl = (shot: Shot): Shot => {
   const filename = resolveFilename(shot);
   return {
@@ -243,7 +259,8 @@ export const fetchShots = async (): Promise<Shot[]> => {
   try {
     const detail = await client.get<FilesDetailRes>("/api/files/detail");
     if (detail && Array.isArray(detail.files)) {
-      return detail.files
+      const sorted = sortByModifiedDesc(detail.files);
+      return sorted
         .filter((f) => typeof f.filename === "string" && f.filename.toLowerCase().endsWith(".mp4"))
         .map((f) =>
           mapToShot({
@@ -258,7 +275,8 @@ export const fetchShots = async (): Promise<Shot[]> => {
             size: f.size,
             modifiedAt: f.modifiedAt,
           })
-        );
+        )
+        .sort((a, b) => toTime(b.modifiedAt ?? b.createdAt) - toTime(a.modifiedAt ?? a.createdAt));
     }
   } catch (err) {
     console.warn("fetchShots /api/files/detail failed, fallback to /api/files", err);
@@ -268,7 +286,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
   try {
     const data = await client.get<unknown>("/api/files");
     if (Array.isArray(data)) {
-      return (data as any[])
+      const mapped = (data as any[])
         .filter((entry) => {
           const filename = typeof entry === "string" ? entry : entry?.filename;
           return typeof filename === "string" && filename.toLowerCase().endsWith(".mp4");
@@ -276,6 +294,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
         .map((entry) =>
           typeof entry === "string" ? mapToShot({ filename: entry }) : mapToShot(entry)
         );
+      return mapped.sort((a, b) => toTime(b.modifiedAt ?? b.createdAt) - toTime(a.modifiedAt ?? a.createdAt));
     }
   } catch (err) {
     console.warn("fetchShots /api/files failed, fallback to legacy", err);

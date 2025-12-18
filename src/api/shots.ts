@@ -104,6 +104,11 @@ const sortByModifiedDesc = <T extends { modifiedAt?: string; createdAt?: string 
   });
 };
 
+const isVideoFile = (filename: string) => {
+  const lower = filename.toLowerCase();
+  return lower.endsWith(".mp4") || lower.endsWith(".mov");
+};
+
 const resolveMediaUrl = (url: string | undefined, filename: string): string => {
   if (url && typeof url === "string") {
     if (/^https?:\/\//i.test(url)) return url;
@@ -308,7 +313,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
     if (detail && Array.isArray(detail.files)) {
       const sorted = sortByModifiedDesc(detail.files);
       return sorted
-        .filter((f) => typeof f.filename === "string" && f.filename.toLowerCase().endsWith(".mp4"))
+        .filter((f) => typeof f.filename === "string" && isVideoFile(f.filename))
         .map((f) =>
           mapToShot({
             id: f.shotId || f.filename,
@@ -338,7 +343,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
       const mapped = (data as any[])
         .filter((entry) => {
           const filename = typeof entry === "string" ? entry : entry?.filename;
-          return typeof filename === "string" && filename.toLowerCase().endsWith(".mp4");
+          return typeof filename === "string" && isVideoFile(filename);
         })
         .map((entry) =>
           typeof entry === "string" ? mapToShot({ filename: entry }) : mapToShot(entry)

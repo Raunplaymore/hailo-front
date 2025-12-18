@@ -491,8 +491,8 @@ function App() {
       {activeTab === "list" && (
         <div className="space-y-4">
           <ShotList
-            title="분석 전 파일(mp4)"
-            emptyMessage="분석 대기 중인 mp4가 없습니다."
+            title="분석 전 파일(영상)"
+            emptyMessage="분석 대기 중인 영상이 없습니다."
             shots={pendingShots}
             isLoading={isLoading}
             error={error || analyzeError}

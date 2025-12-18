@@ -23,10 +23,6 @@ export function useShots(): UseShotsResult {
     try {
       const data = await fetchShots();
       setShots(data);
-      // 선택된 샷이 목록에 없으면 해제
-      if (selected && !data.find((s) => s.id === selected.id)) {
-        setSelected(null);
-      }
     } catch (err) {
       console.error(err);
       setError("샷 목록을 불러오지 못했습니다.");

@@ -40,7 +40,7 @@ export function CameraSettings({
             type="text"
             value={value.baseUrl}
             onChange={(e) => onChange({ ...value, baseUrl: e.target.value })}
-            placeholder="예: http://192.168.45.89:3001"
+            placeholder="예: http://라즈베리파이:3001"
             className="w-full px-3 py-2 border shadow-sm rounded-xl border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           />
           <p className="text-xs text-slate-500">핫스팟 연결 시 IP를 직접 입력하고 저장해 두세요.</p>

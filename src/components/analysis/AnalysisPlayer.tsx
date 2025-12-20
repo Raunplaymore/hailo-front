@@ -1,6 +1,14 @@
 import { useRef } from "react";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { AnalysisResult, SwingEventKey } from "../../types/shots";
-import { Card } from "../Card";
 
 type AnalysisPlayerProps = {
   videoUrl?: string;
@@ -43,56 +51,68 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
   };
 
   return (
-    <Card className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">원본 영상</p>
-        <span className="text-xs text-slate-400">DTL 단일 카메라 기준</span>
-      </div>
-      {videoUrl ? (
-        <video
-          ref={videoRef}
-          key={videoUrl}
-          className={`w-full rounded-lg border border-slate-200 max-h-[600px] object-contain bg-black transition ${
-            isModalOpen ? "opacity-0 pointer-events-none" : "opacity-100"
-          }`}
-          controls
-          preload="metadata"
-          src={videoUrl}
-          aria-hidden={isModalOpen}
-        >
-          브라우저에서 video 태그를 지원하지 않습니다.
-        </video>
-      ) : (
-        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-          선택된 영상이 없습니다. 업로드 후 분석 탭에서 확인하세요.
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">원본 영상</p>
+            <CardTitle className="text-lg">분석 영상</CardTitle>
+            <CardDescription>DTL 단일 카메라 기준 영상입니다.</CardDescription>
+          </div>
+          <span className="text-xs text-muted-foreground">DTL 기준</span>
         </div>
-      )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {videoUrl ? (
+          <video
+            ref={videoRef}
+            key={videoUrl}
+            className={cn(
+              "w-full max-h-[600px] rounded-xl border border-border bg-black object-contain transition",
+              isModalOpen ? "pointer-events-none opacity-0" : "opacity-100"
+            )}
+            controls
+            preload="metadata"
+            src={videoUrl}
+            aria-hidden={isModalOpen}
+          >
+            브라우저에서 video 태그를 지원하지 않습니다.
+          </video>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
+            선택된 영상이 없습니다. 업로드 후 분석 탭에서 확인하세요.
+          </div>
+        )}
 
-      <div className="space-y-2">
-        <p className="text-sm text-slate-500">스윙 이벤트 타임라인</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
-            const event = events?.[key];
-            const disabled = !event;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => handleSeek(key)}
-                disabled={disabled}
-                className={`rounded-lg border px-3 py-2 text-left text-sm font-semibold transition ${
-                  disabled
-                    ? "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                    : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                }`}
-              >
-                <span className="block text-xs text-slate-500">{EVENT_LABELS[key]}</span>
-                <span className="text-base">{event ? `${Math.round(event.timeMs)} ms` : "-"}</span>
-              </button>
-            );
-          })}
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">스윙 이벤트 타임라인</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
+              const event = events?.[key];
+              const disabled = !event;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleSeek(key)}
+                  disabled={disabled}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
+                    disabled
+                      ? "cursor-not-allowed border-border bg-muted/60 text-muted-foreground"
+                      : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  )}
+                >
+                  <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}</span>
+                  <span className="text-base">
+                    {event ? `${Math.round(event.timeMs)} ms` : "-"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }

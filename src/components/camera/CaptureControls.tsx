@@ -129,14 +129,14 @@ export function CaptureControls({
           <ShadButton
             onClick={() => setSelectedAction("video")}
             disabled={isBusy}
-            variant={selectedAction === "video" ? "default" : "outline"}
+            variant={selectedAction === "video" ? "primary" : "outline"}
           >
             🎥 Video
           </ShadButton>
           <ShadButton
             onClick={() => setSelectedAction("swing")}
             disabled={isBusy}
-            variant={selectedAction === "swing" ? "default" : "outline"}
+            variant={selectedAction === "swing" ? "primary" : "outline"}
           >
             ⛳️ Swing
           </ShadButton>

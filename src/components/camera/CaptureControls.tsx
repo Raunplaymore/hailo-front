@@ -1,7 +1,16 @@
 import { useState } from "react";
 
 import { Button as ShadButton } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  ButtonGroup,
+  ButtonGroupText,
+} from "@/components/ui/button-group"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
+import { Label } from "@/components/ui/label"
 import { Card } from "../Card";
 
 type CaptureControlsProps = {
@@ -100,28 +109,42 @@ export function CaptureControls({
           </label>
         </div>
         <div className="space-y-3">
-          <label className="block text-xs text-slate-600">
-            FPS (mp4)
-            <input
-              type="number"
-              value={fps}
-              onChange={(e) => onFpsChange(Number(e.target.value) || 0)}
-              className="w-full px-2 py-1 mt-1 text-sm border rounded-lg border-slate-200"
-              min={10}
-              max={60}
-            />
-          </label>
-          <label className="block text-xs text-slate-600">
-            녹화 시간(sec)
-            <input
-              type="number"
-              value={durationSec}
-              onChange={(e) => onDurationChange(Number(e.target.value) || 0)}
-              className="w-full px-2 py-1 mt-1 text-sm border rounded-lg border-slate-200"
-              min={1}
-              max={30}
-            />
-          </label>
+          <div className="grid w-full max-w-sm gap-6">
+            <ButtonGroup>
+              <ButtonGroupText asChild>
+                <Label htmlFor="fps" className="inline-flex w-30 shrink-0">
+                  fps
+                </Label>
+              </ButtonGroupText>
+              <InputGroup>
+                <InputGroupInput
+                  id="fps"
+                  placeholder="fps (0~60)"
+                  onChange={(e) => onFpsChange(Number(e.target.value) || 0)}
+                  min={10}
+                  max={60}
+                  value={fps} />
+              </InputGroup>
+            </ButtonGroup>
+          </div>
+          <div className="grid w-full max-w-sm gap-6">
+            <ButtonGroup>
+              <ButtonGroupText asChild>
+                <Label htmlFor="durationSec" className="inline-flex w-30 shrink-0">
+                  durationSec
+                </Label>
+              </ButtonGroupText>
+              <InputGroup>
+                <InputGroupInput
+                  id="durationSec"
+                  placeholder="durationSec (0~30)"
+                  onChange={(e) => onDurationChange(Number(e.target.value) || 0)}
+                  min={10}
+                  max={30}
+                  value={durationSec} />
+              </InputGroup>
+            </ButtonGroup>
+          </div>
         </div>
       </div>
       <div className="grid gap-3 mt-4 md:grid-cols-2">
@@ -141,7 +164,9 @@ export function CaptureControls({
             ⛳️ Swing
           </ShadButton>
         </ButtonGroup>
-        <ShadButton onClick={handleAction} disabled={isBusy || isCapturing}>
+      </div>
+      <div className="grid gap-3 mt-4 md:grid-cols-2">
+        <ShadButton variant="primary" onClick={handleAction} disabled={isBusy || isCapturing}>
           {isCapturing ? "진행 중..." : "Action!"}
         </ShadButton>
       </div>

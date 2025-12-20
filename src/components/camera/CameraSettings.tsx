@@ -1,5 +1,11 @@
-import { Card } from "../Card";
-import { Button } from "../Button";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export type CameraSettingsValue = {
   baseUrl: string;
@@ -25,41 +31,37 @@ export function CameraSettings({
 }: CameraSettingsProps) {
   return (
     <Card>
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div>
-          <p className="text-sm text-slate-500">라즈베리파이 카메라</p>
-          <h2 className="text-lg font-semibold text-slate-900">카메라 연결 설정</h2>
+      <CardHeader className="gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground">라즈베리파이 카메라</p>
+            <CardTitle className="text-lg">카메라 연결 설정</CardTitle>
+            <CardDescription>
+              주소/토큰을 저장해 빠르게 프리뷰·캡처를 시작하세요.
+            </CardDescription>
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            env: VITE_CAMERA_API_BASE / VITE_CAMERA_AUTH_TOKEN
+          </span>
         </div>
-        <span className="text-xs text-slate-500">env: VITE_CAMERA_API_BASE / VITE_CAMERA_AUTH_TOKEN</span>
-      </div>
-
-      <div className="space-y-4">
+      </CardHeader>
+      <CardContent className="space-y-4">
         <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">카메라 서버 주소</span>
+          <span className="text-sm font-medium text-foreground">카메라 서버 주소</span>
           <input
             type="text"
             value={value.baseUrl}
             onChange={(e) => onChange({ ...value, baseUrl: e.target.value })}
             placeholder="예: http://라즈베리파이:3001"
-            className="w-full px-3 py-2 border shadow-sm rounded-xl border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
-          <p className="text-xs text-slate-500">핫스팟 연결 시 IP를 직접 입력하고 저장해 두세요.</p>
+          <p className="text-xs text-muted-foreground">
+            핫스팟 연결 시 IP를 직접 입력하고 저장해 두세요.
+          </p>
         </label>
 
-        {/* <label className="block space-y-1">
-          <span className="text-sm font-medium text-slate-700">액세스 토큰 (선택)</span>
-          <input
-            type="password"
-            value={value.token}
-            onChange={(e) => onChange({ ...value, token: e.target.value })}
-            placeholder="Bearer 토큰"
-            className="w-full px-3 py-2 border shadow-sm rounded-xl border-slate-200 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-          />
-          <p className="text-xs text-slate-500">API 호출 시 Authorization 헤더로 전송됩니다. 프리뷰는 token 쿼리로 전달됩니다.</p>
-        </label> */}
-
-        <p className="text-xs text-slate-500">
-          파일명은 자동 생성됩니다: <span className="font-semibold">golf_YYYYMMDD_HHmmss_mmm_type.ext</span>
+        <p className="text-xs text-muted-foreground">
+          파일명 자동 생성: <span className="font-semibold">golf_YYYYMMDD_HHmmss_mmm_type.ext</span>
         </p>
 
         <label className="flex items-center gap-2">
@@ -67,19 +69,20 @@ export function CameraSettings({
             type="checkbox"
             checked={value.autoStopPreviewOnCapture}
             onChange={(e) => onChange({ ...value, autoStopPreviewOnCapture: e.target.checked })}
-            className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+            className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-blue-200"
           />
-          <span className="text-sm text-slate-700">녹화 전에 프리뷰 자동 종료</span>
+          <span className="text-sm text-foreground">녹화 전에 프리뷰 자동 종료</span>
         </label>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">최근 사용한 주소</span>
+            <span className="text-sm font-medium text-foreground">최근 사용한 주소</span>
             <Button
               type="button"
               variant="outline"
-              className="w-auto px-3 py-1 text-xs"
+              size="sm"
               fullWidth={false}
+              className="rounded-lg"
               onClick={onClearHistory}
               disabled={history.length === 0}
             >
@@ -87,7 +90,7 @@ export function CameraSettings({
             </Button>
           </div>
           {history.length === 0 ? (
-            <p className="px-3 py-2 text-xs border rounded-lg text-slate-500 bg-slate-50 border-slate-200">
+            <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
               기록이 없습니다. 주소를 입력 후 프리뷰/상태 확인 시 자동으로 저장됩니다.
             </p>
           ) : (
@@ -97,7 +100,7 @@ export function CameraSettings({
                   key={item}
                   type="button"
                   onClick={() => onSelectHistory(item)}
-                  className="px-3 py-1 text-xs border rounded-full border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-400 hover:text-blue-600"
+                  className="rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-foreground transition hover:border-blue-400 hover:text-blue-600"
                 >
                   {item}
                 </button>
@@ -105,7 +108,7 @@ export function CameraSettings({
             </div>
           )}
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }

@@ -29,8 +29,8 @@ type CaptureControlsProps = {
 };
 
 const captureResolutionPresets = [
-  { label: "1080p", width: 1920, height: 1080 },
-  { label: "720p", width: 1280, height: 720 },
+  { label: "640 x 360 (저화질 · 빠름)", width: 640, height: 360 },
+  { label: "1280 x 720 (권장 · 고화질)", width: 1280, height: 720 },
 ];
 
 export function CaptureControls({
@@ -42,7 +42,6 @@ export function CaptureControls({
   onResolutionChange,
   onFpsChange,
   onDurationChange,
-  onCaptureJpg,
   onCaptureMp4,
   onCaptureAnalyze,
   busyMessage,

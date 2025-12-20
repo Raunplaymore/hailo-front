@@ -11,8 +11,6 @@ import { cn } from "@/lib/utils";
 
 import {
   Select,
-  SelectLabel,
-  SelectGroup,
   SelectContent,
   SelectItem,
   SelectTrigger,
@@ -34,9 +32,8 @@ type CameraPreviewProps = {
 };
 
 const resolutionPresets = [
-  { label: "640 x 360 (저화질)", width: 640, height: 360 },
-  { label: "854 x 480 (밸런스)", width: 854, height: 480 },
-  { label: "1280 x 720", width: 1280, height: 720 },
+  { label: "640 x 360 (저화질 · 빠름)", width: 640, height: 360 },
+  { label: "1280 x 720 (권장 · 고화질)", width: 1280, height: 720 },
 ];
 
 const fpsPresets = [10, 15, 20];

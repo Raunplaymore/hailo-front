@@ -1,7 +1,14 @@
-import { Shot } from "../../types/shots";
-import { Button } from "../Button";
-import { Card } from "../Card";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { API_BASE } from "../../api/client";
+import { Shot } from "../../types/shots";
 
 type ShotListProps = {
   shots: Shot[];
@@ -58,167 +65,184 @@ export function ShotList({
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-slate-500">{title}</p>
+      <CardHeader className="flex-row items-center justify-between pb-3">
+        <div>
+          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardDescription>업로드된 mp4 파일과 분석 상태를 확인하세요.</CardDescription>
+        </div>
         <Button
           type="button"
           onClick={onRefresh}
           variant="outline"
-          className="w-auto px-3 py-1 text-sm"
-          isLoading={isLoading}
-          loadingText="새로고침 중..."
+          size="sm"
+          fullWidth={false}
+          className="rounded-lg"
+          disabled={isLoading}
         >
-          새로고침
+          {isLoading ? "새로고침 중..." : "새로고침"}
         </Button>
-      </div>
-      {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
-      {shots.length === 0 ? (
-        <div className="p-4 rounded-xl border border-slate-200 text-slate-500 bg-slate-50">
-          {emptyMessage}
-        </div>
-      ) : (
-        <ul className="list-none p-0 m-0 grid gap-2">
-          {shots.map((shot) => {
-            const effectiveStatus = (shot.status ?? shot.analysis?.status) as string | undefined;
-            const isDone = effectiveStatus === "succeeded" && Boolean(shot.analysis);
-            const isProcessing = effectiveStatus === "queued" || effectiveStatus === "running";
-            const isFailed = effectiveStatus === "failed";
-            const isNotSwing = isFailed && shot.errorCode === "NOT_SWING";
-            const isAnalyzeAvailable = Boolean(onAnalyze) && !isDone && !isProcessing && !isNotSwing;
-            const analyzeButtonLabel = isFailed ? "재시도" : "분석";
-            return (
-              <li
-                key={shot.id}
-                className="p-3 rounded-xl border border-slate-200 bg-white text-slate-900 text-base break-words flex flex-col gap-3 w-full"
-              >
-                <div className="flex flex-col flex-1 min-w-0 gap-1">
-                  {onTitleClick ? (
-                    <button
-                      type="button"
-                      onClick={() => onTitleClick(shot)}
-                      className="text-left font-semibold break-words text-sm text-blue-700 hover:underline"
-                    >
-                      {shot.originalName || shot.filename}
-                    </button>
-                  ) : (
-                    <span className="font-semibold break-words text-sm">
-                      {shot.originalName || shot.filename}
+      </CardHeader>
+      <CardContent>
+        {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
+        {shots.length === 0 ? (
+          <div className="rounded-xl border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
+            {emptyMessage}
+          </div>
+        ) : (
+          <ul className="m-0 grid list-none gap-3 p-0">
+            {shots.map((shot) => {
+              const effectiveStatus = (shot.status ?? shot.analysis?.status) as string | undefined;
+              const isDone = effectiveStatus === "succeeded" && Boolean(shot.analysis);
+              const isProcessing = effectiveStatus === "queued" || effectiveStatus === "running";
+              const isFailed = effectiveStatus === "failed";
+              const isNotSwing = isFailed && shot.errorCode === "NOT_SWING";
+              const isAnalyzeAvailable = Boolean(onAnalyze) && !isDone && !isProcessing && !isNotSwing;
+              const analyzeButtonLabel = isFailed ? "재시도" : "분석";
+              const isOpen = openIds?.has(shot.id);
+
+              return (
+                <li
+                  key={shot.id}
+                  className="flex w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
+                >
+                  <div className="flex flex-col gap-1">
+                    {onTitleClick ? (
+                      <button
+                        type="button"
+                        onClick={() => onTitleClick(shot)}
+                        className="text-left text-sm font-semibold text-blue-700 hover:underline"
+                      >
+                        {shot.originalName || shot.filename}
+                      </button>
+                    ) : (
+                      <span className="text-sm font-semibold">
+                        {shot.originalName || shot.filename}
+                      </span>
+                    )}
+                    <span className="break-words text-xs text-muted-foreground">
+                      {shot.sourceType} · {statusLabel(effectiveStatus, isDone)} ·{" "}
+                      {new Date(shot.modifiedAt ?? shot.createdAt).toLocaleString()}
                     </span>
-                  )}
-                  <span className="text-xs text-slate-500 break-words">
-                    {shot.sourceType} · {statusLabel(effectiveStatus, isDone)} ·{" "}
-                    {new Date(shot.modifiedAt ?? shot.createdAt).toLocaleString()}
-                  </span>
-                  {isProcessing && (
-                    <span className="inline-flex items-center gap-2 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-1 w-fit">
-                      <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                      분석중...
-                    </span>
-                  )}
-                  {isDone && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-1 w-fit">
-                      분석 완료
-                    </span>
-                  )}
-                  {isNotSwing && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                      <p className="font-semibold">스윙 영상이 아닌 것 같아요</p>
-                      <p className="text-xs text-amber-800 mt-1 break-words">
-                        {shot.errorMessage || "스윙 동작이 충분히 담기지 않았을 수 있어요. 다시 촬영해 주세요."}
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-2 justify-end">
-                        {onRetake && (
-                          <Button
-                            type="button"
-                            onClick={onRetake}
-                            variant="outline"
-                            className="px-3 py-1 text-sm"
-                            fullWidth={false}
-                          >
-                            다시 촬영
-                          </Button>
-                        )}
-                        {onForceAnalyze && (
-                          <Button
-                            type="button"
-                            onClick={() => onForceAnalyze(shot)}
-                            variant="outline"
-                            className="px-3 py-1 text-sm"
-                            fullWidth={false}
-                            disabled={analyzingId === shot.id}
-                            isLoading={analyzingId === shot.id}
-                            loadingText="분석중..."
-                          >
-                            강제 분석
-                          </Button>
-                        )}
+                    {isProcessing && <Badge tone="processing">분석중...</Badge>}
+                    {isDone && <Badge tone="success">분석 완료</Badge>}
+                    {isNotSwing && (
+                      <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        <p className="font-semibold">스윙 영상이 아닌 것 같아요</p>
+                        <p className="mt-1 break-words text-xs text-amber-800">
+                          {shot.errorMessage ||
+                            "스윙 동작이 충분히 담기지 않았을 수 있어요. 다시 촬영해 주세요."}
+                        </p>
+                        <div className="mt-2 flex flex-wrap justify-end gap-2">
+                          {onRetake && (
+                            <Button
+                              type="button"
+                              onClick={onRetake}
+                              variant="outline"
+                              size="sm"
+                              fullWidth={false}
+                            >
+                              다시 촬영
+                            </Button>
+                          )}
+                          {onForceAnalyze && (
+                            <Button
+                              type="button"
+                              onClick={() => onForceAnalyze(shot)}
+                              variant="outline"
+                              size="sm"
+                              fullWidth={false}
+                              disabled={analyzingId === shot.id}
+                            >
+                              {analyzingId === shot.id ? "분석중..." : "강제 분석"}
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {isFailed && !isNotSwing && (shot.errorMessage || shot.errorCode) && (
-                    <p className="text-xs text-red-600 break-words">
-                      {shot.errorMessage || shot.errorCode}
-                    </p>
-                  )}
-                  {shot.jobId && (
-                    <span className="text-xs text-slate-400 break-words">Job ID: {shot.jobId}</span>
-                  )}
-                  <div className="flex flex-wrap items-center justify-end gap-2 mt-1">
+                    )}
+                    {isFailed && !isNotSwing && (shot.errorMessage || shot.errorCode) && (
+                      <p className="break-words text-xs text-destructive">
+                        {shot.errorMessage || shot.errorCode}
+                      </p>
+                    )}
+                    {shot.jobId && (
+                      <span className="text-xs text-muted-foreground">Job ID: {shot.jobId}</span>
+                    )}
+                  </div>
+
+                  <div className="mt-1 flex flex-wrap items-center justify-end gap-2">
                     <Button
                       type="button"
                       onClick={() => onSelect(shot)}
                       variant="outline"
-                      className="px-3 py-1 text-sm"
+                      size="sm"
                       fullWidth={false}
                     >
-                      {openIds?.has(shot.id) ? "접기" : "보기"}
+                      {isOpen ? "접기" : "보기"}
                     </Button>
                     {isAnalyzeAvailable && (
                       <Button
                         type="button"
                         onClick={() => onAnalyze(shot)}
                         variant="outline"
-                        className="px-3 py-1 text-sm"
-                        isLoading={analyzingId === shot.id}
-                        loadingText="분석중..."
+                        size="sm"
                         fullWidth={false}
+                        disabled={analyzingId === shot.id}
                       >
-                        {analyzeButtonLabel}
+                        {analyzingId === shot.id ? "분석중..." : analyzeButtonLabel}
                       </Button>
                     )}
                     {onDelete && (
                       <Button
                         type="button"
                         onClick={() => onDelete(shot)}
-                        isLoading={deletingId === shot.id}
-                        loadingText="삭제중"
-                        variant="danger"
+                        variant="ghost"
+                        size="sm"
                         fullWidth={false}
-                        aria-label={`${shot.filename} 삭제`}
+                        disabled={deletingId === shot.id}
+                        className="text-red-600 hover:bg-red-50"
                       >
-                        삭제
+                        {deletingId === shot.id ? "삭제중" : "삭제"}
                       </Button>
                     )}
                   </div>
-                </div>
-                {openIds?.has(shot.id) && (
-                  <div className="w-full">
-                    <video
-                      key={shot.id}
-                      className="w-full rounded-lg border border-slate-200 max-h-[600px] object-contain"
-                      controls
-                      preload="metadata"
-                      src={shot.videoUrl || `${API_BASE}/uploads/${encodeURIComponent(shot.filename)}`}
-                    >
-                      브라우저에서 video 태그를 지원하지 않습니다.
-                    </video>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+
+                  {isOpen && (
+                    <div className="w-full">
+                      <video
+                        key={shot.id}
+                        className="max-h-[480px] w-full rounded-lg border border-border object-contain"
+                        controls
+                        preload="metadata"
+                        src={shot.videoUrl || `${API_BASE}/uploads/${encodeURIComponent(shot.filename)}`}
+                      >
+                        브라우저에서 video 태그를 지원하지 않습니다.
+                      </video>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
     </Card>
+  );
+}
+
+function Badge({ tone, children }: { tone: "processing" | "success"; children: React.ReactNode }) {
+  const styles =
+    tone === "processing"
+      ? "bg-blue-50 text-blue-700 border border-blue-200"
+      : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold",
+        styles
+      )}
+    >
+      {tone === "processing" && <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />}
+      {children}
+    </span>
   );
 }

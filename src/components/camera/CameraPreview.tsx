@@ -1,6 +1,14 @@
-import { Button } from "../Button";
-import { Card } from "../Card";
 import { useEffect, useRef } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type CameraPreviewProps = {
   isActive: boolean;
@@ -61,17 +69,22 @@ export function CameraPreview({
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
+      <CardHeader className="flex-row items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-slate-500">MJPEG 스트림</p>
-          <h2 className="text-lg font-semibold text-slate-900">실시간 프리뷰</h2>
+          <p className="text-xs text-muted-foreground">MJPEG 스트림</p>
+          <CardTitle className="text-xl">실시간 프리뷰</CardTitle>
+          <CardDescription>
+            해상도·FPS를 조정하고, 프리뷰를 켜거나 끌 수 있습니다.
+          </CardDescription>
         </div>
         <div className="flex gap-2">
           {isActive ? (
             <Button
               type="button"
               variant="outline"
-              className="w-auto px-3 py-1 text-sm"
+              size="sm"
+              fullWidth={false}
+              className="rounded-lg"
               onClick={handleStopClick}
             >
               프리뷰 끄기
@@ -79,7 +92,9 @@ export function CameraPreview({
           ) : (
             <Button
               type="button"
-              className="w-auto px-3 py-1 text-sm"
+              size="sm"
+              fullWidth={false}
+              className="rounded-lg"
               onClick={onStart}
               disabled={startDisabled}
             >
@@ -87,78 +102,91 @@ export function CameraPreview({
             </Button>
           )}
         </div>
-      </div>
+      </CardHeader>
 
-      {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
+      <CardContent className="space-y-4">
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="grid gap-3 md:grid-cols-2 mb-3">
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500">해상도 프리셋</p>
-          <div className="flex flex-wrap gap-2">
-            {resolutionPresets.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => onChangeResolution(preset.width, preset.height)}
-                className={`px-3 py-1 rounded-full border text-xs ${
-                  width === preset.width && height === preset.height
-                    ? "border-blue-500 text-blue-600 bg-blue-50"
-                    : "border-slate-200 text-slate-700 bg-slate-50 hover:border-blue-300"
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">해상도 프리셋</p>
+            <div className="flex flex-wrap gap-2">
+              {resolutionPresets.map((preset) => {
+                const active = width === preset.width && height === preset.height;
+                return (
+                  <Button
+                    key={preset.label}
+                    type="button"
+                    variant={active ? "default" : "outline"}
+                    size="sm"
+                    fullWidth={false}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs",
+                      active && "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    )}
+                    onClick={() => onChangeResolution(preset.width, preset.height)}
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">FPS</p>
+            <div className="flex flex-wrap gap-2">
+              {fpsPresets.map((item) => {
+                const active = fps === item;
+                return (
+                  <Button
+                    key={item}
+                    type="button"
+                    variant={active ? "default" : "outline"}
+                    size="sm"
+                    fullWidth={false}
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs",
+                      active && "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    )}
+                    onClick={() => onChangeFps(item)}
+                  >
+                    {item} fps
+                  </Button>
+                );
+              })}
+            </div>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="number"
+                value={fps}
+                min={5}
+                max={30}
+                onChange={(e) => onChangeFps(Number(e.target.value) || 0)}
+                className="h-9 w-24 rounded-lg border border-input bg-background px-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+              직접 입력
+            </label>
           </div>
         </div>
-        <div className="space-y-2">
-          <p className="text-xs text-slate-500">FPS</p>
-          <div className="flex flex-wrap gap-2">
-            {fpsPresets.map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => onChangeFps(item)}
-                className={`px-3 py-1 rounded-full border text-xs ${
-                  fps === item
-                    ? "border-blue-500 text-blue-600 bg-blue-50"
-                    : "border-slate-200 text-slate-700 bg-slate-50 hover:border-blue-300"
-                }`}
-              >
-                {item} fps
-              </button>
-            ))}
-          </div>
-          <label className="flex items-center gap-2 text-xs text-slate-600">
-            <input
-              type="number"
-              value={fps}
-              min={5}
-              max={30}
-              onChange={(e) => onChangeFps(Number(e.target.value) || 0)}
-              className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+
+        <div className="rounded-xl border border-border bg-muted/40 p-3">
+          {isActive && streamUrl ? (
+            <img
+              ref={imgRef}
+              key={streamUrl}
+              src={streamUrl}
+              alt="Camera preview"
+              className="w-full rounded-lg border border-border object-contain bg-black max-h-[360px]"
             />
-            직접 입력
-          </label>
+          ) : (
+            <p className="text-sm text-muted-foreground">프리뷰가 꺼져 있습니다.</p>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            모바일/핫스팟에서는 낮은 해상도·FPS로 시작하세요. 프리뷰를 끄면 서버 스트림 연결도
+            해제됩니다.
+          </p>
         </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-        {isActive && streamUrl ? (
-          <img
-            ref={imgRef}
-            key={streamUrl}
-            src={streamUrl}
-            alt="Camera preview"
-            className="w-full rounded-lg border border-slate-200 object-contain bg-black max-h-[360px]"
-          />
-        ) : (
-          <p className="text-sm text-slate-500">프리뷰가 꺼져 있습니다.</p>
-        )}
-        <p className="text-xs text-slate-500 mt-2">
-          모바일/핫스팟에서는 낮은 해상도·FPS로 시작하세요. 프리뷰를 끄면 서버 스트림 연결도 해제됩니다.
-        </p>
-      </div>
+      </CardContent>
     </Card>
   );
 }

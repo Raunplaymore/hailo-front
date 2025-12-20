@@ -4,11 +4,20 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+import {
+  Select,
+  SelectLabel,
+  SelectGroup,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type CameraPreviewProps = {
   isActive: boolean;
@@ -46,6 +55,7 @@ export function CameraPreview({
   startDisabled = false,
 }: CameraPreviewProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const currentResolution = `${width}x${height}`;
   const handleStopClick = () => {
     if (imgRef.current) {
       imgRef.current.src = "";
@@ -73,9 +83,6 @@ export function CameraPreview({
         <div>
           <p className="text-xs text-muted-foreground">MJPEG 스트림</p>
           <CardTitle className="text-xl">실시간 프리뷰</CardTitle>
-          <CardDescription>
-            해상도·FPS를 조정하고, 프리뷰를 켜거나 끌 수 있습니다.
-          </CardDescription>
         </div>
         <div className="flex gap-2">
           {isActive ? (
@@ -110,7 +117,33 @@ export function CameraPreview({
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">해상도 프리셋</p>
+
             <div className="flex flex-wrap gap-2">
+              <Select
+                value={currentResolution}
+                onValueChange={(value) => {
+                  const [w, h] = value.split("x").map(Number);
+                  if (!Number.isNaN(w) && !Number.isNaN(h)) {
+                    onChangeResolution(w, h);
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[200px] bg-white">
+                  <SelectValue placeholder="해상도 선택" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                    {resolutionPresets.map((preset) => {
+                      const value = `${preset.width}x${preset.height}`;
+                      return (
+                        <SelectItem value={value} key={preset.label}>
+                          {preset.label}
+                        </SelectItem>
+                      );
+                    })}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* <div className="flex flex-wrap gap-2">
               {resolutionPresets.map((preset) => {
                 const active = width === preset.width && height === preset.height;
                 return (
@@ -130,7 +163,7 @@ export function CameraPreview({
                   </Button>
                 );
               })}
-            </div>
+            </div> */}
           </div>
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">FPS</p>
@@ -162,14 +195,14 @@ export function CameraPreview({
                 min={5}
                 max={30}
                 onChange={(e) => onChangeFps(Number(e.target.value) || 0)}
-                className="h-9 w-24 rounded-lg border border-input bg-background px-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-24 px-2 text-sm border rounded-lg shadow-sm h-9 border-input bg-background focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
               직접 입력
             </label>
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-muted/40 p-3">
+        <div className="p-3 border rounded-xl border-border bg-muted/40">
           {isActive && streamUrl ? (
             <img
               ref={imgRef}

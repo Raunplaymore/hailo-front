@@ -439,6 +439,20 @@ function App() {
     >
       {activeTab === "camera" && (
         <div className="space-y-4">
+          <CaptureControls
+            isCapturing={isCapturing}
+            resolution={captureResolution}
+            fps={captureFps}
+            durationSec={captureDuration}
+            onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
+            onFpsChange={(value) => setCaptureFps(value)}
+            onDurationChange={(seconds) => setCaptureDuration(seconds)}
+            onCaptureJpg={handleCaptureJpg}
+            onCaptureMp4={handleCaptureMp4}
+            onCaptureAnalyze={handleCaptureAndAnalyze}
+            busyMessage={captureBusyMessage}
+            isBusy={isCameraBusy || hasExternalStream}
+          />
           <div id="camera-preview" />
           <CameraPreview
             isActive={isPreviewOn}
@@ -454,21 +468,7 @@ function App() {
             error={previewError}
             startDisabled={hasExternalStream || isCameraBusy}
           />
-          <CaptureControls
-            isCapturing={isCapturing}
-            resolution={captureResolution}
-            fps={captureFps}
-            durationSec={captureDuration}
-            onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
-            onFpsChange={(value) => setCaptureFps(value)}
-            onDurationChange={(seconds) => setCaptureDuration(seconds)}
-            onCaptureJpg={handleCaptureJpg}
-            onCaptureMp4={handleCaptureMp4}
-            onCaptureAnalyze={handleCaptureAndAnalyze}
-            busyMessage={captureBusyMessage}
-            isBusy={isCameraBusy || hasExternalStream}
-          />
-          <CaptureGallery items={captures} />
+          {/* <CaptureGallery items={captures} /> */}
         </div>
       )}
 
@@ -531,9 +531,9 @@ function App() {
             {isAnalysisLoading && <p className="text-sm text-slate-500">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
             {selected?.errorCode === "NOT_SWING" && (jobStatus === "failed" || selected.status === "failed") && !analysis && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div className="px-4 py-3 border rounded-2xl border-amber-200 bg-amber-50">
                 <p className="text-sm font-semibold text-amber-900">스윙 영상이 아닌 것 같아요</p>
-                <p className="text-xs text-amber-800 mt-1 break-words">
+                <p className="mt-1 text-xs break-words text-amber-800">
                   {selected.errorMessage || "스윙 동작이 충분히 담기지 않았을 수 있어요. 다시 촬영해 주세요."}
                 </p>
                 <div className="flex justify-end mt-2">

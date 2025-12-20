@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 
-import { Button } from "../Button";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type ShellProps<T extends string> = {
   tabs: { key: T; label: string }[];
@@ -20,20 +21,21 @@ export function Shell<T extends string>({
   settingsLabel = "설정",
 }: ShellProps<T>) {
   return (
-    <div className="flex justify-center min-h-screen px-4 pt-6 pb-32 bg-slate-50 sm:px-6">
+    <div className="flex justify-center min-h-screen px-4 pt-6 pb-32 bg-background sm:px-6">
       <main className="w-full max-w-3xl mx-auto space-y-4" style={{ maxWidth: "840px" }}>
         <header className="flex items-center justify-between gap-3 mb-2">
           <div>
-            <p className="mb-1 text-sm text-slate-500">DTL 단일 카메라 기반</p>
-            <h1 className="text-2xl font-semibold leading-tight text-slate-900">
+            <p className="mb-1 text-sm text-muted-foreground">DTL 단일 카메라 기반</p>
+            <h1 className="text-2xl font-semibold leading-tight text-foreground">
               스윙 업로드 & 분석
             </h1>
           </div>
           <Button
             type="button"
             variant="outline"
+            size="sm"
             fullWidth={false}
-            className="px-2 py-1 text-sm"
+            className="h-9 px-3 rounded-lg"
             onClick={onSettingsClick}
           >
             ⚙️ {settingsLabel}
@@ -41,21 +43,25 @@ export function Shell<T extends string>({
         </header>
         {children}
       </main>
-      <nav className="fixed inset-x-0 bottom-0 z-20 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+14px)]">
-        <div className="max-w-3xl mx-auto overflow-hidden rounded-3xl border border-slate-200 bg-white/95 backdrop-blur shadow-[0_-8px_20px_rgba(15,23,42,0.08)]">
+      <nav className="fixed inset-x-0 bottom-0 z-20 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)]">
+        <div className="max-w-3xl mx-auto overflow-hidden rounded-[26px] border border-border bg-white/95 backdrop-blur shadow-[0_-10px_26px_rgba(15,23,42,0.08)]">
           <ul className="grid w-full grid-cols-4">
             {tabs.map((tab) => (
-              <li key={tab.key}>
-                <button
-                  onClick={() => onChange(tab.key)}
-                  className={`w-full py-5 text-base font-semibold transition ${
+              <li key={tab.key} className="flex">
+                <Button
+                  variant={active === tab.key ? "default" : "ghost"}
+                  size="lg"
+                  fullWidth
+                  className={cn(
+                    "h-14 rounded-none border-0",
                     active === tab.key
-                      ? "text-blue-600 bg-blue-50"
-                      : "text-slate-700 hover:bg-slate-50"
-                  }`}
+                      ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      : "text-muted-foreground hover:bg-slate-50"
+                  )}
+                  onClick={() => onChange(tab.key)}
                 >
                   {tab.label}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

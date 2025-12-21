@@ -292,8 +292,10 @@ function App() {
       const res = await getAutoRecordStatus(cameraSettings.baseUrl, cameraSettings.token || undefined);
       setAutoStatus(res);
       setAutoError(null);
-      if (res.recordingFilename) {
-        setAutoPendingFilename(res.recordingFilename);
+      setAutoPendingFilename(res.recordingFilename || null);
+      const stateKeyLocal = res.state?.toLowerCase?.() ?? res.state;
+      if (!res.recordingFilename && (stateKeyLocal === "idle" || stateKeyLocal === "stopped" || stateKeyLocal === "failed")) {
+        setAutoPendingFilename(null);
       }
       const stateKey = res.state?.toLowerCase?.() ?? res.state;
       if (!res.recordingFilename && (stateKey === "idle" || stateKey === "stopped" || stateKey === "failed")) {

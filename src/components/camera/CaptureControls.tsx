@@ -6,8 +6,16 @@ import {
   ButtonGroupText,
 } from "@/components/ui/button-group"
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   InputGroup,
-  InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
@@ -76,6 +84,34 @@ export function CaptureControls({
         <div className="space-y-3">
           <p className="text-xs text-slate-500">해상도</p>
           <div className="flex flex-wrap gap-2">
+            <Select
+              value={`${resolution.width}x${resolution.height}`}
+              onValueChange={(value) => {
+                const [w, h] = value.split("x").map(Number);
+                if (!Number.isNaN(w) && !Number.isNaN(h)) {
+                  onResolutionChange(w, h);
+                }
+              }}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="해상도" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectGroup>
+                  <SelectLabel>해상도</SelectLabel>
+                  {captureResolutionPresets.map((preset) => {
+                    const value = `${preset.width}x${preset.height}`;
+                    return (
+                      <SelectItem value={value} key={preset.label}>
+                        {preset.label}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+          {/* <div className="flex flex-wrap gap-2">
             {captureResolutionPresets.map((preset) => (
               <button
                 key={preset.label}
@@ -90,7 +126,7 @@ export function CaptureControls({
                 {preset.label} ({preset.width}x{preset.height})
               </button>
             ))}
-          </div>
+          </div> */}
         </div>
         <div className="space-y-3">
           <div className="grid w-full max-w-sm gap-6">

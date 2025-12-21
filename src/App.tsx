@@ -30,6 +30,7 @@ import {
 } from "./api/cameraApi";
 import { createAnalysisJob, createAnalysisJobFromFile } from "./api/shots";
 import { AutoRecordPanel } from "./components/camera/AutoRecordPanel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 
 type TabKey = "camera" | "upload" | "list" | "analysis" | "settings";
 
@@ -111,13 +112,14 @@ function App() {
   const isAutoActive = autoStateKey ? !["idle", "failed", "stopped"].includes(autoStateKey) : false;
   const autoStateLabels: Record<string, string> = {
     idle: "대기",
-    address: "어드레스 감지",
+    arming: "어드레스 감지",
+    addresslocked: "안정 상태 확보",
     recording: "촬영중",
-    finish: "피니시 감지",
-    analyzing: "분석중",
-    stopped: "정지",
+    finishlocked: "마무리 처리 중",
+    stopping: "정지 중",
     failed: "실패",
   };
+  const [listTab, setListTab] = useState<"pending" | "done">("pending");
   const streamClients = cameraStatus?.streamClients ?? 0;
   const isStreaming = cameraStatus?.streaming === true;
   const isCameraBusy = cameraStatus?.busy === true || isStreaming;
@@ -679,40 +681,48 @@ function App() {
       )}
 
       {activeTab === "list" && (
-        <div className="space-y-4">
-          <ShotList
-            title="분석 전 파일(영상)"
-            emptyMessage="분석 대기 중인 영상이 없습니다."
-            shots={pendingShots}
-            isLoading={isLoading}
-            error={error || analyzeError}
-            onRefresh={refresh}
-            onSelect={toggleOpen}
-            onAnalyze={(shot) => handleAnalyzeShot(shot)}
-            onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
-            onRetake={handleRetake}
-            onDelete={(shot) => handleDelete(shot)}
-            deletingId={deletingId}
-            analyzingId={analyzingId}
-            openIds={openShotIds}
-          />
-          <ShotList
-            title="분석 완료 파일"
-            emptyMessage="분석 완료된 파일이 없습니다."
-            shots={analyzedShots}
-            isLoading={isLoading}
-            error={error || analyzeError}
-            onRefresh={refresh}
-            onSelect={toggleOpen}
-            onTitleClick={(shot) => {
-              select(shot);
-              setActiveTab("analysis");
-            }}
-            onDelete={(shot) => handleDelete(shot)}
-            deletingId={deletingId}
-            openIds={openShotIds}
-          />
-        </div>
+        <Tabs value={listTab} onValueChange={(val) => setListTab(val as "pending" | "done")}>
+          <TabsList className="mb-3">
+            <TabsTrigger value="pending">분석 전</TabsTrigger>
+            <TabsTrigger value="done">분석 후</TabsTrigger>
+          </TabsList>
+          <TabsContent value="pending">
+            <ShotList
+              title="분석 전 파일(영상)"
+              emptyMessage="분석 대기 중인 영상이 없습니다."
+              shots={pendingShots}
+              isLoading={isLoading}
+              error={error || analyzeError}
+              onRefresh={refresh}
+              onSelect={toggleOpen}
+              onAnalyze={(shot) => handleAnalyzeShot(shot)}
+              onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
+              onRetake={handleRetake}
+              onDelete={(shot) => handleDelete(shot)}
+              deletingId={deletingId}
+              analyzingId={analyzingId}
+              openIds={openShotIds}
+            />
+          </TabsContent>
+          <TabsContent value="done">
+            <ShotList
+              title="분석 완료 파일"
+              emptyMessage="분석 완료된 파일이 없습니다."
+              shots={analyzedShots}
+              isLoading={isLoading}
+              error={error || analyzeError}
+              onRefresh={refresh}
+              onSelect={toggleOpen}
+              onTitleClick={(shot) => {
+                select(shot);
+                setActiveTab("analysis");
+              }}
+              onDelete={(shot) => handleDelete(shot)}
+              deletingId={deletingId}
+              openIds={openShotIds}
+            />
+          </TabsContent>
+        </Tabs>
       )}
 
       {activeTab === "analysis" && (

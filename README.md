@@ -11,6 +11,7 @@
 - **분석 뷰**: 이벤트 타임라인(Address/Top/Impact/Finish), Tempo(비율/시간), Ball 근사값, 준비 중 지표 표기.
 - **모바일 우선**: iOS/핫스팟 환경에서 프리뷰/캡처가 빠르게 동작하도록 저해상도·저FPS 프리셋 제공.
 - **자동 촬영 모드**: `자동 촬영 시작/중지` 버튼, 상태 배지(대기/어드레스/촬영중/피니시/분석중/실패), 프리뷰 오버레이, 실패 시 수동 촬영 전환 버튼.
+  - API: `POST /api/camera/auto-record/start|stop`, `GET /api/camera/auto-record/status`(1초 폴링, state 기반 UI), recordingFilename으로 `/api/files/detail` 상태 추적.
 
 ## 카메라 API 연동 요약
 - 상태: `GET /api/camera/status` → `busy/streaming/streamClients/lastCaptureAt` 기반으로 버튼 활성화.

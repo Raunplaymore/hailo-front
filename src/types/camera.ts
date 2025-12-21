@@ -62,20 +62,23 @@ export type CaptureItem = {
 
 export type AutoRecordState =
   | "idle"
-  | "address"
+  | "arming"
+  | "addressLocked"
   | "recording"
-  | "finish"
-  | "analyzing"
-  | "stopped"
+  | "finishLocked"
+  | "stopping"
   | "failed"
   | (string & {});
 
 export type AutoRecordStatus = {
-  ok?: boolean;
+  enabled: boolean;
   state: AutoRecordState;
-  recordingFilename?: string;
-  motionScore?: number;
-  error?: string | null;
-  message?: string | null;
-  updatedAt?: string | null;
+  recordingFilename?: string | null;
+  startedAt?: string | null;
+  lastError?: string | null;
+};
+
+export type AutoRecordResponse = {
+  ok?: boolean;
+  status: AutoRecordStatus;
 };

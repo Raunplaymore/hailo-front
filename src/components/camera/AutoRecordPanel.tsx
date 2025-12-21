@@ -22,21 +22,21 @@ type AutoRecordPanelProps = {
 
 const STATUS_LABELS: Record<string, string> = {
   idle: "대기",
-  address: "어드레스 감지",
+  arming: "어드레스 감지",
+  addresslocked: "안정 상태 확보",
   recording: "촬영중",
-  finish: "피니시 감지",
-  analyzing: "분석중",
-  stopped: "정지",
+  finishlocked: "마무리 처리 중",
+  stopping: "정지 중",
   failed: "실패",
 };
 
 const STATUS_TONE: Record<string, string> = {
   idle: "bg-muted text-muted-foreground",
-  address: "bg-blue-50 text-blue-700",
+  arming: "bg-blue-50 text-blue-700",
+  addresslocked: "bg-blue-50 text-blue-700",
   recording: "bg-amber-50 text-amber-800",
-  finish: "bg-emerald-50 text-emerald-700",
-  analyzing: "bg-indigo-50 text-indigo-700",
-  stopped: "bg-muted text-foreground",
+  finishlocked: "bg-emerald-50 text-emerald-700",
+  stopping: "bg-muted text-foreground",
   failed: "bg-red-50 text-red-700",
 };
 
@@ -50,8 +50,9 @@ export function AutoRecordPanel({
   onFallbackManual,
 }: AutoRecordPanelProps) {
   const state = status?.state ?? "idle";
-  const badgeTone = STATUS_TONE[state] ?? "bg-muted text-foreground";
-  const label = STATUS_LABELS[state] ?? state;
+  const stateKey = state?.toLowerCase?.() ?? state;
+  const badgeTone = STATUS_TONE[stateKey] ?? "bg-muted text-foreground";
+  const label = STATUS_LABELS[stateKey] ?? stateKey;
 
   return (
     <Card>
@@ -110,9 +111,9 @@ export function AutoRecordPanel({
           </div>
         )}
 
-        {(status?.message || status?.error || error) && (
-          <p className={cn("text-sm", status?.error || error ? "text-red-600" : "text-muted-foreground")}>
-            {status?.error || error || status?.message}
+        {(status?.lastError || error) && (
+          <p className="text-sm text-red-600">
+            {status?.lastError || error}
           </p>
         )}
       </CardContent>

@@ -4,6 +4,7 @@ import {
   CapturePayload,
   CaptureResponse,
   AutoRecordStatus,
+  AutoRecordResponse,
 } from "../types/camera";
 
 export class CameraApiError extends Error {
@@ -130,10 +131,14 @@ export const startAutoRecord = async (baseUrl: string, token?: string): Promise<
       ...authHeaders(token),
     },
   });
+  if (res.status === 409) {
+    throw new CameraApiError("이미 자동 촬영이 동작 중입니다.(409)", 409);
+  }
   if (!res.ok) {
     throw await buildError(res, "자동 촬영을 시작하지 못했습니다.");
   }
-  return (await res.json()) as AutoRecordStatus;
+  const json = (await res.json()) as AutoRecordResponse;
+  return json.status;
 };
 
 export const stopAutoRecord = async (baseUrl: string, token?: string): Promise<AutoRecordStatus> => {
@@ -147,7 +152,8 @@ export const stopAutoRecord = async (baseUrl: string, token?: string): Promise<A
   if (!res.ok) {
     throw await buildError(res, "자동 촬영을 종료하지 못했습니다.");
   }
-  return (await res.json()) as AutoRecordStatus;
+  const json = (await res.json()) as AutoRecordResponse;
+  return json.status;
 };
 
 export const getAutoRecordStatus = async (
@@ -165,7 +171,8 @@ export const getAutoRecordStatus = async (
     throw await buildError(res, "자동 촬영 상태를 불러오지 못했습니다.");
   }
 
-  return (await res.json()) as AutoRecordStatus;
+  const json = (await res.json()) as AutoRecordResponse;
+  return json.status;
 };
 
 export const buildStreamUrl = (baseUrl: string, params: CameraStreamParams): string => {

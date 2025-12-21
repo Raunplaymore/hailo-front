@@ -19,7 +19,14 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { Label } from "@/components/ui/label"
-import { Card } from "../Card";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+// import { Card } from "../Card";
 
 type CaptureControlsProps = {
   isCapturing: boolean;
@@ -68,133 +75,126 @@ export function CaptureControls({
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
+      <CardHeader className="flex-row items-start justify-between gap-3">
         <div>
-          <p className="text-sm text-slate-500">캡처</p>
-          <h2 className="text-lg font-semibold text-slate-900">녹화 / 사진</h2>
+          <p className="text-xs text-muted-foreground">캡처</p>
+          <CardTitle className="text-xl">녹화 / 사진</CardTitle>
         </div>
-      </div>
-      {busyMessage && <p className="mb-2 text-sm text-red-600">{busyMessage}</p>}
-      {isBusy && (
-        <p className="mb-2 text-sm text-amber-600">
-          카메라 사용 중(스트리밍/녹화). 스트림을 끄거나 완료된 뒤에 캡처를 시도하세요.
-        </p>
-      )}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-3">
-          <p className="text-xs text-slate-500">해상도</p>
-          <div className="flex flex-wrap gap-2">
-            <Select
-              value={`${resolution.width}x${resolution.height}`}
-              onValueChange={(value) => {
-                const [w, h] = value.split("x").map(Number);
-                if (!Number.isNaN(w) && !Number.isNaN(h)) {
-                  onResolutionChange(w, h);
-                }
-              }}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="해상도" />
-              </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectGroup>
-                  <SelectLabel>해상도</SelectLabel>
-                  {captureResolutionPresets.map((preset) => {
-                    const value = `${preset.width}x${preset.height}`;
-                    return (
-                      <SelectItem value={value} key={preset.label}>
-                        {preset.label}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-          {/* <div className="flex flex-wrap gap-2">
-            {captureResolutionPresets.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => onResolutionChange(preset.width, preset.height)}
-                className={`px-3 py-1 rounded-full border text-xs ${
-                  resolution.width === preset.width && resolution.height === preset.height
-                    ? "border-blue-500 text-blue-600 bg-blue-50"
-                    : "border-slate-200 text-slate-700 bg-slate-50 hover:border-blue-300"
-                }`}
+      </CardHeader>
+      <CardContent>
+
+        {busyMessage && <p className="mb-2 text-sm text-red-600">{busyMessage}</p>}
+        {isBusy && (
+          <p className="mb-2 text-sm text-amber-600">
+            카메라 사용 중(스트리밍/녹화). 스트림을 끄거나 완료된 뒤에 캡처를 시도하세요.
+          </p>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">해상도</p>
+            <div className="flex flex-wrap gap-2">
+              <Select
+                value={`${resolution.width}x${resolution.height}`}
+                onValueChange={(value) => {
+                  const [w, h] = value.split("x").map(Number);
+                  if (!Number.isNaN(w) && !Number.isNaN(h)) {
+                    onResolutionChange(w, h);
+                  }
+                }}
               >
-                {preset.label} ({preset.width}x{preset.height})
-              </button>
-            ))}
-          </div> */}
-        </div>
-        <div className="space-y-3">
-          <div className="grid w-full max-w-sm gap-6">
-            <ButtonGroup>
-              <ButtonGroupText asChild>
-                <Label htmlFor="fps" className="inline-flex w-24 shrink-0">
-                  fps
-                </Label>
-              </ButtonGroupText>
-              <InputGroup>
-                <InputGroupInput
-                  id="fps"
-                  placeholder="fps (0~60)"
-                  onChange={(e) => onFpsChange(Number(e.target.value) || 0)}
-                  min={10}
-                  max={60}
-                  value={fps} />
-              </InputGroup>
-            </ButtonGroup>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="해상도" />
+                </SelectTrigger>
+                <SelectContent className="bg-white">
+                  <SelectGroup>
+                    <SelectLabel>해상도</SelectLabel>
+                    {captureResolutionPresets.map((preset) => {
+                      const value = `${preset.width}x${preset.height}`;
+                      return (
+                        <SelectItem value={value} key={preset.label}>
+                          {preset.label}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="grid w-full max-w-sm gap-6">
-            <ButtonGroup>
-              <ButtonGroupText asChild>
-                <Label htmlFor="durationSec" className="inline-flex w-24 shrink-0">
-                  duration
-                </Label>
-              </ButtonGroupText>
-              <InputGroup>
-                <InputGroupInput
-                  id="durationSec"
-                  className="w-40"
-                  placeholder="durationSec (0~30)"
-                  onChange={(e) => onDurationChange(Number(e.target.value) || 0)}
-                  min={10}
-                  max={30}
-                  value={durationSec} />
-              </InputGroup>
-              <ButtonGroupText>초</ButtonGroupText>
-            </ButtonGroup>
+          <div className="space-y-3">
+            <div className="grid w-full max-w-sm gap-6">
+              <ButtonGroup>
+                <ButtonGroupText asChild>
+                  <Label htmlFor="fps" className="inline-flex w-24 shrink-0">
+                    fps
+                  </Label>
+                </ButtonGroupText>
+                <InputGroup>
+                  <InputGroupInput
+                    id="fps"
+                    placeholder="fps (0~60)"
+                    onChange={(e) => onFpsChange(Number(e.target.value) || 0)}
+                    min={10}
+                    max={60}
+                    value={fps} />
+                </InputGroup>
+              </ButtonGroup>
+            </div>
+            <div className="grid w-full max-w-sm gap-6">
+              <ButtonGroup>
+                <ButtonGroupText asChild>
+                  <Label htmlFor="durationSec" className="inline-flex w-24 shrink-0">
+                    duration
+                  </Label>
+                </ButtonGroupText>
+                <InputGroup>
+                  <InputGroupInput
+                    id="durationSec"
+                    className="w-40"
+                    placeholder="durationSec (0~30)"
+                    onChange={(e) => onDurationChange(Number(e.target.value) || 0)}
+                    min={10}
+                    max={30}
+                    value={durationSec} />
+                </InputGroup>
+                <ButtonGroupText>초</ButtonGroupText>
+              </ButtonGroup>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="grid gap-3 mt-4 md:grid-cols-2">
-        <ButtonGroup className="w-full">
+        <div className="grid gap-3 mt-4 md:grid-cols-2">
+          <ButtonGroup className="w-full">
+            <ShadButton
+              onClick={() => setSelectedAction("video")}
+              disabled={isBusy}
+              variant={selectedAction === "video" ? "primary" : "outline"}
+            >
+              🎥 Video
+            </ShadButton>
+            <ShadButton
+              onClick={() => setSelectedAction("swing")}
+              disabled={isBusy}
+              variant={selectedAction === "swing" ? "primary" : "outline"}
+            >
+              ⛳️ Swing
+            </ShadButton>
+          </ButtonGroup>
+        </div>
+        <div className="grid gap-3 mt-4 md:grid-cols-2">
           <ShadButton
-            onClick={() => setSelectedAction("video")}
-            disabled={isBusy}
-            variant={selectedAction === "video" ? "primary" : "outline"}
+            variant="primary"
+            onClick={handleAction}
+            disabled={isBusy || isCapturing}
+            className="flex items-center justify-center gap-2"
           >
-            🎥 Video
+            {isCapturing && <Spinner className="size-4" />}
+            {isCapturing ? "진행 중..." : "Action!"}
           </ShadButton>
-          <ShadButton
-            onClick={() => setSelectedAction("swing")}
-            disabled={isBusy}
-            variant={selectedAction === "swing" ? "primary" : "outline"}
-          >
-            ⛳️ Swing
-          </ShadButton>
-        </ButtonGroup>
-      </div>
-      <div className="grid gap-3 mt-4 md:grid-cols-2">
-        <ShadButton variant="primary" onClick={handleAction} disabled={isBusy || isCapturing}>
-          {isCapturing ? "진행 중..." : "Action!"}
-        </ShadButton>
-      </div>
-      <p className="mt-2 text-xs text-slate-500">
-        캡처 요청 중에는 상태 스피너가 표시됩니다. 409 응답 시 “카메라 사용 중”으로 안내합니다.
-      </p>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          캡처 요청 중에는 상태 스피너가 표시됩니다. 409 응답 시 “카메라 사용 중”으로 안내합니다.
+        </p>
+      </CardContent>
     </Card>
   );
 }

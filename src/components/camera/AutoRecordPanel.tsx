@@ -69,7 +69,7 @@ export function AutoRecordPanel({
         <div className="flex flex-wrap gap-2">
           <Button
             onClick={onStart}
-            disabled={isRunning || isLoading}
+            disabled={isRunning}
             variant="primary"
             fullWidth={false}
             className="rounded-lg"

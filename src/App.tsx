@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Shell } from "./components/layout/Shell";
 import { UploadCard } from "./components/upload/UploadCard";
 import { ShotList } from "./components/shots/ShotList";
@@ -86,11 +86,12 @@ function App() {
   const [isPreviewOn, setIsPreviewOn] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewSessionId, setPreviewSessionId] = useState<number>(0);
-  const [captureResolution, setCaptureResolution] = useState({ width: 1920, height: 1080 });
+  const [captureResolution, setCaptureResolution] = useState({ width: 1280, height: 1280 });
   const [captureFps, setCaptureFps] = useState(30);
   const [captureDuration, setCaptureDuration] = useState(5);
   const [captureBusyMessage, setCaptureBusyMessage] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const captureLockRef = useRef(false);
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -256,18 +257,39 @@ function App() {
   };
 
   const runCapture = async (payload: CapturePayload, analyze = false) => {
+    const logPrefix = analyze ? "[capture:analyze]" : "[capture]";
+    if (captureLockRef.current) {
+      console.warn(`${logPrefix} skipped: capture lock in place`, {
+        payload,
+        isCapturing,
+        isCameraBusy,
+        hasExternalStream,
+      });
+      return;
+    }
+    captureLockRef.current = true;
+    console.log(`${logPrefix} start`, {
+      payload,
+      isCameraBusy,
+      isPreviewOn,
+      hasExternalStream,
+      baseUrl: cameraSettings.baseUrl,
+    });
     if (!cameraSettings.baseUrl) {
       setCaptureBusyMessage("카메라 서버 주소를 입력하세요.");
+      captureLockRef.current = false;
       return;
     }
 
     if (hasExternalStream) {
       setCaptureBusyMessage("스트림 중입니다. 다른 기기에서 프리뷰를 종료 후 다시 시도하세요.");
+      captureLockRef.current = false;
       return;
     }
 
     if (isCameraBusy && !isPreviewOn) {
       setCaptureBusyMessage("카메라 사용 중(409): 스트리밍/녹화 종료 후 다시 시도하세요.");
+      captureLockRef.current = false;
       return;
     }
 
@@ -298,7 +320,9 @@ function App() {
       rememberBase(cameraSettings.baseUrl);
       setCaptureBusyMessage(analyze ? "녹화+분석 요청 완료" : "촬영 완료");
       handleCheckStatus();
+      console.log(`${logPrefix} success`, { filename: res.filename, jobId: res.jobId, status: res.status });
     } catch (err) {
+      console.error(`${logPrefix} failed`, err);
       if (err instanceof CameraApiError && err.status === 409) {
         setCaptureBusyMessage("카메라 사용 중(409): 프리뷰나 다른 녹화를 종료 후 재시도하세요.");
       } else {
@@ -307,6 +331,8 @@ function App() {
       }
     } finally {
       setIsCapturing(false);
+      captureLockRef.current = false;
+      console.log(`${logPrefix} end`);
     }
   };
 

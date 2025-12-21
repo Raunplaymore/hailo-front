@@ -25,7 +25,14 @@ const buildError = async (res: Response, fallback: string) => {
   try {
     bodyJson = (await res.clone().json()) as { error?: string };
   } catch (_) {
-    bodyText = await res.text();
+    // ignore
+  }
+  if (!bodyJson) {
+    try {
+      bodyText = await res.clone().text();
+    } catch (_) {
+      // ignore
+    }
   }
 
   const friendly = (() => {

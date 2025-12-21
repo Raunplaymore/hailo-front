@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button as ShadButton } from "@/components/ui/button";
 import {
@@ -65,14 +65,44 @@ export function CaptureControls({
   busyMessage,
 }: CaptureControlsProps) {
   const [selectedAction, setSelectedAction] = useState<"video" | "swing">("video");
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimer = useRef<NodeJS.Timeout | null>(null);
 
   const handleAction = () => {
+    if (selectedAction === "swing") {
+      // 3초 카운트다운 후 분석 촬영 시작
+      if (countdownTimer.current) clearInterval(countdownTimer.current);
+      setCountdown(3);
+      countdownTimer.current = setInterval(() => {
+        setCountdown((prev) => {
+          const next = (prev ?? 0) - 1;
+          if (next <= 0) {
+            if (countdownTimer.current) clearInterval(countdownTimer.current);
+            countdownTimer.current = null;
+            setCountdown(null);
+            onCaptureAnalyze(durationSec || 5);
+            return null;
+          }
+          return next;
+        });
+      }, 1000);
+      return;
+    }
+
     if (selectedAction === "video") {
       onCaptureMp4(durationSec || 5);
     } else {
       onCaptureAnalyze(durationSec || 5);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (countdownTimer.current) {
+        clearInterval(countdownTimer.current);
+      }
+    };
+  }, []);
 
   return (
     <Card>
@@ -185,11 +215,11 @@ export function CaptureControls({
           <ShadButton
             variant="primary"
             onClick={handleAction}
-            disabled={isBusy || isCapturing}
+            disabled={isBusy || isCapturing || countdown !== null}
             className="flex items-center justify-center gap-2"
           >
             {isCapturing && <Spinner className="size-4" />}
-            {isCapturing ? "진행 중..." : "Action!"}
+            {countdown !== null ? `${countdown}...` : isCapturing ? "진행 중..." : "Action!"}
           </ShadButton>
         </div>
         <p className="mt-2 text-xs text-slate-500">

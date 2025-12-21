@@ -1,57 +1,46 @@
-# 스윙 영상 업로드 & 분석 웹앱 (DTL, Vite + React)
+# 스윙 업로드 & 분석 웹앱 (DTL 단일 카메라, Vite + React + shadcn/ui)
 
-단일 DTL(Down-The-Line) 카메라 영상을 업로드해 비동기 Job으로 분석하는 프론트엔드입니다.  
-트랙맨처럼 정밀한 물리 수치 대신 **스윙 이벤트·템포·방향 경향** 등 현실적으로 신뢰 가능한 지표에 집중합니다.
+라즈베리파이 글로벌 셔터 카메라(IMX296)로 촬영한 DTL(Down-The-Line) 스윙 영상을 수집·업로드·분석하는 프론트엔드입니다.  
+정밀 런치모니터 수치 대신 **스윙 이벤트·템포·방향 경향** 같은 현실적으로 신뢰 가능한 지표를 우선합니다.
 
-## 주요 기능
+## 핵심 플로우
+- **카메라 연동(Hailo Camera API)**: 상태 확인 → MJPEG 프리뷰 온/오프 → JPG/MP4 캡처 → 녹화 후 분석 요청.
+- **해상도 정책(검증된 값만 노출)**: `640×360 (저화질·빠름)`, `1280×720 (권장·고화질)` 두 가지만 제공. 프리뷰/캡처 모두 동일 정책.
+- **업로드 & 분석**: 업로드 직후 분석 Job 생성, `queued → running → succeeded | failed` 상태 표시 및 재시도/강제 분석 UX.
+- **리스트 & 재생**: `/api/files/detail` 응답의 `url`을 그대로 사용해 mp4만 리스트/재생, 분석 상태 뱃지/CTA 제공.
+- **분석 뷰**: 이벤트 타임라인(Address/Top/Impact/Finish), Tempo(비율/시간), Ball 근사값, 준비 중 지표 표기.
+- **모바일 우선**: iOS/핫스팟 환경에서 프리뷰/캡처가 빠르게 동작하도록 저해상도·저FPS 프리셋 제공.
 
-- 단일 영상 업로드 (iPhone Safari HEVC/H.264 대응)
-- 업로드 → 분석 Job 생성 → `queued → running → succeeded | failed` 상태 표시
-- 원본 영상 + 이벤트 타임라인(Address/Top/Impact/Finish 클릭 시 해당 시점으로 이동)
-- 지표 카드
-  - Tempo: 백스윙/다운스윙 시간, 비율
-  - Event Timing: 주요 이벤트 상대 시점(ms)
-  - Ball(근사): Launch Direction, Launch Angle, Speed Relative
-- 준비 중 지표: Club Path / Swing Plane / Attack Angle을 “준비 중”으로 표시
-- 업로드 이력: `/api/files` 기반 목록, 재조회 가능
+## 카메라 API 연동 요약
+- 상태: `GET /api/camera/status` → `busy/streaming/streamClients/lastCaptureAt` 기반으로 버튼 활성화.
+- 프리뷰: `<img src="/api/camera/stream.mjpeg?...">` 연결/해제 시 src 비우기(Abort)로 명시 종료.
+- 캡처: `POST /api/camera/capture` (jpg/mp4), `POST /api/camera/capture-and-analyze` (녹화+분석).  
+  - 파일명 규칙: `golf_YYYYMMDD_HHmmss_mmm_type.ext` (프런트에서 생성).
+  - busy/streaming 시 409, 인증 401, 타임아웃 504 처리.
+- 파일 서빙: `/uploads/:filename`
 
-## 백엔드 API (가정)
-
-- `POST /api/analyze` : multipart/form-data(`video`) → `{ jobId }`
-- `GET /api/analyze/{jobId}` : Job 상태 조회
-- `GET /api/analyze/{jobId}/result` : 분석 결과(이벤트/지표) 조회
-- `GET /api/files` : 업로드된 파일 목록
-
-개발 시 `/api`는 Vite 프록시로 `http://localhost:3000`에 연결되어 있다고 가정합니다.
-
-## 설계 철학
-
-- ✅ 단일 카메라에서 신뢰 가능한 지표(이벤트/템포/경향) 중심
-- ❌ 스핀량·정밀 볼스피드 등 다중 센서가 필요한 수치는 제외
-- ✅ 모바일(Safari) 우선 UX, 업로드 상태와 Job 진행도를 명확히 노출
-
-## 라즈베리파이 카메라 연동 (Hailo Camera API)
-
-- `.env` 예시: `VITE_CAMERA_API_BASE=http://192.168.x.x:3001`, `VITE_CAMERA_AUTH_TOKEN=<옵션>`
-- UI: 카메라 탭에서 상태 확인 → MJPEG 프리뷰 온/오프 → JPG/MP4 캡처(5초/사용자 지정) → “녹화 후 분석” 요청
-- 프리뷰 해상도/FPS 프리셋 제공(저화질 권장), 프리뷰 켜진 상태에서 녹화 시 자동 종료 설정 가능
-- 파일명 규칙: `golf_YYYYMMDD_HHmmss_mmm_type.ext`
-- 에러 처리: 401 토큰 안내, 409 “카메라 사용 중”, 504 타임아웃 메시지 노출
+## 환경변수
+- `VITE_CAMERA_API_BASE` (또는 `NEXT_PUBLIC_CAMERA_API_BASE`): 카메라 서버 주소 예) `http://192.168.x.x:3001`
+- `VITE_CAMERA_AUTH_TOKEN` (옵션): Bearer 토큰
 
 ## 실행
-
 ```bash
 npm install
-npm run dev
-# http://localhost:5173
+npm run dev  # http://localhost:5173
 ```
 
-## 빌드/배포
-
+## 빌드
 ```bash
 npm run build
 ```
-
 - 산출물: `dist/`
-- Express 예시: `app.use(express.static("client-dist"))`
-- 대용량 업로드 환경에서는 서버 및 프록시(Nginx) body size 제한을 확인하세요.
+
+## 설계 원칙
+- ✅ 단일 카메라에서 신뢰 가능한 지표(이벤트/템포/경향) 우선
+- ✅ 선택지 최소화(검증된 해상도만 노출)로 안정성/UX 확보
+- ❌ 스핀/정밀 볼스피드 등 다중 센서 요구 기능은 범위 밖
+
+## 기술 스택
+- Vite + React + TypeScript
+- Tailwind CSS + shadcn/ui (버튼/카드/폼/Select 등)
+- Radix UI primitives (Select 등)

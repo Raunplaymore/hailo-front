@@ -3,6 +3,7 @@ import {
   CameraStreamParams,
   CapturePayload,
   CaptureResponse,
+  AutoRecordStatus,
 } from "../types/camera";
 
 export class CameraApiError extends Error {
@@ -119,6 +120,52 @@ export const captureAndAnalyze = async (
   }
 
   return json;
+};
+
+export const startAutoRecord = async (baseUrl: string, token?: string): Promise<AutoRecordStatus> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/auto-record/start`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "자동 촬영을 시작하지 못했습니다.");
+  }
+  return (await res.json()) as AutoRecordStatus;
+};
+
+export const stopAutoRecord = async (baseUrl: string, token?: string): Promise<AutoRecordStatus> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/auto-record/stop`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "자동 촬영을 종료하지 못했습니다.");
+  }
+  return (await res.json()) as AutoRecordStatus;
+};
+
+export const getAutoRecordStatus = async (
+  baseUrl: string,
+  token?: string
+): Promise<AutoRecordStatus> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/auto-record/status`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+
+  if (!res.ok) {
+    throw await buildError(res, "자동 촬영 상태를 불러오지 못했습니다.");
+  }
+
+  return (await res.json()) as AutoRecordStatus;
 };
 
 export const buildStreamUrl = (baseUrl: string, params: CameraStreamParams): string => {

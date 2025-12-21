@@ -10,6 +10,7 @@
 - **리스트 & 재생**: `/api/files/detail` 응답의 `url`을 그대로 사용해 mp4만 리스트/재생, 분석 상태 뱃지/CTA 제공.
 - **분석 뷰**: 이벤트 타임라인(Address/Top/Impact/Finish), Tempo(비율/시간), Ball 근사값, 준비 중 지표 표기.
 - **모바일 우선**: iOS/핫스팟 환경에서 프리뷰/캡처가 빠르게 동작하도록 저해상도·저FPS 프리셋 제공.
+- **자동 촬영 모드**: `자동 촬영 시작/중지` 버튼, 상태 배지(대기/어드레스/촬영중/피니시/분석중/실패), 프리뷰 오버레이, 실패 시 수동 촬영 전환 버튼.
 
 ## 카메라 API 연동 요약
 - 상태: `GET /api/camera/status` → `busy/streaming/streamClients/lastCaptureAt` 기반으로 버튼 활성화.
@@ -18,9 +19,12 @@
   - 파일명 규칙: `golf_YYYYMMDD_HHmmss_mmm_type.ext` (프런트에서 생성).
   - busy/streaming 시 409, 인증 401, 타임아웃 504 처리.
 - 파일 서빙: `/uploads/:filename`
+- 자동 모드: `POST /api/camera/auto-record/start|stop`, `GET /api/camera/auto-record/status` 폴링(1s), recordingFilename로 `/api/files/detail` 상태 확인 → 완료 시 분석 뷰로 이동.
 
 ## 환경변수
-- `VITE_CAMERA_API_BASE` (또는 `NEXT_PUBLIC_CAMERA_API_BASE`): 카메라 서버 주소 예) `http://192.168.x.x:3001`
+- `.env.example`를 참고해 로컬 `.env`를 생성하세요(실제 .env는 커밋 금지).
+- `VITE_API_BASE`: 백엔드(hailo-back) 주소 예) `http://localhost:3000`
+- `VITE_CAMERA_API_BASE` (또는 `NEXT_PUBLIC_CAMERA_API_BASE`): 카메라 서버 주소 예) `http://raspberrypi.local:3001`
 - `VITE_CAMERA_AUTH_TOKEN` (옵션): Bearer 토큰
 
 ## 실행

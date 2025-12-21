@@ -59,3 +59,23 @@ export type CaptureItem = {
   jobId?: string;
   status?: string;
 };
+
+export type AutoRecordState =
+  | "idle"
+  | "address"
+  | "recording"
+  | "finish"
+  | "analyzing"
+  | "stopped"
+  | "failed"
+  | (string & {});
+
+export type AutoRecordStatus = {
+  ok?: boolean;
+  state: AutoRecordState;
+  recordingFilename?: string;
+  motionScore?: number;
+  error?: string | null;
+  message?: string | null;
+  updatedAt?: string | null;
+};

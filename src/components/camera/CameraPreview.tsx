@@ -29,6 +29,7 @@ type CameraPreviewProps = {
   onStop: () => void;
   error?: string | null;
   startDisabled?: boolean;
+  statusOverlay?: string | null;
 };
 
 const resolutionPresets = [
@@ -52,6 +53,7 @@ export function CameraPreview({
   onStop,
   error,
   startDisabled = false,
+  statusOverlay = null,
 }: CameraPreviewProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const currentResolution = `${width}x${height}`;
@@ -203,13 +205,20 @@ export function CameraPreview({
 
         <div className="p-3 border rounded-xl border-border bg-muted/40">
           {isActive && streamUrl ? (
-            <img
-              ref={imgRef}
-              key={streamUrl}
-              src={streamUrl}
-              alt="Camera preview"
-              className="w-full rounded-lg border border-border object-contain bg-black max-h-[360px]"
-            />
+            <div className="relative">
+              <img
+                ref={imgRef}
+                key={streamUrl}
+                src={streamUrl}
+                alt="Camera preview"
+                className="w-full rounded-lg border border-border object-contain bg-black max-h-[360px]"
+              />
+              {statusOverlay && (
+                <span className="absolute left-2 top-2 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
+                  {statusOverlay}
+                </span>
+              )}
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">프리뷰가 꺼져 있습니다.</p>
           )}

@@ -17,15 +17,19 @@ import { CameraStatusPanel } from "./components/camera/CameraStatusPanel";
 import { CameraPreview } from "./components/camera/CameraPreview";
 import { CaptureControls } from "./components/camera/CaptureControls";
 import { CaptureGallery } from "./components/camera/CaptureGallery";
-import { CameraStatus, CaptureItem, CapturePayload } from "./types/camera";
+import { AutoRecordStatus, CameraStatus, CaptureItem, CapturePayload } from "./types/camera";
 import {
   buildStreamUrl,
   captureAndAnalyze,
   CameraApiError,
+  getAutoRecordStatus,
   getStatus as getCameraStatus,
+  startAutoRecord,
+  stopAutoRecord,
   startCapture,
 } from "./api/cameraApi";
 import { createAnalysisJob, createAnalysisJobFromFile } from "./api/shots";
+import { AutoRecordPanel } from "./components/camera/AutoRecordPanel";
 
 type TabKey = "camera" | "upload" | "list" | "analysis" | "settings";
 
@@ -81,12 +85,12 @@ function App() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isStatusLoading, setIsStatusLoading] = useState(false);
   const [lastStatusCheckedAt, setLastStatusCheckedAt] = useState<string | null>(null);
-  const [previewParams, setPreviewParams] = useState({ width: 640, height: 640, fps: 15 });
+  const [previewParams, setPreviewParams] = useState({ width: 640, height: 360, fps: 15 });
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isPreviewOn, setIsPreviewOn] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewSessionId, setPreviewSessionId] = useState<number>(0);
-  const [captureResolution, setCaptureResolution] = useState({ width: 1280, height: 1280 });
+  const [captureResolution, setCaptureResolution] = useState({ width: 1280, height: 720 });
   const [captureFps, setCaptureFps] = useState(30);
   const [captureDuration, setCaptureDuration] = useState(5);
   const [captureBusyMessage, setCaptureBusyMessage] = useState<string | null>(null);
@@ -95,6 +99,25 @@ function App() {
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [autoStatus, setAutoStatus] = useState<AutoRecordStatus | null>(null);
+  const [autoError, setAutoError] = useState<string | null>(null);
+  const [autoPendingFilename, setAutoPendingFilename] = useState<string | null>(null);
+  const autoPollTimer = useRef<number | null>(null);
+  const autoRefreshTimer = useRef<number | null>(null);
+  const autoStateKey =
+    autoStatus && typeof autoStatus.state === "string"
+      ? autoStatus.state.toLowerCase()
+      : "";
+  const isAutoActive = autoStateKey ? !["idle", "failed", "stopped"].includes(autoStateKey) : false;
+  const autoStateLabels: Record<string, string> = {
+    idle: "대기",
+    address: "어드레스 감지",
+    recording: "촬영중",
+    finish: "피니시 감지",
+    analyzing: "분석중",
+    stopped: "정지",
+    failed: "실패",
+  };
   const streamClients = cameraStatus?.streamClients ?? 0;
   const isStreaming = cameraStatus?.streaming === true;
   const isCameraBusy = cameraStatus?.busy === true || isStreaming;
@@ -244,6 +267,85 @@ function App() {
     handleCheckStatus();
     window.setTimeout(handleCheckStatus, 800);
     window.setTimeout(handleCheckStatus, 2500);
+  };
+
+  const clearAutoPoll = () => {
+    if (autoPollTimer.current) {
+      window.clearInterval(autoPollTimer.current);
+      autoPollTimer.current = null;
+    }
+  };
+
+  const clearAutoRefresh = () => {
+    if (autoRefreshTimer.current) {
+      window.clearInterval(autoRefreshTimer.current);
+      autoRefreshTimer.current = null;
+    }
+  };
+
+  const fetchAutoStatus = async () => {
+    if (!cameraSettings.baseUrl) {
+      setAutoError("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+    try {
+      const res = await getAutoRecordStatus(cameraSettings.baseUrl, cameraSettings.token || undefined);
+      setAutoStatus(res);
+      setAutoError(null);
+      if (res.recordingFilename) {
+        setAutoPendingFilename(res.recordingFilename);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "자동 촬영 상태 확인 실패";
+      setAutoError(message);
+    }
+  };
+
+  const startAutoPolling = () => {
+    clearAutoPoll();
+    fetchAutoStatus();
+    autoPollTimer.current = window.setInterval(fetchAutoStatus, 1000);
+  };
+
+  const handleStartAuto = async () => {
+    if (!cameraSettings.baseUrl) {
+      setAutoError("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+    if (isCameraBusy || hasExternalStream) {
+      setAutoError("카메라 사용 중입니다. 스트리밍/녹화를 종료 후 자동 촬영을 시작하세요.");
+      return;
+    }
+    try {
+      setAutoError(null);
+      const res = await startAutoRecord(cameraSettings.baseUrl, cameraSettings.token || undefined);
+      setAutoStatus(res);
+      if (res.recordingFilename) {
+        setAutoPendingFilename(res.recordingFilename);
+      }
+      startAutoPolling();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "자동 촬영 시작 실패";
+      setAutoError(message);
+    }
+  };
+
+  const handleStopAuto = async () => {
+    if (!cameraSettings.baseUrl) {
+      setAutoError("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+    try {
+      const res = await stopAutoRecord(cameraSettings.baseUrl, cameraSettings.token || undefined);
+      setAutoStatus(res);
+      if (res.recordingFilename) {
+        setAutoPendingFilename(res.recordingFilename);
+      }
+      startAutoPolling();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "자동 촬영 중지 실패";
+      setAutoError(message);
+    }
   };
 
   const makeFilename = (ext: "jpg" | "mp4", type: string) => {
@@ -442,6 +544,10 @@ function App() {
   );
   const analyzedShots = sortedShots.filter((shot) => isAnalyzedDone(shot));
   const pendingShots = sortedShots.filter((shot) => !isAnalyzedDone(shot));
+  const autoOverlayLabel =
+    autoStatus && autoStatus.state && autoStatus.state.toLowerCase() !== "idle"
+      ? autoStateLabels[autoStateKey] ?? autoStatus.state
+      : null;
 
   useEffect(() => {
     if (activeTab !== "list") return;
@@ -456,6 +562,42 @@ function App() {
     return () => window.clearInterval(interval);
   }, [activeTab, shots, refresh]);
 
+  useEffect(() => {
+    if (!autoPendingFilename) return;
+    refresh();
+    clearAutoRefresh();
+    autoRefreshTimer.current = window.setInterval(() => {
+      refresh();
+      fetchAutoStatus();
+    }, 1500);
+    return () => clearAutoRefresh();
+  }, [autoPendingFilename, refresh]);
+
+  useEffect(() => {
+    if (!autoPendingFilename) return;
+    const match = shots.find((shot) => shot.filename === autoPendingFilename);
+    const status = match?.status ?? match?.analysis?.status;
+    if (match && (status === "succeeded" || match.analysis)) {
+      select(match);
+      setActiveTab("analysis");
+      setAutoPendingFilename(null);
+      clearAutoRefresh();
+    }
+  }, [shots, autoPendingFilename, select]);
+
+  useEffect(() => {
+    if (!isAutoActive && !autoPendingFilename) {
+      clearAutoPoll();
+    }
+  }, [isAutoActive, autoPendingFilename]);
+
+  useEffect(() => {
+    return () => {
+      clearAutoPoll();
+      clearAutoRefresh();
+    };
+  }, []);
+
   return (
     <Shell
       tabs={tabs}
@@ -465,20 +607,31 @@ function App() {
     >
       {activeTab === "camera" && (
         <div className="space-y-4">
-          <CaptureControls
-            isCapturing={isCapturing}
-            resolution={captureResolution}
-            fps={captureFps}
-            durationSec={captureDuration}
-            onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
-            onFpsChange={(value) => setCaptureFps(value)}
-            onDurationChange={(seconds) => setCaptureDuration(seconds)}
-            onCaptureJpg={handleCaptureJpg}
-            onCaptureMp4={handleCaptureMp4}
-            onCaptureAnalyze={handleCaptureAndAnalyze}
-            busyMessage={captureBusyMessage}
-            isBusy={isCameraBusy || hasExternalStream}
+          <AutoRecordPanel
+            status={autoStatus}
+            isRunning={Boolean(isAutoActive)}
+            isLoading={isStatusLoading}
+            error={autoError}
+            onStart={handleStartAuto}
+            onStop={handleStopAuto}
+            onFallbackManual={() => document.getElementById("capture-section")?.scrollIntoView({ behavior: "smooth" })}
           />
+          <div id="capture-section">
+            <CaptureControls
+              isCapturing={isCapturing}
+              resolution={captureResolution}
+              fps={captureFps}
+              durationSec={captureDuration}
+              onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
+              onFpsChange={(value) => setCaptureFps(value)}
+              onDurationChange={(seconds) => setCaptureDuration(seconds)}
+              onCaptureJpg={handleCaptureJpg}
+              onCaptureMp4={handleCaptureMp4}
+              onCaptureAnalyze={handleCaptureAndAnalyze}
+              busyMessage={captureBusyMessage}
+              isBusy={isCameraBusy || hasExternalStream}
+            />
+          </div>
           <div id="camera-preview" />
           <CameraPreview
             isActive={isPreviewOn}
@@ -493,6 +646,7 @@ function App() {
             onStop={handleStopPreview}
             error={previewError}
             startDisabled={hasExternalStream || isCameraBusy}
+            statusOverlay={autoOverlayLabel}
           />
           {/* <CaptureGallery items={captures} /> */}
         </div>

@@ -341,7 +341,8 @@ function App() {
       if (res.recordingFilename) {
         setAutoPendingFilename(res.recordingFilename);
       }
-      startAutoPolling();
+      clearAutoPoll();
+      clearAutoRefresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "자동 촬영 중지 실패";
       setAutoError(message);
@@ -582,6 +583,7 @@ function App() {
       setActiveTab("analysis");
       setAutoPendingFilename(null);
       clearAutoRefresh();
+      clearAutoPoll();
     }
   }, [shots, autoPendingFilename, select]);
 

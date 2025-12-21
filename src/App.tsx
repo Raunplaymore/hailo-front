@@ -81,7 +81,7 @@ function App() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isStatusLoading, setIsStatusLoading] = useState(false);
   const [lastStatusCheckedAt, setLastStatusCheckedAt] = useState<string | null>(null);
-  const [previewParams, setPreviewParams] = useState({ width: 640, height: 360, fps: 15 });
+  const [previewParams, setPreviewParams] = useState({ width: 640, height: 640, fps: 15 });
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isPreviewOn, setIsPreviewOn] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);

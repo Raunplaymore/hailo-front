@@ -295,6 +295,12 @@ function App() {
       if (res.recordingFilename) {
         setAutoPendingFilename(res.recordingFilename);
       }
+      const stateKey = res.state?.toLowerCase?.() ?? res.state;
+      if (!res.recordingFilename && (stateKey === "idle" || stateKey === "stopped" || stateKey === "failed")) {
+        setAutoPendingFilename(null);
+        clearAutoPoll();
+        clearAutoRefresh();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "자동 촬영 상태 확인 실패";
       setAutoError(message);

@@ -2,6 +2,14 @@ export type SessionState = "idle" | "recording" | "stopping" | "analyzing" | "do
 
 export type SessionStatus = "recorded" | "analyzing" | "done" | "failed";
 
+export type SessionStartPayload = {
+  width?: number;
+  height?: number;
+  fps?: number;
+  model?: string;
+  durationSec?: number;
+};
+
 export type LiveOverlayBox = {
   xmin: number;
   ymin: number;
@@ -28,6 +36,9 @@ export type SessionLiveResponse = {
 
 export type SessionStartResponse = {
   jobId: string;
+  videoFile?: string;
+  videoUrl?: string;
+  metaPath?: string;
   ok?: boolean;
   status?: string;
   startedAt?: string;

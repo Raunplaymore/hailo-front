@@ -1,6 +1,7 @@
 import {
   SessionFileItem,
   SessionLiveResponse,
+  SessionStartPayload,
   SessionStartResponse,
   SessionStopResponse,
 } from "../types/session";
@@ -67,14 +68,19 @@ const resolveJobId = (payload: any): string => {
 
 export const startSession = async (
   baseUrl: string,
+  payload?: SessionStartPayload,
   token?: string
 ): Promise<SessionStartResponse> => {
   const normalized = ensureBaseUrl(baseUrl);
+  const body =
+    payload && Object.keys(payload).length > 0 ? JSON.stringify(payload) : undefined;
   const res = await fetch(`${normalized}/api/session/start`, {
     method: "POST",
     headers: {
+      ...(body ? { "Content-Type": "application/json" } : {}),
       ...authHeaders(token),
     },
+    ...(body ? { body } : {}),
   });
   if (!res.ok) {
     throw await buildError(res, "세션을 시작하지 못했습니다.");
@@ -86,6 +92,9 @@ export const startSession = async (
   }
   return {
     jobId,
+    videoFile: json.videoFile ?? json.video_file ?? json.filename,
+    videoUrl: json.videoUrl ?? json.video_url ?? json.url,
+    metaPath: json.metaPath ?? json.meta_path,
     ok: json.ok,
     status: json.status,
     startedAt: json.startedAt ?? json.started_at,
@@ -111,13 +120,47 @@ export const stopSession = async (
   const resolvedJobId = resolveJobId(json) || jobId;
   return {
     jobId: resolvedJobId,
-    filename: json.filename ?? json.file?.filename ?? json.video?.filename,
+    filename: json.videoFile ?? json.video_file ?? json.filename ?? json.file?.filename ?? json.video?.filename,
     url: json.url ?? json.file?.url ?? json.video?.url,
     videoUrl: json.videoUrl ?? json.video_url,
     metaPath: json.metaPath ?? json.meta_path,
     ok: json.ok,
     error: json.error,
   };
+};
+
+export const getSessionStatus = async (
+  baseUrl: string,
+  jobId: string,
+  token?: string
+): Promise<Record<string, any>> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/session/${encodeURIComponent(jobId)}/status`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "세션 상태를 불러오지 못했습니다.");
+  }
+  return (await res.json()) as Record<string, any>;
+};
+
+export const getSessionMeta = async (
+  baseUrl: string,
+  jobId: string,
+  token?: string
+): Promise<Record<string, any>> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/session/${encodeURIComponent(jobId)}/meta`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "세션 메타를 불러오지 못했습니다.");
+  }
+  return (await res.json()) as Record<string, any>;
 };
 
 export const getSessionLive = async (

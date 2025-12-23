@@ -20,8 +20,12 @@
 - 상태: `GET /api/camera/status` → `busy/streaming/streamClients/lastCaptureAt` 기반으로 버튼 활성화.
 - 프리뷰: `<img src="/api/camera/stream.mjpeg?...">` 연결/해제 시 src 비우기(Abort)로 명시 종료.
 - 세션 시작/종료:
-  - `POST /api/session/start` → `{ jobId }`
-  - `POST /api/session/:jobId/stop` → `{ filename, url, metaPath }`
+  - `POST /api/session/start` → `{ jobId, videoFile, videoUrl, metaPath }`
+  - 요청(옵션): `{ width, height, fps, model, durationSec }`
+  - `POST /api/session/:jobId/stop` → `{ jobId, videoUrl, metaPath }`
+- 세션 상태/메타:
+  - `GET /api/session/:jobId/status` → `running | stopped | failed`
+  - `GET /api/session/:jobId/meta` → 정규화된 meta(frames 배열)
 - 라이브 인퍼런스: `GET /api/session/:jobId/live?tailFrames=30` (bbox 배열, 최신 프레임만 사용)
 - 캡처: `POST /api/camera/capture` (jpg/mp4), `POST /api/camera/capture-and-analyze` (녹화+분석).  
   - 파일명 규칙: `golf_YYYYMMDD_HHmmss_mmm_type.ext` (프런트에서 생성).

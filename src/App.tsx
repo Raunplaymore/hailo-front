@@ -134,6 +134,9 @@ function App() {
   const [sessionFilename, setSessionFilename] = useState<string | null>(null);
   const [sessionVideoUrl, setSessionVideoUrl] = useState<string | null>(null);
   const [sessionMetaPath, setSessionMetaPath] = useState<string | null>(null);
+  const [sessionLiveSize, setSessionLiveSize] = useState<{ width: number; height: number } | null>(
+    null
+  );
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionAnalysisJobId, setSessionAnalysisJobId] = useState<string | null>(null);
   const [sessionAnalysisStatus, setSessionAnalysisStatus] = useState<JobStatus | null>(null);
@@ -462,7 +465,10 @@ function App() {
     }
   }, [sessions, selectedSession]);
 
-  const normalizeLiveBoxes = (payload: any): LiveOverlayBox[] => {
+  const normalizeLiveBoxes = (
+    payload: any,
+    fallbackSize?: { width: number; height: number }
+  ): LiveOverlayBox[] => {
     if (!payload || typeof payload !== "object") return [];
     const frames = Array.isArray(payload.frames) ? payload.frames : [];
     const frame = frames.length ? frames[frames.length - 1] : payload;
@@ -474,9 +480,9 @@ function App() {
       payload.boxes ??
       [];
     const frameWidth =
-      frame?.width ?? frame?.frameWidth ?? payload.width ?? payload.frameWidth;
+      frame?.width ?? frame?.frameWidth ?? payload.width ?? payload.frameWidth ?? fallbackSize?.width;
     const frameHeight =
-      frame?.height ?? frame?.frameHeight ?? payload.height ?? payload.frameHeight;
+      frame?.height ?? frame?.frameHeight ?? payload.height ?? payload.frameHeight ?? fallbackSize?.height;
 
     if (!Array.isArray(rawBoxes)) return [];
 
@@ -545,6 +551,8 @@ function App() {
             ? entry.score
             : typeof entry?.confidence === "number"
             ? entry.confidence
+            : typeof entry?.conf === "number"
+            ? entry.conf
             : typeof entry?.prob === "number"
             ? entry.prob
             : undefined;
@@ -577,10 +585,26 @@ function App() {
     setSessionAnalysisJobId(null);
     setSessionAnalysisStatus(null);
     setSessionAnalysisError(null);
+    setSessionLiveSize(null);
     setLiveBoxes([]);
     try {
-      const res = await startSession(cameraSettings.baseUrl, cameraSettings.token || undefined);
+      const payload = {
+        width: previewParams.width,
+        height: previewParams.height,
+        fps: previewParams.fps,
+        model: "yolov8s",
+        durationSec: 0,
+      };
+      const res = await startSession(
+        cameraSettings.baseUrl,
+        payload,
+        cameraSettings.token || undefined
+      );
       setSessionJobId(res.jobId);
+      setSessionFilename(res.videoFile ?? null);
+      setSessionVideoUrl(res.videoUrl ?? null);
+      setSessionMetaPath(res.metaPath ?? null);
+      setSessionLiveSize({ width: payload.width, height: payload.height });
       setSessionState("recording");
       if (!isPreviewOn) {
         handleStartPreview();
@@ -610,7 +634,7 @@ function App() {
         cameraSettings.token || undefined
       );
       const resolvedJobId = res.jobId ?? sessionJobId;
-      const filename = res.filename || `${resolvedJobId}.mp4`;
+      const filename = res.filename || sessionFilename || `${resolvedJobId}.mp4`;
       const videoUrl = resolveCameraFileUrl(
         cameraSettings.baseUrl,
         res.videoUrl || res.url,
@@ -670,6 +694,7 @@ function App() {
     setSessionAnalysisJobId(null);
     setSessionAnalysisStatus(null);
     setSessionAnalysisError(null);
+    setSessionLiveSize(null);
     setLiveBoxes([]);
   };
 
@@ -694,7 +719,7 @@ function App() {
           controller.signal
         );
         if (cancelled || requestId !== livePollId.current) return;
-        setLiveBoxes(normalizeLiveBoxes(res));
+        setLiveBoxes(normalizeLiveBoxes(res, sessionLiveSize ?? previewParams));
       } catch (err) {
         if (cancelled) return;
         if (err instanceof DOMException && err.name === "AbortError") return;

@@ -1,8 +1,15 @@
-const EXPLICIT_BASE = (import.meta.env.VITE_API_BASE as string | undefined) || "";
+const EXPLICIT_BASE =
+  (import.meta.env.VITE_BACK_BASE_URL as string | undefined) ||
+  (import.meta.env.VITE_API_BASE as string | undefined) ||
+  "";
 const LOCAL_BASE =
-  (import.meta.env.VITE_API_BASE_LOCAL as string | undefined) || "http://100.92.70.114:3000";
+  (import.meta.env.VITE_BACK_BASE_URL_LOCAL as string | undefined) ||
+  (import.meta.env.VITE_API_BASE_LOCAL as string | undefined) ||
+  "http://100.92.70.114:3000";
 const PI_BASE =
-  (import.meta.env.VITE_API_BASE_PI as string | undefined) || "http://100.92.70.114:3000";
+  (import.meta.env.VITE_BACK_BASE_URL_PI as string | undefined) ||
+  (import.meta.env.VITE_API_BASE_PI as string | undefined) ||
+  "http://100.92.70.114:3000";
 
 const guessBaseFromHost = (): string => {
   if (typeof window === "undefined") return LOCAL_BASE;

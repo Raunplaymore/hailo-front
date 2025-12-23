@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
+import { LiveOverlay } from "@/components/camera/LiveOverlay";
 import {
   Card,
   CardContent,
@@ -8,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { LiveOverlayBox } from "@/types/session";
 
 import {
   Select,
@@ -30,6 +32,8 @@ type CameraPreviewProps = {
   error?: string | null;
   startDisabled?: boolean;
   statusOverlay?: string | null;
+  overlayBoxes?: LiveOverlayBox[];
+  overlayEnabled?: boolean;
 };
 
 const resolutionPresets = [
@@ -54,8 +58,11 @@ export function CameraPreview({
   error,
   startDisabled = false,
   statusOverlay = null,
+  overlayBoxes = [],
+  overlayEnabled = false,
 }: CameraPreviewProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const previewWrapRef = useRef<HTMLDivElement | null>(null);
   const currentResolution = `${width}x${height}`;
   const handleStopClick = () => {
     if (imgRef.current) {
@@ -205,7 +212,7 @@ export function CameraPreview({
 
         <div className="p-3 border rounded-xl border-border bg-muted/40">
           {isActive && streamUrl ? (
-            <div className="relative">
+            <div className="relative" ref={previewWrapRef}>
               <img
                 ref={imgRef}
                 key={streamUrl}
@@ -213,6 +220,14 @@ export function CameraPreview({
                 alt="Camera preview"
                 className="w-full rounded-lg border border-border object-contain bg-black max-h-[360px]"
               />
+              {overlayEnabled && (
+                <LiveOverlay
+                  containerRef={previewWrapRef}
+                  boxes={overlayBoxes}
+                  sourceWidth={width}
+                  sourceHeight={height}
+                />
+              )}
               {statusOverlay && (
                 <span className="absolute left-2 top-2 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
                   {statusOverlay}

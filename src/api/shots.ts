@@ -250,6 +250,31 @@ const normalizeAnalysis = (
   const tempo = normalizeTempo(metricsBlock);
   const eventTiming = deriveEventTiming(metricsBlock, events);
   const ball = normalizeBall(metricsBlock);
+  const swingPlaneRaw =
+    metricsBlock?.swingPlane ?? metricsBlock?.swing_plane ?? raw?.swingPlane ?? raw?.swing_plane;
+  const impactStabilityRaw =
+    metricsBlock?.impactStability ??
+    metricsBlock?.impact_stability ??
+    raw?.impactStability ??
+    raw?.impact_stability;
+  const toText = (value: any): string | null => {
+    if (value == null) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    return null;
+  };
+  const summary =
+    (typeof raw?.summary === "string" && raw.summary) ||
+    (typeof metricsBlock?.summary === "string" && metricsBlock.summary) ||
+    (typeof raw?.coach_summary === "string" && raw.coach_summary) ||
+    (typeof raw?.coachSummary === "string" && raw.coachSummary) ||
+    null;
+  const coachSummary =
+    (Array.isArray(raw?.coach_summary) && raw.coach_summary) ||
+    (Array.isArray(raw?.coachSummary) && raw.coachSummary) ||
+    (Array.isArray(raw?.coach_comments) && raw.coach_comments) ||
+    (Array.isArray(raw?.coachComments) && raw.coachComments) ||
+    undefined;
 
   return {
     jobId,
@@ -259,11 +284,15 @@ const normalizeAnalysis = (
       tempo,
       eventTiming,
       ball,
+      swingPlane: toText(swingPlaneRaw),
+      impactStability: toText(impactStabilityRaw),
     },
     pending: [...PENDING_METRICS],
     createdAt: raw?.createdAt ?? raw?.created_at,
     finishedAt: raw?.finishedAt ?? raw?.finished_at,
     errorMessage: raw?.errorMessage ?? raw?.error,
+    summary,
+    coachSummary,
   };
 };
 

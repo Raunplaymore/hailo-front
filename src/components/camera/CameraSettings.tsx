@@ -41,7 +41,7 @@ export function CameraSettings({
             </CardDescription>
           </div>
           <span className="text-[11px] text-muted-foreground">
-            env: VITE_CAMERA_API_BASE / VITE_CAMERA_AUTH_TOKEN
+            env: VITE_CAMERA_BASE_URL / VITE_CAMERA_API_BASE / VITE_CAMERA_AUTH_TOKEN
           </span>
         </div>
       </CardHeader>

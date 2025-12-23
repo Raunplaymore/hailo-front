@@ -5,11 +5,13 @@ import { ShotList } from "./components/shots/ShotList";
 import { MetricsTable } from "./components/analysis/MetricsTable";
 import { AnalysisPlayer } from "./components/analysis/AnalysisPlayer";
 import { CoachSummary } from "./components/analysis/CoachSummary";
+import { KeyMetrics } from "./components/analysis/KeyMetrics";
 import { Button } from "./components/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { useUpload } from "./hooks/useUpload";
 import { useShots } from "./hooks/useShots";
 import { useAnalysis } from "./hooks/useAnalysis";
-import { Shot } from "./types/shots";
+import { JobStatus, Shot } from "./types/shots";
 import { SettingsForm, UploadSettings } from "./components/settings/SettingsForm";
 import { API_BASE } from "./api/client";
 import { CameraSettings, CameraSettingsValue } from "./components/camera/CameraSettings";
@@ -17,7 +19,9 @@ import { CameraStatusPanel } from "./components/camera/CameraStatusPanel";
 import { CameraPreview } from "./components/camera/CameraPreview";
 import { CaptureControls } from "./components/camera/CaptureControls";
 import { CaptureGallery } from "./components/camera/CaptureGallery";
+import { SessionControls } from "./components/camera/SessionControls";
 import { AutoRecordStatus, CameraStatus, CaptureItem, CapturePayload } from "./types/camera";
+import { LiveOverlayBox, SessionRecord, SessionState, SessionStatus } from "./types/session";
 import {
   buildStreamUrl,
   captureAndAnalyze,
@@ -28,13 +32,22 @@ import {
   stopAutoRecord,
   startCapture,
 } from "./api/cameraApi";
-import { createAnalysisJob, createAnalysisJobFromFile } from "./api/shots";
+import {
+  getSessionLive,
+  listSessionFiles,
+  resolveCameraFileUrl,
+  startSession,
+  stopSession,
+} from "./api/sessionApi";
+import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus } from "./api/shots";
 import { AutoRecordPanel } from "./components/camera/AutoRecordPanel";
+import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 
 type TabKey = "camera" | "upload" | "list" | "analysis" | "settings";
 
 const CAMERA_ENV_BASE =
+  (import.meta.env.VITE_CAMERA_BASE_URL as string | undefined) ||
   (import.meta.env.VITE_CAMERA_API_BASE as string | undefined) ||
   // NEXT_PUBLIC prefix도 허용
   ((import.meta.env as unknown as Record<string, string | undefined>).NEXT_PUBLIC_CAMERA_API_BASE ?? "");
@@ -57,10 +70,17 @@ const loadLocalJson = <T,>(key: string): T | null => {
 const normalizeBase = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
 function App() {
-  const { shots, selected, select, isLoading, error, refresh } = useShots();
+  const {
+    shots,
+    selected: selectedShot,
+    select: selectShot,
+    isLoading: shotsLoading,
+    error: shotsError,
+    refresh: refreshShots,
+  } = useShots();
   const upload = useUpload({
     onSuccess: () => {
-      refresh();
+      refreshShots();
     },
   });
   const [activeTab, setActiveTab] = useState<TabKey>("camera");
@@ -82,6 +102,24 @@ function App() {
   const [baseHistory, setBaseHistory] = useState<string[]>(
     () => loadLocalJson<string[]>("cameraBaseHistory") || []
   );
+  const [sessionStatusMap, setSessionStatusMap] = useState<
+    Record<
+      string,
+      {
+        status: SessionStatus;
+        analysisJobId?: string;
+        jobId?: string;
+        errorMessage?: string;
+        metaPath?: string;
+        videoUrl?: string;
+        updatedAt?: string;
+      }
+    >
+  >(() => loadLocalJson("sessionStatusMap") || {});
+  const [sessions, setSessions] = useState<SessionRecord[]>([]);
+  const [isSessionsLoading, setIsSessionsLoading] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(null);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isStatusLoading, setIsStatusLoading] = useState(false);
@@ -91,6 +129,18 @@ function App() {
   const [isPreviewOn, setIsPreviewOn] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewSessionId, setPreviewSessionId] = useState<number>(0);
+  const [sessionState, setSessionState] = useState<SessionState>("idle");
+  const [sessionJobId, setSessionJobId] = useState<string | null>(null);
+  const [sessionFilename, setSessionFilename] = useState<string | null>(null);
+  const [sessionVideoUrl, setSessionVideoUrl] = useState<string | null>(null);
+  const [sessionMetaPath, setSessionMetaPath] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionAnalysisJobId, setSessionAnalysisJobId] = useState<string | null>(null);
+  const [sessionAnalysisStatus, setSessionAnalysisStatus] = useState<JobStatus | null>(null);
+  const [sessionAnalysisError, setSessionAnalysisError] = useState<string | null>(null);
+  const [liveBoxes, setLiveBoxes] = useState<LiveOverlayBox[]>([]);
+  const livePollTimer = useRef<number | null>(null);
+  const livePollId = useRef(0);
   const [captureResolution, setCaptureResolution] = useState({ width: 1280, height: 720 });
   const [captureFps, setCaptureFps] = useState(30);
   const [captureDuration, setCaptureDuration] = useState(5);
@@ -119,7 +169,8 @@ function App() {
     stopping: "정지 중",
     failed: "실패",
   };
-  const [listTab, setListTab] = useState<"pending" | "done">("pending");
+  const [listMode, setListMode] = useState<"sessions" | "uploads">("sessions");
+  const [uploadListTab, setUploadListTab] = useState<"pending" | "done">("pending");
   const streamClients = cameraStatus?.streamClients ?? 0;
   const isStreaming = cameraStatus?.streaming === true;
   const isCameraBusy = cameraStatus?.busy === true || isStreaming;
@@ -135,15 +186,20 @@ function App() {
     []
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("sessionStatusMap", JSON.stringify(sessionStatusMap));
+  }, [sessionStatusMap]);
+
   const handleDelete = async (shot: Shot) => {
     setDeletingId(shot.id);
     try {
       await fetch(`${API_BASE}/api/files/${encodeURIComponent(shot.filename)}`, {
         method: "DELETE",
       });
-      await refresh();
-      if (selected?.id === shot.id) {
-        select(null);
+      await refreshShots();
+      if (selectedShot?.id === shot.id) {
+        selectShot(null);
         setActiveTab("list");
         setOpenShotIds(new Set());
       }
@@ -154,11 +210,35 @@ function App() {
     }
   };
 
+  const sessionToShot = (session: SessionRecord): Shot => {
+    const analysisJobId =
+      session.analysisJobId ?? (session.status !== "recorded" ? session.jobId : undefined);
+    const status: JobStatus =
+      session.status === "done"
+        ? "succeeded"
+        : session.status === "analyzing"
+        ? "running"
+        : session.status === "failed"
+        ? "failed"
+        : "not-analyzed";
+    return {
+      id: session.id,
+      filename: session.filename,
+      createdAt: session.createdAt,
+      sourceType: "camera",
+      videoUrl: session.videoUrl,
+      jobId: analysisJobId,
+      status,
+    };
+  };
+
+  const analysisTarget = selectedSession ? sessionToShot(selectedSession) : selectedShot;
+
   const selectedVideoUrl =
-    selected?.videoUrl && selected.videoUrl !== ""
-      ? selected.videoUrl
-      : selected
-      ? `${API_BASE}/uploads/${encodeURIComponent(selected.filename)}`
+    analysisTarget?.videoUrl && analysisTarget.videoUrl !== ""
+      ? analysisTarget.videoUrl
+      : analysisTarget
+      ? `${API_BASE}/uploads/${encodeURIComponent(analysisTarget.filename)}`
       : "";
 
   const {
@@ -166,7 +246,7 @@ function App() {
     status: jobStatus,
     isLoading: isAnalysisLoading,
     error: analysisError,
-  } = useAnalysis(selected);
+  } = useAnalysis(analysisTarget);
 
   const toggleOpen = (shot: Shot) => {
     const next = new Set(openShotIds);
@@ -176,7 +256,8 @@ function App() {
       next.add(shot.id);
     }
     setOpenShotIds(next);
-    select(shot);
+    selectShot(shot);
+    setSelectedSession(null);
   };
 
   const rememberBase = (url: string) => {
@@ -270,6 +351,423 @@ function App() {
     window.setTimeout(handleCheckStatus, 800);
     window.setTimeout(handleCheckStatus, 2500);
   };
+
+  const resolveSessionStatus = (status?: string): SessionStatus => {
+    switch (status) {
+      case "queued":
+      case "running":
+      case "analyzing":
+        return "analyzing";
+      case "succeeded":
+      case "done":
+        return "done";
+      case "failed":
+        return "failed";
+      default:
+        return "recorded";
+    }
+  };
+
+  const isVideoFile = (filename: string) => {
+    const lower = filename.toLowerCase();
+    return lower.endsWith(".mp4") || lower.endsWith(".mov");
+  };
+
+  const updateSessionMap = (
+    filename: string,
+    patch: Partial<{
+      status: SessionStatus;
+      analysisJobId?: string;
+      jobId?: string;
+      errorMessage?: string;
+      metaPath?: string;
+      videoUrl?: string;
+    }>
+  ) => {
+    setSessionStatusMap((prev) => ({
+      ...prev,
+      [filename]: {
+        ...prev[filename],
+        ...patch,
+        updatedAt: new Date().toISOString(),
+      },
+    }));
+  };
+
+  const refreshSessions = async () => {
+    if (!cameraSettings.baseUrl) {
+      setSessions([]);
+      setSessionsError("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+    setIsSessionsLoading(true);
+    setSessionsError(null);
+    try {
+      const files = await listSessionFiles(
+        cameraSettings.baseUrl,
+        cameraSettings.token || undefined
+      );
+      const nextSessions = files
+        .filter((file) => isVideoFile(file.filename))
+        .map((file) => {
+          const local = sessionStatusMap[file.filename];
+          const status = local?.status ?? resolveSessionStatus(file.status);
+          const analysisJobId =
+            local?.analysisJobId ??
+            ((status === "analyzing" || status === "done" || status === "failed")
+              ? file.jobId
+              : undefined);
+          const videoUrl =
+            local?.videoUrl ??
+            resolveCameraFileUrl(cameraSettings.baseUrl, file.url, file.filename);
+          return {
+            id: file.jobId ?? file.filename,
+            filename: file.filename,
+            createdAt: file.modifiedAt ?? file.createdAt ?? new Date().toISOString(),
+            status,
+            videoUrl,
+            jobId: local?.jobId ?? file.jobId,
+            analysisJobId,
+            metaPath: local?.metaPath ?? file.metaPath,
+            errorMessage: local?.errorMessage ?? file.errorMessage,
+          } as SessionRecord;
+        })
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      setSessions(nextSessions);
+      rememberBase(cameraSettings.baseUrl);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "세션 목록을 불러오지 못했습니다.";
+      setSessionsError(message);
+    } finally {
+      setIsSessionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== "camera" && activeTab !== "list") return;
+    refreshSessions();
+  }, [activeTab, cameraSettings.baseUrl, cameraSettings.token, sessionStatusMap]);
+
+  useEffect(() => {
+    if (!selectedSession) return;
+    const match = sessions.find((session) => session.filename === selectedSession.filename);
+    if (!match) return;
+    if (
+      match.status !== selectedSession.status ||
+      match.analysisJobId !== selectedSession.analysisJobId ||
+      match.videoUrl !== selectedSession.videoUrl ||
+      match.errorMessage !== selectedSession.errorMessage
+    ) {
+      setSelectedSession(match);
+    }
+  }, [sessions, selectedSession]);
+
+  const normalizeLiveBoxes = (payload: any): LiveOverlayBox[] => {
+    if (!payload || typeof payload !== "object") return [];
+    const frames = Array.isArray(payload.frames) ? payload.frames : [];
+    const frame = frames.length ? frames[frames.length - 1] : payload;
+    const rawBoxes =
+      frame?.detections ??
+      frame?.boxes ??
+      frame?.objects ??
+      payload.detections ??
+      payload.boxes ??
+      [];
+    const frameWidth =
+      frame?.width ?? frame?.frameWidth ?? payload.width ?? payload.frameWidth;
+    const frameHeight =
+      frame?.height ?? frame?.frameHeight ?? payload.height ?? payload.frameHeight;
+
+    if (!Array.isArray(rawBoxes)) return [];
+
+    return rawBoxes
+      .map((entry) => {
+        const box =
+          entry?.bbox ?? entry?.box ?? entry?.rect ?? entry?.bbox_xywh ?? entry;
+        let xmin: number | undefined;
+        let ymin: number | undefined;
+        let width: number | undefined;
+        let height: number | undefined;
+
+        if (Array.isArray(box) && box.length >= 4) {
+          [xmin, ymin, width, height] = box.map(Number);
+        } else if (box && typeof box === "object") {
+          const x1 =
+            box.xmin ?? box.x1 ?? box.left ?? box.x ?? entry?.xmin ?? entry?.x1 ?? entry?.left;
+          const y1 =
+            box.ymin ?? box.y1 ?? box.top ?? box.y ?? entry?.ymin ?? entry?.y1 ?? entry?.top;
+          const x2 = box.xmax ?? box.x2 ?? box.right ?? entry?.xmax ?? entry?.x2 ?? entry?.right;
+          const y2 = box.ymax ?? box.y2 ?? box.bottom ?? entry?.ymax ?? entry?.y2 ?? entry?.bottom;
+          if (x1 != null && y1 != null && x2 != null && y2 != null) {
+            xmin = Number(x1);
+            ymin = Number(y1);
+            width = Number(x2) - Number(x1);
+            height = Number(y2) - Number(y1);
+          } else {
+            xmin = Number(x1 ?? 0);
+            ymin = Number(y1 ?? 0);
+            width = Number(box.w ?? box.width ?? entry?.w ?? entry?.width);
+            height = Number(box.h ?? box.height ?? entry?.h ?? entry?.height);
+          }
+        }
+
+        if (
+          xmin == null ||
+          ymin == null ||
+          width == null ||
+          height == null ||
+          Number.isNaN(xmin) ||
+          Number.isNaN(ymin) ||
+          Number.isNaN(width) ||
+          Number.isNaN(height)
+        ) {
+          return null;
+        }
+
+        let nx = xmin;
+        let ny = ymin;
+        let nw = width;
+        let nh = height;
+        if (
+          frameWidth &&
+          frameHeight &&
+          (nx > 1 || ny > 1 || nw > 1 || nh > 1)
+        ) {
+          nx = nx / frameWidth;
+          ny = ny / frameHeight;
+          nw = nw / frameWidth;
+          nh = nh / frameHeight;
+        }
+
+        const label = entry?.label ?? entry?.class ?? entry?.className ?? entry?.category;
+        const score =
+          typeof entry?.score === "number"
+            ? entry.score
+            : typeof entry?.confidence === "number"
+            ? entry.confidence
+            : typeof entry?.prob === "number"
+            ? entry.prob
+            : undefined;
+
+        return {
+          xmin: nx,
+          ymin: ny,
+          width: nw,
+          height: nh,
+          label: typeof label === "string" ? label : undefined,
+          score,
+        } as LiveOverlayBox;
+      })
+      .filter((item): item is LiveOverlayBox => Boolean(item));
+  };
+
+  const handleSessionStart = async () => {
+    if (!cameraSettings.baseUrl) {
+      setSessionError("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+    if (hasExternalStream || (isCameraBusy && !isPreviewOn)) {
+      setSessionError("카메라 사용 중입니다. 다른 스트림을 종료한 후 시작하세요.");
+      return;
+    }
+    setSessionError(null);
+    setSessionFilename(null);
+    setSessionVideoUrl(null);
+    setSessionMetaPath(null);
+    setSessionAnalysisJobId(null);
+    setSessionAnalysisStatus(null);
+    setSessionAnalysisError(null);
+    setLiveBoxes([]);
+    try {
+      const res = await startSession(cameraSettings.baseUrl, cameraSettings.token || undefined);
+      setSessionJobId(res.jobId);
+      setSessionState("recording");
+      if (!isPreviewOn) {
+        handleStartPreview();
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "세션 시작 실패";
+      setSessionError(message);
+      setSessionState("failed");
+    }
+  };
+
+  const handleSessionStop = async () => {
+    if (!cameraSettings.baseUrl) {
+      setSessionError("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+    if (!sessionJobId) {
+      setSessionError("세션 ID가 없습니다. 다시 시작해주세요.");
+      return;
+    }
+    setSessionError(null);
+    setSessionState("stopping");
+    try {
+      const res = await stopSession(
+        cameraSettings.baseUrl,
+        sessionJobId,
+        cameraSettings.token || undefined
+      );
+      const filename = res.filename;
+      if (!filename) {
+        throw new Error("세션 종료 응답에서 filename을 찾지 못했습니다.");
+      }
+      const videoUrl = resolveCameraFileUrl(
+        cameraSettings.baseUrl,
+        res.videoUrl || res.url,
+        filename
+      );
+      setSessionFilename(filename);
+      setSessionVideoUrl(videoUrl);
+      setSessionMetaPath(res.metaPath ?? null);
+      updateSessionMap(filename, {
+        status: "recorded",
+        jobId: res.jobId ?? sessionJobId,
+        metaPath: res.metaPath ?? undefined,
+        videoUrl,
+      });
+
+      const analysis = await createAnalysisJobFromFile(filename, {
+        sessionId: res.jobId ?? sessionJobId,
+        meta: res.metaPath ? { metaPath: res.metaPath } : undefined,
+      });
+      setSessionAnalysisJobId(analysis.jobId);
+      setSessionAnalysisStatus(analysis.status ?? "queued");
+      setSessionState("analyzing");
+      updateSessionMap(filename, {
+        status: "analyzing",
+        analysisJobId: analysis.jobId,
+      });
+      setSelectedSession({
+        id: res.jobId ?? sessionJobId,
+        filename,
+        createdAt: new Date().toISOString(),
+        status: "analyzing",
+        videoUrl,
+        jobId: res.jobId ?? sessionJobId,
+        analysisJobId: analysis.jobId,
+        metaPath: res.metaPath ?? undefined,
+      });
+      if (cameraSettings.autoStopPreviewOnCapture) {
+        handleStopPreview();
+      }
+      refreshSessions();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "세션 종료 실패";
+      setSessionError(message);
+      setSessionState("failed");
+      if (sessionFilename) {
+        updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
+      }
+    }
+  };
+
+  const handleSessionReset = () => {
+    setSessionState("idle");
+    setSessionJobId(null);
+    setSessionFilename(null);
+    setSessionVideoUrl(null);
+    setSessionMetaPath(null);
+    setSessionError(null);
+    setSessionAnalysisJobId(null);
+    setSessionAnalysisStatus(null);
+    setSessionAnalysisError(null);
+    setLiveBoxes([]);
+  };
+
+  useEffect(() => {
+    if (sessionState !== "recording" || !sessionJobId || !cameraSettings.baseUrl) {
+      setLiveBoxes([]);
+      return;
+    }
+    let cancelled = false;
+    let controller: AbortController | null = null;
+
+    const poll = async () => {
+      const requestId = ++livePollId.current;
+      if (controller) controller.abort();
+      controller = new AbortController();
+      try {
+        const res = await getSessionLive(
+          cameraSettings.baseUrl,
+          sessionJobId,
+          30,
+          cameraSettings.token || undefined,
+          controller.signal
+        );
+        if (cancelled || requestId !== livePollId.current) return;
+        setLiveBoxes(normalizeLiveBoxes(res));
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    };
+
+    poll();
+    livePollTimer.current = window.setInterval(poll, 300);
+
+    return () => {
+      cancelled = true;
+      if (controller) controller.abort();
+      if (livePollTimer.current) {
+        window.clearInterval(livePollTimer.current);
+        livePollTimer.current = null;
+      }
+    };
+  }, [sessionState, sessionJobId, cameraSettings.baseUrl, cameraSettings.token]);
+
+  useEffect(() => {
+    if (sessionState !== "analyzing" || !sessionAnalysisJobId) return;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const poll = async () => {
+      try {
+        const res = await fetchAnalysisStatus(sessionAnalysisJobId);
+        if (cancelled) return;
+        setSessionAnalysisStatus(res.status);
+        if (res.status === "succeeded") {
+          setSessionState("done");
+          if (sessionFilename) {
+            updateSessionMap(sessionFilename, { status: "done" });
+            setSelectedSession((prev) =>
+              prev && prev.filename === sessionFilename ? { ...prev, status: "done" } : prev
+            );
+          }
+          return;
+        }
+        if (res.status === "failed") {
+          const message = res.errorMessage ?? "분석이 실패했습니다.";
+          setSessionAnalysisError(message);
+          setSessionState("failed");
+          if (sessionFilename) {
+            updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
+            setSelectedSession((prev) =>
+              prev && prev.filename === sessionFilename
+                ? { ...prev, status: "failed", errorMessage: message }
+                : prev
+            );
+          }
+          return;
+        }
+        timer = window.setTimeout(poll, 1500);
+      } catch (err) {
+        if (cancelled) return;
+        setSessionAnalysisError("분석 상태를 불러오지 못했습니다.");
+        timer = window.setTimeout(poll, 2000);
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [sessionState, sessionAnalysisJobId, sessionFilename]);
 
   const clearAutoPoll = () => {
     if (autoPollTimer.current) {
@@ -504,9 +1002,10 @@ function App() {
       }
 
       if (jobId) {
-        select({ ...shot, jobId, status: nextStatus });
+        selectShot({ ...shot, jobId, status: nextStatus });
+        setSelectedSession(null);
       }
-      await refresh();
+      await refreshShots();
       setActiveTab("analysis");
     } catch (err) {
       const message = err instanceof Error ? err.message : "분석 요청 실패";
@@ -521,8 +1020,9 @@ function App() {
     setAnalyzeError(null);
     try {
       const res = await createAnalysisJobFromFile(shot.filename, { force: true });
-      select({ ...shot, jobId: res.jobId, status: res.status ?? "queued" });
-      await refresh();
+      selectShot({ ...shot, jobId: res.jobId, status: res.status ?? "queued" });
+      setSelectedSession(null);
+      await refreshShots();
       setActiveTab("analysis");
     } catch (err) {
       const message = err instanceof Error ? err.message : "강제 분석 요청 실패";
@@ -559,6 +1059,15 @@ function App() {
     autoStatus && autoStatus.state && autoStatus.state.toLowerCase() !== "idle"
       ? autoStateLabels[autoStateKey] ?? autoStatus.state
       : null;
+  const sessionOverlayLabel =
+    sessionState === "recording"
+      ? "AI 세션 촬영중"
+      : sessionState === "stopping"
+      ? "세션 종료 중"
+      : sessionState === "analyzing"
+      ? "분석 중"
+      : null;
+  const previewOverlayLabel = sessionOverlayLabel ?? autoOverlayLabel;
 
   useEffect(() => {
     if (activeTab !== "list") return;
@@ -568,28 +1077,29 @@ function App() {
     });
     if (!hasInProgress) return;
     const interval = window.setInterval(() => {
-      refresh();
+      refreshShots();
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [activeTab, shots, refresh]);
+  }, [activeTab, shots, refreshShots]);
 
   useEffect(() => {
     if (!autoPendingFilename) return;
-    refresh();
+    refreshShots();
     clearAutoRefresh();
     autoRefreshTimer.current = window.setInterval(() => {
-      refresh();
+      refreshShots();
       fetchAutoStatus();
     }, 1500);
     return () => clearAutoRefresh();
-  }, [autoPendingFilename, refresh]);
+  }, [autoPendingFilename, refreshShots]);
 
   useEffect(() => {
     if (!autoPendingFilename) return;
     const match = shots.find((shot) => shot.filename === autoPendingFilename);
     const status = match?.status ?? match?.analysis?.status;
     if (match && (status === "succeeded" || match.analysis)) {
-      select(match);
+      selectShot(match);
+      setSelectedSession(null);
       setActiveTab("analysis");
       setAutoPendingFilename(null);
       clearAutoRefresh();
@@ -619,31 +1129,18 @@ function App() {
     >
       {activeTab === "camera" && (
         <div className="space-y-4">
-          <AutoRecordPanel
-            status={autoStatus}
-            isRunning={Boolean(isAutoActive)}
-            isLoading={isStatusLoading}
-            error={autoError}
-            onStart={handleStartAuto}
-            onStop={handleStopAuto}
-            onFallbackManual={() => document.getElementById("capture-section")?.scrollIntoView({ behavior: "smooth" })}
+          <SessionControls
+            state={sessionState}
+            jobId={sessionJobId}
+            filename={sessionFilename}
+            analysisStatus={sessionAnalysisStatus ?? undefined}
+            error={sessionError}
+            analysisError={sessionAnalysisError}
+            startDisabled={hasExternalStream || (isCameraBusy && !isPreviewOn)}
+            onStart={handleSessionStart}
+            onStop={handleSessionStop}
+            onReset={handleSessionReset}
           />
-          <div id="capture-section">
-            <CaptureControls
-              isCapturing={isCapturing}
-              resolution={captureResolution}
-              fps={captureFps}
-              durationSec={captureDuration}
-              onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
-              onFpsChange={(value) => setCaptureFps(value)}
-              onDurationChange={(seconds) => setCaptureDuration(seconds)}
-              onCaptureJpg={handleCaptureJpg}
-              onCaptureMp4={handleCaptureMp4}
-              onCaptureAnalyze={handleCaptureAndAnalyze}
-              busyMessage={captureBusyMessage}
-              isBusy={isCameraBusy || hasExternalStream}
-            />
-          </div>
           <div id="camera-preview" />
           <CameraPreview
             isActive={isPreviewOn}
@@ -658,8 +1155,43 @@ function App() {
             onStop={handleStopPreview}
             error={previewError}
             startDisabled={hasExternalStream || isCameraBusy}
-            statusOverlay={autoOverlayLabel}
+            statusOverlay={previewOverlayLabel}
+            overlayBoxes={liveBoxes}
+            overlayEnabled={sessionState === "recording"}
           />
+          <AutoRecordPanel
+            status={autoStatus}
+            isRunning={Boolean(isAutoActive)}
+            isLoading={isStatusLoading}
+            error={autoError}
+            onStart={handleStartAuto}
+            onStop={handleStopAuto}
+            onFallbackManual={() =>
+              document.getElementById("capture-section")?.scrollIntoView({ behavior: "smooth" })
+            }
+          />
+          <div id="capture-section">
+            <CaptureControls
+              isCapturing={isCapturing}
+              resolution={captureResolution}
+              fps={captureFps}
+              durationSec={captureDuration}
+              onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
+              onFpsChange={(value) => setCaptureFps(value)}
+              onDurationChange={(seconds) => setCaptureDuration(seconds)}
+              onCaptureJpg={handleCaptureJpg}
+              onCaptureMp4={handleCaptureMp4}
+              onCaptureAnalyze={handleCaptureAndAnalyze}
+              busyMessage={captureBusyMessage}
+              isBusy={
+                isCameraBusy ||
+                hasExternalStream ||
+                sessionState === "recording" ||
+                sessionState === "stopping" ||
+                sessionState === "analyzing"
+              }
+            />
+          </div>
           {/* <CaptureGallery items={captures} /> */}
         </div>
       )}
@@ -672,8 +1204,9 @@ function App() {
           onUpload={async (file) => {
             const shot = await upload.start(file, "upload", settings);
             if (shot) {
-              await refresh();
-              select(shot);
+              await refreshShots();
+              selectShot(shot);
+              setSelectedSession(null);
               setActiveTab("analysis");
             }
           }}
@@ -681,46 +1214,74 @@ function App() {
       )}
 
       {activeTab === "list" && (
-        <Tabs value={listTab} onValueChange={(val) => setListTab(val as "pending" | "done")}>
+        <Tabs
+          value={listMode}
+          onValueChange={(val) => setListMode(val as "sessions" | "uploads")}
+        >
           <TabsList className="mb-3">
-            <TabsTrigger value="pending">분석 전</TabsTrigger>
-            <TabsTrigger value="done">분석 후</TabsTrigger>
+            <TabsTrigger value="sessions">세션</TabsTrigger>
+            <TabsTrigger value="uploads">업로드</TabsTrigger>
           </TabsList>
-          <TabsContent value="pending">
-            <ShotList
-              title="분석 전 파일(영상)"
-              emptyMessage="분석 대기 중인 영상이 없습니다."
-              shots={pendingShots}
-              isLoading={isLoading}
-              error={error || analyzeError}
-              onRefresh={refresh}
-              onSelect={toggleOpen}
-              onAnalyze={(shot) => handleAnalyzeShot(shot)}
-              onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
-              onRetake={handleRetake}
-              onDelete={(shot) => handleDelete(shot)}
-              deletingId={deletingId}
-              analyzingId={analyzingId}
-              openIds={openShotIds}
-            />
-          </TabsContent>
-          <TabsContent value="done">
-            <ShotList
-              title="분석 완료 파일"
-              emptyMessage="분석 완료된 파일이 없습니다."
-              shots={analyzedShots}
-              isLoading={isLoading}
-              error={error || analyzeError}
-              onRefresh={refresh}
-              onSelect={toggleOpen}
-              onTitleClick={(shot) => {
-                select(shot);
+          <TabsContent value="sessions">
+            <SessionList
+              sessions={sessions}
+              isLoading={isSessionsLoading}
+              error={sessionsError}
+              onRefresh={refreshSessions}
+              onSelect={(session) => {
+                setSelectedSession(session);
+                selectShot(null);
                 setActiveTab("analysis");
               }}
-              onDelete={(shot) => handleDelete(shot)}
-              deletingId={deletingId}
-              openIds={openShotIds}
             />
+          </TabsContent>
+          <TabsContent value="uploads">
+            <Tabs
+              value={uploadListTab}
+              onValueChange={(val) => setUploadListTab(val as "pending" | "done")}
+            >
+              <TabsList className="mb-3">
+                <TabsTrigger value="pending">분석 전</TabsTrigger>
+                <TabsTrigger value="done">분석 후</TabsTrigger>
+              </TabsList>
+              <TabsContent value="pending">
+                <ShotList
+                  title="분석 전 파일(영상)"
+                  emptyMessage="분석 대기 중인 영상이 없습니다."
+                  shots={pendingShots}
+                  isLoading={shotsLoading}
+                  error={shotsError || analyzeError}
+                  onRefresh={refreshShots}
+                  onSelect={toggleOpen}
+                  onAnalyze={(shot) => handleAnalyzeShot(shot)}
+                  onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
+                  onRetake={handleRetake}
+                  onDelete={(shot) => handleDelete(shot)}
+                  deletingId={deletingId}
+                  analyzingId={analyzingId}
+                  openIds={openShotIds}
+                />
+              </TabsContent>
+              <TabsContent value="done">
+                <ShotList
+                  title="분석 완료 파일"
+                  emptyMessage="분석 완료된 파일이 없습니다."
+                  shots={analyzedShots}
+                  isLoading={shotsLoading}
+                  error={shotsError || analyzeError}
+                  onRefresh={refreshShots}
+                  onSelect={toggleOpen}
+                  onTitleClick={(shot) => {
+                    selectShot(shot);
+                    setSelectedSession(null);
+                    setActiveTab("analysis");
+                  }}
+                  onDelete={(shot) => handleDelete(shot)}
+                  deletingId={deletingId}
+                  openIds={openShotIds}
+                />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       )}
@@ -730,11 +1291,14 @@ function App() {
           <div className="space-y-2">
             {isAnalysisLoading && <p className="text-sm text-slate-500">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
-            {selected?.errorCode === "NOT_SWING" && (jobStatus === "failed" || selected.status === "failed") && !analysis && (
+            {selectedShot?.errorCode === "NOT_SWING" &&
+              (jobStatus === "failed" || selectedShot.status === "failed") &&
+              !analysis && (
               <div className="px-4 py-3 border rounded-2xl border-amber-200 bg-amber-50">
                 <p className="text-sm font-semibold text-amber-900">스윙 영상이 아닌 것 같아요</p>
                 <p className="mt-1 text-xs break-words text-amber-800">
-                  {selected.errorMessage || "스윙 동작이 충분히 담기지 않았을 수 있어요. 다시 촬영해 주세요."}
+                  {selectedShot.errorMessage ||
+                    "스윙 동작이 충분히 담기지 않았을 수 있어요. 다시 촬영해 주세요."}
                 </p>
                 <div className="flex justify-end mt-2">
                   <Button
@@ -749,10 +1313,11 @@ function App() {
                 </div>
               </div>
             )}
+            {analysisTarget && <KeyMetrics analysis={analysis} status={jobStatus} />}
             <MetricsTable
               analysis={analysis}
               status={jobStatus}
-              onOpenVideo={selected ? () => setShowVideoModal(true) : undefined}
+              onOpenVideo={analysisTarget ? () => setShowVideoModal(true) : undefined}
             />
           </div>
           <div className="space-y-2">
@@ -761,7 +1326,22 @@ function App() {
               events={analysis?.events}
               isModalOpen={showVideoModal}
             />
-            {/* <CoachSummary comments={analysis?.coach_summary ?? []} /> */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">코칭 요약</CardTitle>
+                <CardDescription>분석 결과 기반 짧은 요약입니다.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {analysis?.summary
+                    ? analysis.summary
+                    : jobStatus === "queued" || jobStatus === "running"
+                    ? "분석 중입니다. 잠시만 기다려 주세요."
+                    : "데이터가 부족합니다."}
+                </p>
+              </CardContent>
+            </Card>
+            <CoachSummary comments={analysis?.coachSummary ?? []} />
           </div>
         </div>
       )}
@@ -790,7 +1370,7 @@ function App() {
         </div>
       )}
 
-      {showVideoModal && selected && (
+      {showVideoModal && analysisTarget && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60"
           role="dialog"
@@ -809,7 +1389,7 @@ function App() {
               </Button>
             </div>
             <video
-              key={selected.id}
+              key={analysisTarget.id}
               className="w-full rounded-lg border border-slate-200 max-h-[600px] object-contain"
               controls
               preload="metadata"

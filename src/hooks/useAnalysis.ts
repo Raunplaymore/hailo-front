@@ -22,7 +22,12 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
     let timer: number | undefined;
 
     const existingAnalysis = selected?.analysis ?? null;
-    const jobId = existingAnalysis?.jobId ?? selected?.jobId ?? selected?.id;
+    const statusHint = selected?.status ?? existingAnalysis?.status;
+    const fallbackId =
+      statusHint && statusHint !== "idle" && statusHint !== "not-analyzed"
+        ? selected?.id
+        : undefined;
+    const jobId = existingAnalysis?.jobId ?? selected?.jobId ?? fallbackId;
     setAnalysis(existingAnalysis);
     setStatus(existingAnalysis?.status ?? selected?.status ?? "idle");
     setError(null);

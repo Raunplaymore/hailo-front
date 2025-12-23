@@ -32,6 +32,8 @@ export type AnalysisMetrics = {
   tempo?: TempoMetrics;
   eventTiming?: EventTimingMetrics;
   ball?: BallMetrics;
+  swingPlane?: string | null;
+  impactStability?: string | null;
 };
 
 export type PendingMetric = {
@@ -50,6 +52,8 @@ export type AnalysisResult = {
   createdAt?: string;
   finishedAt?: string;
   errorMessage?: string;
+  summary?: string | null;
+  coachSummary?: string[];
 };
 
 export type Shot = {

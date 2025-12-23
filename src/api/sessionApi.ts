@@ -190,16 +190,26 @@ export const listSessionFiles = async (
   token?: string
 ): Promise<SessionFileItem[]> => {
   const normalized = ensureBaseUrl(baseUrl);
-  const res = await fetch(`${normalized}/api/files`, {
-    headers: {
-      ...authHeaders(token),
-    },
-  });
-  if (!res.ok) {
-    throw await buildError(res, "파일 목록을 불러오지 못했습니다.");
+  const fetchFiles = async (path: string) => {
+    const res = await fetch(`${normalized}${path}`, {
+      headers: {
+        ...authHeaders(token),
+      },
+    });
+    if (!res.ok) {
+      throw await buildError(res, "파일 목록을 불러오지 못했습니다.");
+    }
+    const json = (await res.json()) as any;
+    return Array.isArray(json) ? json : Array.isArray(json?.files) ? json.files : [];
+  };
+
+  let files: any[] = [];
+  try {
+    files = await fetchFiles("/api/files/detail");
+  } catch (err) {
+    files = await fetchFiles("/api/files");
   }
-  const json = (await res.json()) as any;
-  const files = Array.isArray(json) ? json : Array.isArray(json?.files) ? json.files : [];
+
   return files
     .map((item: any) => {
       if (typeof item === "string") {
@@ -208,7 +218,7 @@ export const listSessionFiles = async (
       return {
         filename: item.filename ?? item.name ?? item.fileName ?? "",
         url: item.url ?? item.file?.url,
-        createdAt: item.createdAt ?? item.created_at,
+        createdAt: item.createdAt ?? item.created_at ?? item.modifiedAt ?? item.modified_at,
         modifiedAt: item.modifiedAt ?? item.modified_at,
         size: item.size ?? item.bytes,
         jobId: item.jobId ?? item.sessionId ?? item.job_id,

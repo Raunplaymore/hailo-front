@@ -15,6 +15,7 @@ type SessionControlsProps = {
   jobId?: string | null;
   filename?: string | null;
   analysisStatus?: JobStatus | null;
+  sessionStatus?: string | null;
   error?: string | null;
   analysisError?: string | null;
   startDisabled?: boolean;
@@ -55,6 +56,7 @@ export function SessionControls({
   jobId,
   filename,
   analysisStatus,
+  sessionStatus,
   error,
   analysisError,
   startDisabled = false,
@@ -101,6 +103,11 @@ export function SessionControls({
         {analysisStatus && (
           <p className="text-xs text-muted-foreground">
             분석 상태: {ANALYSIS_LABELS[analysisStatus] ?? analysisStatus}
+          </p>
+        )}
+        {sessionStatus && (
+          <p className="text-xs text-muted-foreground">
+            세션 상태: {sessionStatus}
           </p>
         )}
         <div className="flex flex-wrap gap-2">

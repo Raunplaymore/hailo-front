@@ -34,8 +34,10 @@ import {
 } from "./api/cameraApi";
 import {
   getSessionLive,
+  getSessionStatus,
   listSessionFiles,
   resolveCameraFileUrl,
+  SessionApiError,
   startSession,
   stopSession,
 } from "./api/sessionApi";
@@ -68,6 +70,7 @@ const loadLocalJson = <T,>(key: string): T | null => {
 };
 
 const normalizeBase = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
+const MAX_PREVIEW_PIXELS = 1280 * 720;
 
 function App() {
   const {
@@ -134,6 +137,8 @@ function App() {
   const [sessionFilename, setSessionFilename] = useState<string | null>(null);
   const [sessionVideoUrl, setSessionVideoUrl] = useState<string | null>(null);
   const [sessionMetaPath, setSessionMetaPath] = useState<string | null>(null);
+  const [sessionRuntimeStatus, setSessionRuntimeStatus] = useState<string | null>(null);
+  const [sessionRuntimeError, setSessionRuntimeError] = useState<string | null>(null);
   const [sessionLiveSize, setSessionLiveSize] = useState<{ width: number; height: number } | null>(
     null
   );
@@ -318,6 +323,10 @@ function App() {
       );
       return;
     }
+    if (previewParams.width * previewParams.height > MAX_PREVIEW_PIXELS) {
+      setPreviewError("해상도가 너무 높습니다. 네트워크 상태를 고려해 낮춰주세요.");
+      return;
+    }
     setPreviewError(null);
     try {
       const url = buildStreamUrl(cameraSettings.baseUrl, {
@@ -334,6 +343,13 @@ function App() {
       const message = err instanceof Error ? err.message : "프리뷰를 시작할 수 없습니다.";
       setPreviewError(message);
     }
+  };
+
+  const handleStreamError = () => {
+    setPreviewError("프리뷰 연결이 끊어졌습니다. 다시 시도하세요.");
+    setIsPreviewOn(false);
+    setStreamUrl(null);
+    handleCheckStatus();
   };
 
   const handleStopPreview = () => {
@@ -439,8 +455,12 @@ function App() {
       setSessions(nextSessions);
       rememberBase(cameraSettings.baseUrl);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "세션 목록을 불러오지 못했습니다.";
-      setSessionsError(message);
+      if (err instanceof SessionApiError && err.status === 404) {
+        setSessionsError("세션 목록 API가 아직 준비되지 않았습니다.");
+      } else {
+        const message = err instanceof Error ? err.message : "세션 목록을 불러오지 못했습니다.";
+        setSessionsError(message);
+      }
     } finally {
       setIsSessionsLoading(false);
     }
@@ -578,6 +598,10 @@ function App() {
       setSessionError("카메라 사용 중입니다. 다른 스트림을 종료한 후 시작하세요.");
       return;
     }
+    if (previewParams.width * previewParams.height > MAX_PREVIEW_PIXELS) {
+      setSessionError("해상도가 너무 높습니다. 네트워크 상태를 고려해 낮춰주세요.");
+      return;
+    }
     setSessionError(null);
     setSessionFilename(null);
     setSessionVideoUrl(null);
@@ -585,6 +609,8 @@ function App() {
     setSessionAnalysisJobId(null);
     setSessionAnalysisStatus(null);
     setSessionAnalysisError(null);
+    setSessionRuntimeStatus(null);
+    setSessionRuntimeError(null);
     setSessionLiveSize(null);
     setLiveBoxes([]);
     try {
@@ -690,6 +716,8 @@ function App() {
     setSessionFilename(null);
     setSessionVideoUrl(null);
     setSessionMetaPath(null);
+    setSessionRuntimeStatus(null);
+    setSessionRuntimeError(null);
     setSessionError(null);
     setSessionAnalysisJobId(null);
     setSessionAnalysisStatus(null);
@@ -738,6 +766,51 @@ function App() {
       }
     };
   }, [sessionState, sessionJobId, cameraSettings.baseUrl, cameraSettings.token]);
+
+  useEffect(() => {
+    if (!sessionJobId || !cameraSettings.baseUrl) {
+      setSessionRuntimeStatus(null);
+      return;
+    }
+    if (sessionState !== "recording" && sessionState !== "stopping") return;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const poll = async () => {
+      try {
+        const res = await getSessionStatus(
+          cameraSettings.baseUrl,
+          sessionJobId,
+          cameraSettings.token || undefined
+        );
+        if (cancelled) return;
+        const status = typeof res.status === "string" ? res.status : null;
+        setSessionRuntimeStatus(status);
+        if (res.errorMessage) {
+          setSessionRuntimeError(res.errorMessage);
+        }
+        if (status === "failed") {
+          setSessionRuntimeError(res.errorMessage || "세션이 실패했습니다.");
+          setSessionState("failed");
+          return;
+        }
+        timer = window.setTimeout(poll, 1500);
+      } catch (err) {
+        if (cancelled) return;
+        setSessionRuntimeError("세션 상태를 불러오지 못했습니다.");
+        timer = window.setTimeout(poll, 2500);
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [sessionJobId, sessionState, cameraSettings.baseUrl, cameraSettings.token]);
 
   useEffect(() => {
     if (sessionState !== "analyzing" || !sessionAnalysisJobId) return;
@@ -1156,7 +1229,8 @@ function App() {
             jobId={sessionJobId}
             filename={sessionFilename}
             analysisStatus={sessionAnalysisStatus ?? undefined}
-            error={sessionError}
+            sessionStatus={sessionRuntimeStatus}
+            error={sessionError || sessionRuntimeError}
             analysisError={sessionAnalysisError}
             startDisabled={hasExternalStream || (isCameraBusy && !isPreviewOn)}
             onStart={handleSessionStart}
@@ -1175,6 +1249,7 @@ function App() {
             onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
             onStart={handleStartPreview}
             onStop={handleStopPreview}
+            onStreamError={handleStreamError}
             error={previewError}
             startDisabled={hasExternalStream || isCameraBusy}
             statusOverlay={previewOverlayLabel}

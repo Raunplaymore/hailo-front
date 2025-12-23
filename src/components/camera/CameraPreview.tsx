@@ -29,6 +29,7 @@ type CameraPreviewProps = {
   onChangeFps: (fps: number) => void;
   onStart: () => void;
   onStop: () => void;
+  onStreamError?: () => void;
   error?: string | null;
   startDisabled?: boolean;
   statusOverlay?: string | null;
@@ -55,6 +56,7 @@ export function CameraPreview({
   onChangeFps,
   onStart,
   onStop,
+  onStreamError,
   error,
   startDisabled = false,
   statusOverlay = null,
@@ -70,6 +72,7 @@ export function CameraPreview({
     }
     onStop();
   };
+  const startLabel = error ? "프리뷰 재연결" : "프리뷰 켜기";
 
   useEffect(() => {
     // isActive=false 또는 streamUrl이 비어질 때 명시적으로 src를 비워 스트림을 끊어준다.
@@ -113,7 +116,7 @@ export function CameraPreview({
               onClick={onStart}
               disabled={startDisabled}
             >
-              프리뷰 켜기
+              {startLabel}
             </Button>
           )}
         </div>
@@ -219,6 +222,7 @@ export function CameraPreview({
                 src={streamUrl}
                 alt="Camera preview"
                 className="w-full rounded-lg border border-border object-contain bg-black max-h-[360px]"
+                onError={() => onStreamError?.()}
               />
               {overlayEnabled && (
                 <LiveOverlay

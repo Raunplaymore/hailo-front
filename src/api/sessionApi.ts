@@ -187,9 +187,51 @@ export const getSessionLive = async (
 
 export const listSessionFiles = async (
   baseUrl: string,
-  token?: string
+  token?: string,
+  options?: { limit?: number; offset?: number }
 ): Promise<SessionFileItem[]> => {
   const normalized = ensureBaseUrl(baseUrl);
+  const limit = options?.limit ?? 50;
+  const offset = options?.offset ?? 0;
+
+  const fetchSessionList = async () => {
+    const url = new URL("/api/session/list", normalized);
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(offset));
+    const res = await fetch(url.toString(), {
+      headers: {
+        ...authHeaders(token),
+      },
+    });
+    if (!res.ok) {
+      throw await buildError(res, "세션 목록을 불러오지 못했습니다.");
+    }
+    const json = (await res.json()) as any;
+    const sessions = Array.isArray(json)
+      ? json
+      : Array.isArray(json?.sessions)
+      ? json.sessions
+      : Array.isArray(json?.items)
+      ? json.items
+      : [];
+    return sessions.map((item: any) => {
+      const jobId = item.jobId ?? item.sessionId ?? item.id;
+      const filename =
+        item.videoFile ?? item.video_file ?? item.filename ?? (jobId ? `${jobId}.mp4` : "");
+      return {
+        filename,
+        url: item.videoUrl ?? item.video_url ?? item.url,
+        startedAt: item.startedAt ?? item.started_at,
+        stoppedAt: item.stoppedAt ?? item.stopped_at,
+        createdAt: item.startedAt ?? item.started_at ?? item.stoppedAt ?? item.stopped_at,
+        jobId,
+        status: item.status,
+        metaPath: item.metaPath ?? item.meta_path,
+        errorMessage: item.errorMessage ?? item.error,
+      } as SessionFileItem;
+    });
+  };
+
   const fetchFiles = async (path: string) => {
     const res = await fetch(`${normalized}${path}`, {
       headers: {
@@ -205,9 +247,13 @@ export const listSessionFiles = async (
 
   let files: any[] = [];
   try {
-    files = await fetchFiles("/api/files/detail");
+    return await fetchSessionList();
   } catch (err) {
-    files = await fetchFiles("/api/files");
+    try {
+      files = await fetchFiles("/api/files/detail");
+    } catch (_) {
+      files = await fetchFiles("/api/files");
+    }
   }
 
   return files
@@ -218,7 +264,17 @@ export const listSessionFiles = async (
       return {
         filename: item.filename ?? item.name ?? item.fileName ?? "",
         url: item.url ?? item.file?.url,
-        createdAt: item.createdAt ?? item.created_at ?? item.modifiedAt ?? item.modified_at,
+        startedAt: item.startedAt ?? item.started_at,
+        stoppedAt: item.stoppedAt ?? item.stopped_at,
+        createdAt:
+          item.createdAt ??
+          item.created_at ??
+          item.modifiedAt ??
+          item.modified_at ??
+          item.startedAt ??
+          item.started_at ??
+          item.stoppedAt ??
+          item.stopped_at,
         modifiedAt: item.modifiedAt ?? item.modified_at,
         size: item.size ?? item.bytes,
         jobId: item.jobId ?? item.sessionId ?? item.job_id,

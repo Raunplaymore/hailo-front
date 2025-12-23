@@ -1,6 +1,6 @@
 export type SessionState = "idle" | "recording" | "stopping" | "analyzing" | "done" | "failed";
 
-export type SessionStatus = "recorded" | "analyzing" | "done" | "failed";
+export type SessionStatus = "recording" | "recorded" | "analyzing" | "done" | "failed";
 
 export type SessionStartPayload = {
   width?: number;
@@ -57,6 +57,8 @@ export type SessionStopResponse = {
 export type SessionFileItem = {
   filename: string;
   url?: string;
+  startedAt?: string;
+  stoppedAt?: string;
   createdAt?: string;
   modifiedAt?: string;
   size?: number;

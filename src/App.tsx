@@ -220,7 +220,8 @@ function App() {
 
   const sessionToShot = (session: SessionRecord): Shot => {
     const analysisJobId =
-      session.analysisJobId ?? (session.status !== "recorded" ? session.jobId : undefined);
+      session.analysisJobId ??
+      (["analyzing", "done", "failed"].includes(session.status) ? session.jobId : undefined);
     const status: JobStatus =
       session.status === "done"
         ? "succeeded"
@@ -376,7 +377,9 @@ function App() {
       case "queued":
       case "running":
       case "analyzing":
-        return "analyzing";
+        return status === "running" ? "recording" : "analyzing";
+      case "stopped":
+        return "recorded";
       case "succeeded":
       case "done":
         return "done";
@@ -424,7 +427,8 @@ function App() {
     try {
       const files = await listSessionFiles(
         cameraSettings.baseUrl,
-        cameraSettings.token || undefined
+        cameraSettings.token || undefined,
+        { limit: 50, offset: 0 }
       );
       const nextSessions = files
         .filter((file) => isVideoFile(file.filename))
@@ -442,7 +446,12 @@ function App() {
           return {
             id: file.jobId ?? file.filename,
             filename: file.filename,
-            createdAt: file.modifiedAt ?? file.createdAt ?? new Date().toISOString(),
+            createdAt:
+              file.stoppedAt ??
+              file.startedAt ??
+              file.modifiedAt ??
+              file.createdAt ??
+              new Date().toISOString(),
             status,
             videoUrl,
             jobId: local?.jobId ?? file.jobId,

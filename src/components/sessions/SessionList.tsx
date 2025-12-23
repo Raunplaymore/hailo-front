@@ -20,6 +20,7 @@ type SessionListProps = {
 };
 
 const STATUS_LABELS: Record<SessionStatus, string> = {
+  recording: "촬영 중",
   recorded: "촬영 완료",
   analyzing: "분석 중",
   done: "분석 완료",
@@ -27,6 +28,7 @@ const STATUS_LABELS: Record<SessionStatus, string> = {
 };
 
 const STATUS_STYLES: Record<SessionStatus, string> = {
+  recording: "bg-amber-50 text-amber-700 border border-amber-200",
   recorded: "bg-slate-50 text-slate-700 border border-slate-200",
   analyzing: "bg-blue-50 text-blue-700 border border-blue-200",
   done: "bg-emerald-50 text-emerald-700 border border-emerald-200",
@@ -111,6 +113,7 @@ export function SessionList({
                     variant="outline"
                     size="sm"
                     fullWidth={false}
+                    disabled={session.status === "recording"}
                   >
                     결과 보기
                   </Button>

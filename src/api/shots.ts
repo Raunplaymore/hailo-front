@@ -71,6 +71,7 @@ const resolveFilename = (input: any): string => {
     input.file?.filename ||
     input.shot?.filename ||
     input.media?.filename ||
+    input.fileName ||
     input.name ||
     ""
   );
@@ -127,8 +128,18 @@ const normalizeEvents = (events: any): Partial<Record<SwingEventKey, SwingEventT
   const keys: SwingEventKey[] = ["address", "top", "impact", "finish"];
   if (!events || typeof events !== "object") return {};
 
+  const toMsValue = (key: SwingEventKey) => {
+    const direct = events[key];
+    if (direct != null) return direct;
+    const camel = events[`${key}Ms`];
+    if (camel != null) return camel;
+    const snake = events[`${key}_ms`];
+    if (snake != null) return snake;
+    return null;
+  };
+
   return keys.reduce((acc, key) => {
-    const raw = events[key];
+    const raw = toMsValue(key);
     if (raw == null) return acc;
 
     if (typeof raw === "number") {
@@ -165,6 +176,27 @@ const normalizeTempo = (metrics: any): TempoMetrics | undefined => {
     downswingMs: toNumberOrNull(downswing),
     ratio: ratio != null ? String(ratio) : null,
   };
+};
+
+const normalizeJobStatus = (status: any): JobStatus => {
+  if (!status || typeof status !== "string") return "queued";
+  switch (status.toLowerCase()) {
+    case "pending":
+      return "queued";
+    case "done":
+      return "succeeded";
+    case "success":
+    case "succeeded":
+      return "succeeded";
+    case "running":
+      return "running";
+    case "failed":
+      return "failed";
+    case "queued":
+      return "queued";
+    default:
+      return "queued";
+  }
 };
 
 const deriveSpeedRelative = (initialVelocity: any): BallMetrics["speedRelative"] => {
@@ -246,7 +278,7 @@ const normalizeAnalysis = (
   status: JobStatus = "succeeded"
 ): AnalysisResult => {
   const metricsBlock = raw?.metrics ?? raw;
-  const events = normalizeEvents(raw?.events ?? metricsBlock?.events);
+  const events = normalizeEvents(raw?.events ?? metricsBlock?.events ?? raw);
   const tempo = normalizeTempo(metricsBlock);
   const eventTiming = deriveEventTiming(metricsBlock, events);
   const ball = normalizeBall(metricsBlock);
@@ -257,10 +289,23 @@ const normalizeAnalysis = (
     metricsBlock?.impact_stability ??
     raw?.impactStability ??
     raw?.impact_stability;
+  const formatScore = (value: number | null | undefined) =>
+    value == null || Number.isNaN(value) ? null : `${Math.round(value * 100)}%`;
   const toText = (value: any): string | null => {
     if (value == null) return null;
     if (typeof value === "string") return value;
     if (typeof value === "number") return String(value);
+    if (typeof value === "object") {
+      const label = value.label ?? value.name ?? value.type;
+      const score =
+        typeof value.confidence === "number"
+          ? formatScore(value.confidence)
+          : typeof value.score === "number"
+          ? formatScore(value.score)
+          : null;
+      if (typeof label === "string" && score) return `${label} (${score})`;
+      if (typeof label === "string") return label;
+    }
     return null;
   };
   const summary =
@@ -478,15 +523,13 @@ export const fetchAnalysisStatus = async (
 ): Promise<{ jobId: string; status: JobStatus; analysis?: AnalysisResult | null; errorMessage?: string }> => {
   try {
     const res = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}`);
-    const status = (res.status as JobStatus) ?? "queued";
-    const analysis = res.analysis
-      ? normalizeAnalysis(res.analysis, res.jobId ?? jobId, status)
-      : undefined;
+    const status = normalizeJobStatus(res.status);
+    const analysis = normalizeAnalysis(res, res.jobId ?? jobId, status);
     return {
       jobId: res.jobId ?? jobId,
       status,
       analysis,
-      errorMessage: res.error ?? res.message,
+      errorMessage: res.errorMessage ?? res.error ?? res.message,
     };
   } catch (err) {
     console.warn("fetchAnalysisStatus failed", err);
@@ -496,9 +539,10 @@ export const fetchAnalysisStatus = async (
 
 export const fetchAnalysisResult = async (jobId: string): Promise<AnalysisResult | null> => {
   try {
-    const result = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}/result`);
+    const result = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}`);
     if (!result) return null;
-    return normalizeAnalysis(result, jobId, "succeeded");
+    const status = normalizeJobStatus(result.status);
+    return normalizeAnalysis(result, jobId, status);
   } catch (err) {
     console.warn("fetchAnalysisResult failed (ignored):", err);
     return null;
@@ -511,27 +555,37 @@ export const createShot = createAnalysisJob;
 
 export const createAnalysisJobFromFile = async (
   filename: string,
-  options?: { force?: boolean; sessionId?: string; meta?: Record<string, unknown> }
+  options?: { force?: boolean; jobId?: string }
 ): Promise<{ jobId: string; filename: string; status?: JobStatus }> => {
+  const derivedJobId = options?.jobId ?? filename.replace(/\.[^.]+$/, "");
   const res = await fetch(`${API_BASE}/api/analyze/from-file`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      jobId: derivedJobId,
       filename,
       ...(options?.force ? { force: true } : {}),
-      ...(options?.sessionId ? { sessionId: options.sessionId } : {}),
-      ...(options?.meta ? { meta: options.meta } : {}),
     }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(text || res.statusText);
   }
-  const json = (await res.json()) as { jobId: string; filename: string; status?: JobStatus; ok?: boolean; error?: string };
+  const json = (await res.json()) as {
+    jobId: string;
+    filename: string;
+    status?: string;
+    ok?: boolean;
+    error?: string;
+  };
   if (json.ok === false) {
     throw new Error(json.error || "분석을 시작하지 못했습니다.");
   }
-  return { jobId: json.jobId, filename: json.filename, status: json.status };
+  return {
+    jobId: json.jobId ?? derivedJobId,
+    filename: json.filename ?? filename,
+    status: normalizeJobStatus(json.status),
+  };
 };

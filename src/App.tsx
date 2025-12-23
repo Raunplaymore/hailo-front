@@ -609,10 +609,8 @@ function App() {
         sessionJobId,
         cameraSettings.token || undefined
       );
-      const filename = res.filename;
-      if (!filename) {
-        throw new Error("세션 종료 응답에서 filename을 찾지 못했습니다.");
-      }
+      const resolvedJobId = res.jobId ?? sessionJobId;
+      const filename = res.filename || `${resolvedJobId}.mp4`;
       const videoUrl = resolveCameraFileUrl(
         cameraSettings.baseUrl,
         res.videoUrl || res.url,
@@ -623,14 +621,13 @@ function App() {
       setSessionMetaPath(res.metaPath ?? null);
       updateSessionMap(filename, {
         status: "recorded",
-        jobId: res.jobId ?? sessionJobId,
+        jobId: resolvedJobId,
         metaPath: res.metaPath ?? undefined,
         videoUrl,
       });
 
       const analysis = await createAnalysisJobFromFile(filename, {
-        sessionId: res.jobId ?? sessionJobId,
-        meta: res.metaPath ? { metaPath: res.metaPath } : undefined,
+        jobId: resolvedJobId,
       });
       setSessionAnalysisJobId(analysis.jobId);
       setSessionAnalysisStatus(analysis.status ?? "queued");

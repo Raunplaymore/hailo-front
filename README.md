@@ -30,8 +30,8 @@
 - 자동 모드: `POST /api/camera/auto-record/start|stop`, `GET /api/camera/auto-record/status` 폴링(1s), recordingFilename로 `/api/files/detail` 상태 확인 → 완료 시 분석 뷰로 이동.
 
 ## 백엔드 분석 API 연동 요약
-- `POST /api/analyze/from-file` : `{ filename, sessionId?, meta? }` → `{ jobId }`
-- `GET /api/analyze/:jobId` : 상태 조회
+- `POST /api/analyze/from-file` : `{ jobId, filename, force? }` → `{ ok, jobId, status }`
+- `GET /api/analyze/:jobId` : `pending | running | done | failed` 상태 + 동일 스키마 결과 반환
 
 ## 환경변수
 - `.env.example`를 참고해 로컬 `.env`를 생성하세요(실제 .env는 커밋 금지).

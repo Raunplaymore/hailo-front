@@ -124,7 +124,7 @@ export function SessionControls({
             >
               Start
             </Button>
-          )}
+          ) : null}
           {canStart && (state === "done" || state === "failed") && (
             <Button
               type="button"

@@ -1105,7 +1105,7 @@ function App() {
       clearAutoRefresh();
       clearAutoPoll();
     }
-  }, [shots, autoPendingFilename, select]);
+  }, [shots, autoPendingFilename, selectShot]);
 
   useEffect(() => {
     if (!isAutoActive && !autoPendingFilename) {

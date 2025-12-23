@@ -5,7 +5,9 @@
 
 ## 핵심 플로우
 - **카메라 연동(Hailo Camera API)**: 상태 확인 → MJPEG 프리뷰 온/오프 → JPG/MP4 캡처 → 녹화 후 분석 요청.
-- **해상도 정책(검증된 값만 노출)**: `640×360 (저화질·빠름)`, `1280×720 (권장·고화질)` 두 가지만 제공. 프리뷰/캡처 모두 동일 정책.
+- **프리뷰/캡처 해상도 정책**:
+  - 프리뷰: 핫스팟 환경을 위해 `640×640`, `640×360` 프리셋과 직접 입력을 제공(너무 높은 값은 네트워크 상태에 따라 제한 권장).
+  - 캡처: 검증된 `640×360 (저화질·빠름)`, `1280×720 (권장·고화질)` 두 가지 프리셋만 노출.
 - **업로드 & 분석**: 업로드 직후 분석 Job 생성, `queued → running → succeeded | failed` 상태 표시 및 재시도/강제 분석 UX.
 - **리스트 & 재생**: `/api/files/detail` 응답의 `url`을 그대로 사용해 mp4만 리스트/재생, 분석 상태 뱃지/CTA 제공.
 - **분석 뷰**: 이벤트 타임라인(Address/Top/Impact/Finish), Tempo(비율/시간), Ball 근사값, 준비 중 지표 표기.
@@ -24,21 +26,41 @@
 
 ## 환경변수
 - `.env.example`를 참고해 로컬 `.env`를 생성하세요(실제 .env는 커밋 금지).
-- `VITE_API_BASE`: 백엔드(hailo-back) 주소 예) `http://localhost:3000`
-- `VITE_CAMERA_API_BASE` (또는 `NEXT_PUBLIC_CAMERA_API_BASE`): 카메라 서버 주소 예) `http://raspberrypi.local:3001`
-- `VITE_CAMERA_AUTH_TOKEN` (옵션): Bearer 토큰
+- `VITE_API_BASE`: 프런트에서 호출할 기본 백엔드(hailo-back) 주소 예) `http://localhost:3000`
+- `VITE_API_BASE_LOCAL` (옵션): 로컬 개발 머신 전용 기본값. 명시하지 않으면 `http://100.92.70.114:3000`.
+- `VITE_API_BASE_PI` (옵션): 라즈베리파이·현장 장비 접속 시 기본값.
+- `VITE_CAMERA_API_BASE` 또는 `NEXT_PUBLIC_CAMERA_API_BASE`: 카메라 서버 주소 예) `http://raspberrypi.local:3001`
+- `VITE_CAMERA_AUTH_TOKEN` 또는 `NEXT_PUBLIC_CAMERA_AUTH_TOKEN` (옵션): 카메라 API Bearer 토큰
+- 기타 프리뷰/분석 관련 실험용 값이 필요하면 `VITE_` prefix를 사용해 추가합니다.
 
 ## 실행
 ```bash
 npm install
 npm run dev  # http://localhost:5173
 ```
+- 프리뷰 빌드를 점검하려면 `npm run preview` 사용
 
 ## 빌드
 ```bash
 npm run build
 ```
 - 산출물: `dist/`
+
+## 업로드 파라미터
+`useUpload` 훅은 업로드 시 아래 필드를 옵션으로 전달해 분석에 활용합니다.
+
+| 필드 | 설명 |
+| --- | --- |
+| `club` | 사용한 클럽 종류(예: driver, 7i) |
+| `fps` | 촬영 프레임레이트. 캡처 시 선택한 값과 일치시켜야 이벤트 정렬 정확도가 올라갑니다. |
+| `roi` | 분석 영역(Region of Interest). `"x1,y1,x2,y2"` 포맷 등 백엔드에서 요구하는 형태 사용 |
+| `cam_distance` | 카메라-선수 간 거리(m) |
+| `cam_height` | 카메라 높이(m) |
+| `h_fov` / `v_fov` | 카메라 수평/수직 화각(°) |
+| `impact_frame` | 수동으로 지정하는 임팩트 프레임 인덱스 |
+| `track_frames` | 추적 프레임 수(분석 파이프라인 전용) |
+
+필요한 값만 선택적으로 넘길 수 있으며, 값은 모두 문자열로 폼데이터에 포함됩니다.
 
 ## 설계 원칙
 - ✅ 단일 카메라에서 신뢰 가능한 지표(이벤트/템포/경향) 우선

@@ -7,24 +7,25 @@
 - **AI 세션(원탭 Start/Stop)**: `POST /api/session/start` → 라이브 오버레이 → `POST /api/session/:jobId/stop` → `POST /api/analyze/from-file`.
 - **라이브 프리뷰 + 오버레이**: MJPEG 프리뷰 위에 실시간 bbox를 매핑해 표시(200~400ms 폴링).
 - **프리뷰/캡처 해상도 정책**:
-  - 프리뷰: 핫스팟 환경을 위해 `640×640`, `640×360` 프리셋과 직접 입력을 제공(너무 높은 값은 네트워크 상태에 따라 제한 권장).
+  - 프리뷰: 핫스팟 환경을 위해 `640×640`, `640×360` 프리셋과 직접 입력을 제공(1280×720 초과는 차단).
   - 캡처: 검증된 `640×360 (저화질·빠름)`, `1280×720 (권장·고화질)` 두 가지 프리셋만 노출.
 - **업로드 & 분석**: 업로드 직후 분석 Job 생성, `queued → running → succeeded | failed` 상태 표시 및 재시도/강제 분석 UX.
-- **리스트 & 재생**: 카메라 `/api/session/list` 우선, 없으면 `/api/files`로 세션 히스토리 구성, 분석 상태 뱃지/CTA 제공.
+- **리스트 & 재생**: 카메라 `GET /api/session/list` 기반으로 세션 히스토리 구성(필요 시 `/api/files` fallback), 분석 상태 뱃지/CTA 제공.
 - **분석 뷰**: 이벤트 타임라인(Address/Top/Impact/Finish), 요약 코멘트, 핵심 지표(스윙 플레인/템포/임팩트 안정성) 표시.
 - **모바일 우선**: iOS/핫스팟 환경에서 프리뷰/캡처가 빠르게 동작하도록 저해상도·저FPS 프리셋 제공.
-- **자동 촬영 모드**: `자동 촬영 시작/중지` 버튼, 상태 배지(대기/어드레스/촬영중/피니시/분석중/실패), 프리뷰 오버레이, 실패 시 수동 촬영 전환 버튼.
+- **자동 촬영 모드**: `자동 촬영 시작/중지` 버튼, 상태 배지(대기/어드레스 감지/안정 상태 확보/촬영중/마무리 처리 중/정지 중/실패), 프리뷰 오버레이, 실패 시 수동 촬영 전환 버튼.
   - API: `POST /api/camera/auto-record/start|stop`, `GET /api/camera/auto-record/status`(1초 폴링, state 기반 UI), recordingFilename으로 `/api/files/detail` 상태 추적.
 
 ## 카메라 API 연동 요약
 - 상태: `GET /api/camera/status` → `busy/streaming/streamClients/lastCaptureAt` 기반으로 버튼 활성화.
 - 프리뷰: `<img src="/api/camera/stream.mjpeg?...">` 연결/해제 시 src 비우기(Abort)로 명시 종료.
+- 프리뷰/세션 동시 사용 가능, 프리뷰는 멀티 클라이언트 접속 허용.
 - 세션 시작/종료:
   - `POST /api/session/start` → `{ jobId, videoFile, videoUrl, metaPath }`
   - 요청(옵션): `{ width, height, fps, model, durationSec }`
   - `POST /api/session/:jobId/stop` → `{ jobId, videoUrl, metaPath }`
 - 세션 상태/메타:
-  - `GET /api/session/list?limit=50&offset=0` → 최근 세션 목록
+  - `GET /api/session/list?limit=50&offset=0` → `{ jobId, status, startedAt, stoppedAt, errorMessage, videoFile, videoUrl, metaPath }`
   - `GET /api/session/:jobId/status` → `running | stopped | failed`
   - `GET /api/session/:jobId/meta` → 정규화된 meta(frames 배열)
 - 라이브 인퍼런스: `GET /api/session/:jobId/live?tailFrames=30` (bbox 배열, 최신 프레임만 사용)

@@ -316,14 +316,6 @@ function App() {
   }, [activeTab, cameraSettings.baseUrl, cameraSettings.token]);
 
   const handleStartPreview = () => {
-    if (isCameraBusy || hasExternalStream) {
-      setPreviewError(
-        hasExternalStream
-          ? `스트림은 동시 1명만 허용됩니다. 다른 기기에서 프리뷰를 종료하세요. (현재 ${streamClients}명 접속)`
-          : "카메라 사용 중(스트리밍/녹화). 잠시 후 다시 시도하세요."
-      );
-      return;
-    }
     if (previewParams.width * previewParams.height > MAX_PREVIEW_PIXELS) {
       setPreviewError("해상도가 너무 높습니다. 네트워크 상태를 고려해 낮춰주세요.");
       return;
@@ -601,10 +593,6 @@ function App() {
   const handleSessionStart = async () => {
     if (!cameraSettings.baseUrl) {
       setSessionError("카메라 서버 주소를 입력하세요.");
-      return;
-    }
-    if (hasExternalStream || (isCameraBusy && !isPreviewOn)) {
-      setSessionError("카메라 사용 중입니다. 다른 스트림을 종료한 후 시작하세요.");
       return;
     }
     if (previewParams.width * previewParams.height > MAX_PREVIEW_PIXELS) {
@@ -924,10 +912,6 @@ function App() {
       setAutoError("카메라 서버 주소를 입력하세요.");
       return;
     }
-    if (isCameraBusy || hasExternalStream) {
-      setAutoError("카메라 사용 중입니다. 스트리밍/녹화를 종료 후 자동 촬영을 시작하세요.");
-      return;
-    }
     try {
       setAutoError(null);
       const res = await startAutoRecord(cameraSettings.baseUrl, cameraSettings.token || undefined);
@@ -985,25 +969,11 @@ function App() {
     captureLockRef.current = true;
     console.log(`${logPrefix} start`, {
       payload,
-      isCameraBusy,
       isPreviewOn,
-      hasExternalStream,
       baseUrl: cameraSettings.baseUrl,
     });
     if (!cameraSettings.baseUrl) {
       setCaptureBusyMessage("카메라 서버 주소를 입력하세요.");
-      captureLockRef.current = false;
-      return;
-    }
-
-    if (hasExternalStream) {
-      setCaptureBusyMessage("스트림 중입니다. 다른 기기에서 프리뷰를 종료 후 다시 시도하세요.");
-      captureLockRef.current = false;
-      return;
-    }
-
-    if (isCameraBusy && !isPreviewOn) {
-      setCaptureBusyMessage("카메라 사용 중(409): 스트리밍/녹화 종료 후 다시 시도하세요.");
       captureLockRef.current = false;
       return;
     }
@@ -1241,7 +1211,6 @@ function App() {
             sessionStatus={sessionRuntimeStatus}
             error={sessionError || sessionRuntimeError}
             analysisError={sessionAnalysisError}
-            startDisabled={hasExternalStream || (isCameraBusy && !isPreviewOn)}
             onStart={handleSessionStart}
             onStop={handleSessionStop}
             onReset={handleSessionReset}
@@ -1260,7 +1229,6 @@ function App() {
             onStop={handleStopPreview}
             onStreamError={handleStreamError}
             error={previewError}
-            startDisabled={hasExternalStream || isCameraBusy}
             statusOverlay={previewOverlayLabel}
             overlayBoxes={liveBoxes}
             overlayEnabled={sessionState === "recording"}
@@ -1289,13 +1257,7 @@ function App() {
               onCaptureMp4={handleCaptureMp4}
               onCaptureAnalyze={handleCaptureAndAnalyze}
               busyMessage={captureBusyMessage}
-              isBusy={
-                isCameraBusy ||
-                hasExternalStream ||
-                sessionState === "recording" ||
-                sessionState === "stopping" ||
-                sessionState === "analyzing"
-              }
+              isBusy={false}
             />
           </div>
           {/* <CaptureGallery items={captures} /> */}

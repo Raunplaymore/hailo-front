@@ -50,6 +50,7 @@
 - `VITE_API_BASE_LOCAL` / `VITE_API_BASE_PI` (옵션): 기존 키 호환.
 - `VITE_CAMERA_BASE_URL` (또는 `VITE_CAMERA_API_BASE`, `NEXT_PUBLIC_CAMERA_API_BASE`): 카메라 서버 주소 예) `http://raspberrypi.local:3001`
 - `VITE_CAMERA_AUTH_TOKEN` 또는 `NEXT_PUBLIC_CAMERA_AUTH_TOKEN` (옵션): 카메라 API Bearer 토큰
+- `CAMERA_BASE_URL` (옵션): `npm run start`에서 사용하는 서버 프록시 대상(미설정 시 `VITE_CAMERA_BASE_URL` 또는 `http://127.0.0.1:3001`).
 - 기타 프리뷰/분석 관련 실험용 값이 필요하면 `VITE_` prefix를 사용해 추가합니다.
 
 ## 실행
@@ -59,7 +60,14 @@ npm install
 npm run dev  # http://localhost:5173
 ```
 
+- dev 프록시는 `/api/camera`, `/api/session`, `/uploads`를 카메라로, `/api/*`는 hailo-back으로 전달합니다.
 - 프리뷰 빌드를 점검하려면 `npm run preview` 사용
+- 운영용 프록시는 아래처럼 실행합니다.
+
+```bash
+npm run build
+npm run start  # http://localhost:4173 (server.js)
+```
 
 ## 빌드
 
@@ -67,7 +75,7 @@ npm run dev  # http://localhost:5173
 npm run build
 ```
 
-- 산출물: `dist/`
+- 산출물: `dist/` (서버 프록시 `server.js`가 정적 파일 서빙 + 카메라 프록시를 담당)
 
 ## 업로드 파라미터
 

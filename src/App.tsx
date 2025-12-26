@@ -96,7 +96,10 @@ function App() {
   const [cameraSettings, setCameraSettings] = useState<CameraSettingsValue>(() => {
     const stored = loadLocalJson<CameraSettingsValue>("cameraSettings");
     return {
-      baseUrl: stored?.baseUrl || CAMERA_ENV_BASE || "",
+      baseUrl:
+        stored?.baseUrl ||
+        CAMERA_ENV_BASE ||
+        (typeof window !== "undefined" ? window.location.origin : ""),
       token: stored?.token || CAMERA_ENV_TOKEN || "",
       sessionPrefix: stored?.sessionPrefix || "",
       autoStopPreviewOnCapture: stored?.autoStopPreviewOnCapture ?? true,

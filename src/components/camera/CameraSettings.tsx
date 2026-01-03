@@ -12,15 +12,12 @@ export type CameraSettingsValue = {
   token: string;
   sessionPrefix: string;
   autoStopPreviewOnCapture: boolean;
-  aiPostprocessConfig?: string;
 };
 
 type CameraSettingsProps = {
   value: CameraSettingsValue;
   history: string[];
-  aiConfigOptions: string[];
   aiConfigNote?: string | null;
-  onAiConfigChange: (name: string) => void;
   onChange: (next: CameraSettingsValue) => void;
   onSelectHistory: (url: string) => void;
   onClearHistory: () => void;
@@ -29,9 +26,7 @@ type CameraSettingsProps = {
 export function CameraSettings({
   value,
   history,
-  aiConfigOptions,
   aiConfigNote,
-  onAiConfigChange,
   onChange,
   onSelectHistory,
   onClearHistory,
@@ -81,26 +76,16 @@ export function CameraSettings({
           <span className="text-sm text-foreground">녹화 전에 프리뷰 자동 종료</span>
         </label>
 
-        <label className="block space-y-1">
+        <div className="space-y-1">
           <span className="text-sm font-medium text-foreground">AI 라벨 구성</span>
-          <select
-            value={value.aiPostprocessConfig || ""}
-            onChange={(e) => onAiConfigChange(e.target.value)}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-          >
-            <option value="" disabled>
-              선택하세요
-            </option>
-            {aiConfigOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+          <div className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+            yolov8s_nms_golf.json (고정)
+          </div>
           <p className="text-xs text-muted-foreground">
-            {aiConfigNote || "AI 추론 라벨 구성을 변경하면 다음 세션부터 적용됩니다."}
+            {aiConfigNote ||
+              "현재 웹은 골프용 설정만 사용합니다. 필요 시 카메라 서버에서 변경하세요."}
           </p>
-        </label>
+        </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">

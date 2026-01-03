@@ -12,11 +12,15 @@ export type CameraSettingsValue = {
   token: string;
   sessionPrefix: string;
   autoStopPreviewOnCapture: boolean;
+  aiPostprocessConfig?: string;
 };
 
 type CameraSettingsProps = {
   value: CameraSettingsValue;
   history: string[];
+  aiConfigOptions: string[];
+  aiConfigNote?: string | null;
+  onAiConfigChange: (name: string) => void;
   onChange: (next: CameraSettingsValue) => void;
   onSelectHistory: (url: string) => void;
   onClearHistory: () => void;
@@ -25,6 +29,9 @@ type CameraSettingsProps = {
 export function CameraSettings({
   value,
   history,
+  aiConfigOptions,
+  aiConfigNote,
+  onAiConfigChange,
   onChange,
   onSelectHistory,
   onClearHistory,
@@ -72,6 +79,27 @@ export function CameraSettings({
             className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-blue-200"
           />
           <span className="text-sm text-foreground">녹화 전에 프리뷰 자동 종료</span>
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-foreground">AI 라벨 구성</span>
+          <select
+            value={value.aiPostprocessConfig || ""}
+            onChange={(e) => onAiConfigChange(e.target.value)}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          >
+            <option value="" disabled>
+              선택하세요
+            </option>
+            {aiConfigOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            {aiConfigNote || "AI 추론 라벨 구성을 변경하면 다음 세션부터 적용됩니다."}
+          </p>
         </label>
 
         <div className="space-y-2">

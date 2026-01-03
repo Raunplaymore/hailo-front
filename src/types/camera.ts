@@ -82,3 +82,9 @@ export type AutoRecordResponse = {
   ok?: boolean;
   status: AutoRecordStatus;
 };
+
+export type AiConfigStatus = {
+  current: string;
+  options: string[];
+  needsRestart?: boolean;
+};

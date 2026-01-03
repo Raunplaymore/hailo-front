@@ -5,6 +5,7 @@ import {
   CaptureResponse,
   AutoRecordStatus,
   AutoRecordResponse,
+  AiConfigStatus,
 } from "../types/camera";
 
 export class CameraApiError extends Error {
@@ -173,6 +174,53 @@ export const getAutoRecordStatus = async (
 
   const json = (await res.json()) as AutoRecordResponse;
   return json.status;
+};
+
+export const getAiConfig = async (baseUrl: string, token?: string): Promise<AiConfigStatus> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/ai-config`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+
+  if (!res.ok) {
+    throw await buildError(res, "AI 설정을 불러오지 못했습니다.");
+  }
+
+  const json = (await res.json()) as { ok?: boolean } & AiConfigStatus;
+  return {
+    current: json.current,
+    options: json.options || [],
+    needsRestart: json.needsRestart,
+  };
+};
+
+export const setAiConfig = async (
+  baseUrl: string,
+  name: string,
+  token?: string
+): Promise<AiConfigStatus> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/ai-config`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(token),
+    },
+    body: JSON.stringify({ name }),
+  });
+
+  if (!res.ok) {
+    throw await buildError(res, "AI 설정을 변경하지 못했습니다.");
+  }
+
+  const json = (await res.json()) as { ok?: boolean } & AiConfigStatus;
+  return {
+    current: json.current,
+    options: json.options || [],
+    needsRestart: json.needsRestart,
+  };
 };
 
 export const buildStreamUrl = (baseUrl: string, params: CameraStreamParams): string => {

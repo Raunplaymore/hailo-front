@@ -27,7 +27,9 @@ import {
   captureAndAnalyze,
   CameraApiError,
   getAutoRecordStatus,
+  getAiConfig,
   getStatus as getCameraStatus,
+  setAiConfig,
   startAutoRecord,
   stopAutoRecord,
   startCapture,
@@ -103,6 +105,7 @@ function App() {
       token: stored?.token || CAMERA_ENV_TOKEN || "",
       sessionPrefix: stored?.sessionPrefix || "",
       autoStopPreviewOnCapture: stored?.autoStopPreviewOnCapture ?? true,
+      aiPostprocessConfig: stored?.aiPostprocessConfig || "",
     };
   });
   const [baseHistory, setBaseHistory] = useState<string[]>(
@@ -164,6 +167,8 @@ function App() {
   const [autoStatus, setAutoStatus] = useState<AutoRecordStatus | null>(null);
   const [autoError, setAutoError] = useState<string | null>(null);
   const [autoPendingFilename, setAutoPendingFilename] = useState<string | null>(null);
+  const [aiConfigOptions, setAiConfigOptions] = useState<string[]>([]);
+  const [aiConfigNote, setAiConfigNote] = useState<string | null>(null);
   const autoPollTimer = useRef<number | null>(null);
   const autoRefreshTimer = useRef<number | null>(null);
   const autoStateKey =
@@ -218,6 +223,26 @@ function App() {
       console.error(err);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleAiConfigChange = async (name: string) => {
+    if (!cameraSettings.baseUrl) {
+      setAiConfigNote("카메라 서버 주소를 먼저 입력하세요.");
+      return;
+    }
+    setAiConfigNote(null);
+    try {
+      const res = await setAiConfig(cameraSettings.baseUrl, name, cameraSettings.token || undefined);
+      setAiConfigOptions(res.options || []);
+      setCameraSettings((prev) => ({ ...prev, aiPostprocessConfig: res.current }));
+      if (res.needsRestart) {
+        setAiConfigNote("현재 세션/AI 스트림이 동작 중이면 다음 시작부터 적용됩니다.");
+      } else {
+        setAiConfigNote(null);
+      }
+    } catch (err) {
+      setAiConfigNote(err instanceof Error ? err.message : "AI 설정을 변경하지 못했습니다.");
     }
   };
 
@@ -285,6 +310,36 @@ function App() {
     if (typeof window === "undefined") return;
     localStorage.setItem("cameraSettings", JSON.stringify(cameraSettings));
   }, [cameraSettings]);
+
+  useEffect(() => {
+    if (!cameraSettings.baseUrl) {
+      setAiConfigOptions([]);
+      setAiConfigNote("카메라 서버 주소를 먼저 입력하세요.");
+      return;
+    }
+    let canceled = false;
+    const run = async () => {
+      try {
+        const res = await getAiConfig(cameraSettings.baseUrl, cameraSettings.token || undefined);
+        if (canceled) return;
+        setAiConfigOptions(res.options || []);
+        setCameraSettings((prev) =>
+          prev.aiPostprocessConfig === res.current ? prev : { ...prev, aiPostprocessConfig: res.current }
+        );
+        setAiConfigNote(
+          res.needsRestart ? "현재 세션/AI 스트림이 동작 중이면 다음 시작부터 적용됩니다." : null
+        );
+      } catch (err) {
+        if (canceled) return;
+        setAiConfigOptions([]);
+        setAiConfigNote(err instanceof Error ? err.message : "AI 설정을 불러오지 못했습니다.");
+      }
+    };
+    run();
+    return () => {
+      canceled = true;
+    };
+  }, [cameraSettings.baseUrl, cameraSettings.token]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1422,6 +1477,9 @@ function App() {
           <CameraSettings
             value={cameraSettings}
             history={baseHistory}
+            aiConfigOptions={aiConfigOptions}
+            aiConfigNote={aiConfigNote}
+            onAiConfigChange={handleAiConfigChange}
             onChange={(next) => setCameraSettings(next)}
             onSelectHistory={(url) => setCameraSettings((prev) => ({ ...prev, baseUrl: url }))}
             onClearHistory={() => setBaseHistory([])}

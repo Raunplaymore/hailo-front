@@ -43,7 +43,7 @@ import {
   stopSession,
 } from "./api/sessionApi";
 import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus } from "./api/shots";
-import { AutoRecordPanel } from "./components/camera/AutoRecordPanel";
+// import { AutoRecordPanel } from "./components/camera/AutoRecordPanel";
 import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 
@@ -1267,7 +1267,7 @@ function App() {
             overlayBoxes={liveBoxes}
             overlayEnabled={sessionState === "recording"}
           />
-          <AutoRecordPanel
+          {/* <AutoRecordPanel
             status={autoStatus}
             isRunning={Boolean(isAutoActive)}
             isLoading={isStatusLoading}
@@ -1277,7 +1277,7 @@ function App() {
             onFallbackManual={() =>
               document.getElementById("capture-section")?.scrollIntoView({ behavior: "smooth" })
             }
-          />
+          /> */}
           <div id="capture-section">
             <CaptureControls
               isCapturing={isCapturing}

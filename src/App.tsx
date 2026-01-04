@@ -1281,6 +1281,11 @@ function App() {
           <div className="space-y-2">
             {isAnalysisLoading && <p className="text-sm text-slate-500">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
+            {jobStatus === "failed" && !analysis && selectedShot?.errorMessage && (
+              <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-xs text-red-700">
+                실패 원인: {selectedShot.errorMessage}
+              </div>
+            )}
             {selectedShot?.errorCode === "NOT_SWING" &&
               (jobStatus === "failed" || selectedShot.status === "failed") &&
               !analysis && (

@@ -34,6 +34,7 @@ import {
   startCapture,
 } from "./api/cameraApi";
 import {
+  deleteSession,
   getSessionLive,
   getSessionStatus,
   listSessionFiles,
@@ -127,6 +128,7 @@ function App() {
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [isSessionsLoading, setIsSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const [selectedSession, setSelectedSession] = useState<SessionRecord | null>(null);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -221,6 +223,34 @@ function App() {
       console.error(err);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleDeleteSession = async (session: SessionRecord) => {
+    if (!cameraSettings.baseUrl) {
+      setSessionsError("카메라 서버 주소를 입력하세요.");
+      return;
+    }
+    const confirmed = window.confirm(`${session.filename} 세션을 삭제할까요?`);
+    if (!confirmed) return;
+    setDeletingSessionId(session.id);
+    setSessionsError(null);
+    try {
+      await deleteSession(
+        cameraSettings.baseUrl,
+        session.jobId,
+        session.filename,
+        cameraSettings.token || undefined
+      );
+      if (selectedSession?.id === session.id) {
+        setSelectedSession(null);
+      }
+      await refreshSessions();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "세션을 삭제하지 못했습니다.";
+      setSessionsError(message);
+    } finally {
+      setDeletingSessionId(null);
     }
   };
 
@@ -1335,6 +1365,8 @@ function App() {
                 selectShot(null);
                 setActiveTab("analysis");
               }}
+              onDelete={handleDeleteSession}
+              deletingId={deletingSessionId}
             />
           </TabsContent>
           <TabsContent value="uploads">

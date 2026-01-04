@@ -295,3 +295,33 @@ export const resolveCameraFileUrl = (baseUrl: string, url: string | undefined, f
   }
   return `${normalized}/uploads/${encodeURIComponent(filename)}`;
 };
+
+export const deleteSession = async (
+  baseUrl: string,
+  jobId: string | undefined,
+  filename: string,
+  token?: string
+): Promise<void> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  if (jobId) {
+    const res = await fetch(`${normalized}/api/session/${encodeURIComponent(jobId)}`, {
+      method: "DELETE",
+      headers: {
+        ...authHeaders(token),
+      },
+    });
+    if (!res.ok) {
+      throw await buildError(res, "세션을 삭제하지 못했습니다.");
+    }
+    return;
+  }
+  const res = await fetch(`${normalized}/api/uploads/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "파일을 삭제하지 못했습니다.");
+  }
+};

@@ -15,6 +15,8 @@ type SessionListProps = {
   error?: string | null;
   onRefresh: () => void;
   onSelect: (session: SessionRecord) => void;
+  onDelete: (session: SessionRecord) => void;
+  deletingId?: string | null;
   title?: string;
   emptyMessage?: string;
 };
@@ -41,6 +43,8 @@ export function SessionList({
   error,
   onRefresh,
   onSelect,
+  onDelete,
+  deletingId,
   title = "스윙 세션 기록",
   emptyMessage = "아직 촬영된 세션이 없습니다.",
 }: SessionListProps) {
@@ -106,7 +110,7 @@ export function SessionList({
                     </span>
                   )}
                 </div>
-                <div className="mt-1 flex justify-end">
+                <div className="mt-1 flex justify-end gap-2">
                   <Button
                     type="button"
                     onClick={() => onSelect(session)}
@@ -116,6 +120,16 @@ export function SessionList({
                     disabled={session.status === "recording"}
                   >
                     결과 보기
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => onDelete(session)}
+                    variant="outline"
+                    size="sm"
+                    fullWidth={false}
+                    disabled={session.status === "recording" || deletingId === session.id}
+                  >
+                    {deletingId === session.id ? "삭제 중..." : "삭제"}
                   </Button>
                 </div>
               </li>

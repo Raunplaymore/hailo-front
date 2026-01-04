@@ -11,7 +11,7 @@
   - 프리뷰: 핫스팟 환경을 위해 `640×640`, `640×360` 프리셋과 직접 입력을 제공(1280×720 초과는 차단).
   - 캡처: 검증된 `640×360 (저화질·빠름)`, `1280×720 (권장·고화질)` 두 가지 프리셋만 노출.
 - **업로드 & 분석**: 업로드 직후 분석 Job 생성, `queued → running → succeeded | failed` 상태 표시 및 재시도/강제 분석 UX.
-- **리스트 & 재생**: 카메라 `GET /api/session/list` 기반으로 세션 히스토리 구성(필요 시 `/api/files` fallback), 분석 상태 뱃지/CTA 제공.
+- **리스트 & 재생**: 카메라 `GET /api/session/list` 기반으로 세션 히스토리 구성(필요 시 `/api/files` fallback), 분석 상태 뱃지/CTA 제공. 필요 시 세션 삭제 가능.
 - **분석 뷰**: 이벤트 타임라인(Address/Top/Impact/Finish), 요약 코멘트, 핵심 지표(스윙 플레인/템포/임팩트 안정성) 표시.
 - **모바일 우선**: iOS/핫스팟 환경에서 프리뷰/캡처가 빠르게 동작하도록 저해상도·저FPS 프리셋 제공.
 - **자동 촬영 모드(Ready)**: `자동 촬영 시작/중지` 버튼, 상태 배지(대기/어드레스 감지/안정 상태 확보/촬영중/마무리 처리 중/정지 중/실패), 프리뷰 오버레이, 실패 시 수동 촬영 전환 버튼.
@@ -32,6 +32,7 @@
   - `GET /api/session/list?limit=50&offset=0` → `{ jobId, status, startedAt, stoppedAt, errorMessage, videoFile, videoUrl, metaPath }`
   - `GET /api/session/:jobId/status` → `running | stopped | failed`
   - `GET /api/session/:jobId/meta` → 정규화된 meta(frames 배열)
+  - `DELETE /api/session/:jobId` → 세션 비디오/메타/상태 삭제
 - 라이브 인퍼런스: `GET /api/session/:jobId/live?tailFrames=30` (bbox 배열, 최신 프레임만 사용)
 - 캡처: `POST /api/camera/capture` (jpg/mp4), `POST /api/camera/capture-and-analyze` (녹화+분석).
   - 파일명 규칙: `golf_YYYYMMDD_HHmmss_mmm_type.ext` (프런트에서 생성).

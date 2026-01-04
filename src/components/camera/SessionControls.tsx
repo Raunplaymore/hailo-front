@@ -78,12 +78,8 @@ export function SessionControls({
   const showStart = !isRecording && !isBusy;
   const clubOptions = [
     { value: "driver", label: "Driver" },
-    { value: "wood", label: "Fairway Wood" },
-    { value: "hybrid", label: "Hybrid" },
+    { value: "wood", label: "Wood" },
     { value: "iron", label: "Iron" },
-    { value: "wedge", label: "Wedge" },
-    { value: "putter", label: "Putter" },
-    { value: "unknown", label: "기타/미지정" },
   ];
 
   const header = (

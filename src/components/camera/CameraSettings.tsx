@@ -12,6 +12,7 @@ export type CameraSettingsValue = {
   token: string;
   sessionPrefix: string;
   autoStopPreviewOnCapture: boolean;
+  previewResolution: string;
 };
 
 type CameraSettingsProps = {
@@ -74,6 +75,19 @@ export function CameraSettings({
             className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-blue-200"
           />
           <span className="text-sm text-foreground">녹화 전에 프리뷰 자동 종료</span>
+        </label>
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-foreground">프리뷰 해상도 프리셋</span>
+          <select
+            value={value.previewResolution}
+            onChange={(e) => onChange({ ...value, previewResolution: e.target.value })}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          >
+            <option value="640x640">640 x 640</option>
+            <option value="640x360">640 x 360</option>
+          </select>
+          <p className="text-xs text-muted-foreground">프리뷰는 15fps 고정입니다.</p>
         </label>
 
         <div className="space-y-1">

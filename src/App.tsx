@@ -17,20 +17,15 @@ import { API_BASE } from "./api/client";
 import { CameraSettings, CameraSettingsValue } from "./components/camera/CameraSettings";
 import { CameraStatusPanel } from "./components/camera/CameraStatusPanel";
 import { CameraPreview } from "./components/camera/CameraPreview";
-import { CaptureControls } from "./components/camera/CaptureControls";
-import { CaptureGallery } from "./components/camera/CaptureGallery";
 import { SessionControls } from "./components/camera/SessionControls";
-import { CameraStatus, CaptureItem, CapturePayload } from "./types/camera";
+import { CameraStatus } from "./types/camera";
 import { LiveOverlayBox, SessionRecord, SessionState, SessionStatus } from "./types/session";
 import {
   buildStreamUrl,
-  captureAndAnalyze,
-  CameraApiError,
   getStatus as getCameraStatus,
   getCalibration,
   listCalibrations,
   setAiConfig,
-  startCapture,
   stopStream,
 } from "./api/cameraApi";
 import {
@@ -59,6 +54,7 @@ const CAMERA_ENV_TOKEN =
   ((import.meta.env as unknown as Record<string, string | undefined>).NEXT_PUBLIC_CAMERA_AUTH_TOKEN ?? "");
 const AI_CONFIG_GOLF = "yolov8s_nms_golf.json";
 const DEFAULT_LENS = "lens_8mm_intrinsics.json";
+const DEFAULT_PREVIEW_RESOLUTION = "640x360";
 const SESSION_FPS = 60;
 
 const loadLocalJson = <T,>(key: string): T | null => {
@@ -75,6 +71,13 @@ const loadLocalJson = <T,>(key: string): T | null => {
 
 const normalizeBase = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 const MAX_PREVIEW_PIXELS = 1280 * 720;
+const parsePreviewResolution = (value?: string) => {
+  const [width, height] = (value ?? "").split("x").map(Number);
+  if (Number.isFinite(width) && Number.isFinite(height)) {
+    return { width, height };
+  }
+  return { width: 640, height: 360 };
+};
 
 function App() {
   const {
@@ -110,6 +113,7 @@ function App() {
       token: stored?.token || CAMERA_ENV_TOKEN || "",
       sessionPrefix: stored?.sessionPrefix || "",
       autoStopPreviewOnCapture: stored?.autoStopPreviewOnCapture ?? true,
+      previewResolution: stored?.previewResolution ?? DEFAULT_PREVIEW_RESOLUTION,
     };
   });
   const [baseHistory, setBaseHistory] = useState<string[]>(
@@ -138,7 +142,13 @@ function App() {
   const [statusError, setStatusError] = useState<string | null>(null);
   const [isStatusLoading, setIsStatusLoading] = useState(false);
   const [lastStatusCheckedAt, setLastStatusCheckedAt] = useState<string | null>(null);
-  const [previewParams, setPreviewParams] = useState({ width: 640, height: 360, fps: 15 });
+  const [previewParams, setPreviewParams] = useState(() => {
+    const stored = loadLocalJson<CameraSettingsValue>("cameraSettings");
+    const { width, height } = parsePreviewResolution(
+      stored?.previewResolution ?? DEFAULT_PREVIEW_RESOLUTION
+    );
+    return { width, height, fps: 15 };
+  });
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isPreviewOn, setIsPreviewOn] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -160,13 +170,6 @@ function App() {
   const [liveBoxes, setLiveBoxes] = useState<LiveOverlayBox[]>([]);
   const livePollTimer = useRef<number | null>(null);
   const livePollId = useRef(0);
-  const [captureResolution, setCaptureResolution] = useState({ width: 1280, height: 720 });
-  const [captureFps, setCaptureFps] = useState(30);
-  const [captureDuration, setCaptureDuration] = useState(5);
-  const [captureBusyMessage, setCaptureBusyMessage] = useState<string | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const captureLockRef = useRef(false);
-  const [captures, setCaptures] = useState<CaptureItem[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [aiConfigNote, setAiConfigNote] = useState<string | null>(null);
@@ -174,8 +177,6 @@ function App() {
   const [uploadListTab, setUploadListTab] = useState<"pending" | "done">("pending");
   const streamClients = cameraStatus?.streamClients ?? 0;
   const isStreaming = cameraStatus?.streaming === true;
-  const isCameraBusy = cameraStatus?.busy === true || isStreaming;
-  const hasExternalStream = isStreaming && !isPreviewOn && streamClients > 0;
 
   const tabs: { key: TabKey; label: string }[] = useMemo(
     () => [
@@ -365,6 +366,16 @@ function App() {
     if (typeof window === "undefined") return;
     localStorage.setItem("cameraSettings", JSON.stringify(cameraSettings));
   }, [cameraSettings]);
+
+  useEffect(() => {
+    const { width, height } = parsePreviewResolution(
+      cameraSettings.previewResolution ?? DEFAULT_PREVIEW_RESOLUTION
+    );
+    setPreviewParams((prev) => {
+      if (prev.width === width && prev.height === height) return prev;
+      return { ...prev, width, height, fps: 15 };
+    });
+  }, [cameraSettings.previewResolution]);
 
   useEffect(() => {
     if (!cameraSettings.baseUrl) {
@@ -987,113 +998,6 @@ function App() {
     };
   }, [sessionState, sessionAnalysisJobId, sessionFilename]);
 
-  const makeFilename = (ext: "jpg" | "mp4", type: string) => {
-    const now = new Date();
-    const pad = (n: number, len = 2) => n.toString().padStart(len, "0");
-    const stamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(
-      now.getHours()
-    )}${pad(now.getMinutes())}${pad(now.getSeconds())}_${pad(now.getMilliseconds(), 3)}`;
-    const cleanType = type.replace(/\s+/g, "_");
-    return `golf_${stamp}_${cleanType}.${ext}`;
-  };
-
-  const runCapture = async (payload: CapturePayload, analyze = false) => {
-    const logPrefix = analyze ? "[capture:analyze]" : "[capture]";
-    if (captureLockRef.current) {
-      console.warn(`${logPrefix} skipped: capture lock in place`, {
-        payload,
-        isCapturing,
-        isCameraBusy,
-        hasExternalStream,
-      });
-      return;
-    }
-    captureLockRef.current = true;
-    console.log(`${logPrefix} start`, {
-      payload,
-      isPreviewOn,
-      baseUrl: cameraSettings.baseUrl,
-    });
-    if (!cameraSettings.baseUrl) {
-      setCaptureBusyMessage("카메라 서버 주소를 입력하세요.");
-      captureLockRef.current = false;
-      return;
-    }
-
-    if (cameraSettings.autoStopPreviewOnCapture && isPreviewOn) {
-      await handleStopPreview();
-    }
-
-    setIsCapturing(true);
-    const durationLabel =
-      payload.format === "mp4" ? `녹화 중... ${(payload as { durationSec?: number }).durationSec || ""}초` : "촬영 중...";
-    setCaptureBusyMessage(durationLabel);
-
-    try {
-      const res = analyze
-        ? await captureAndAnalyze(cameraSettings.baseUrl, payload, cameraSettings.token || undefined)
-        : await startCapture(cameraSettings.baseUrl, payload, cameraSettings.token || undefined);
-      const base = normalizeBase(cameraSettings.baseUrl);
-      const url = res.url || `${base}/uploads/${encodeURIComponent(res.filename)}`;
-      const item: CaptureItem = {
-        filename: res.filename,
-        url,
-        format: payload.format,
-        createdAt: new Date().toISOString(),
-        jobId: res.jobId,
-        status: res.status,
-      };
-      setCaptures((prev) => [item, ...prev].slice(0, 12));
-      rememberBase(cameraSettings.baseUrl);
-      setCaptureBusyMessage(analyze ? "녹화+분석 요청 완료" : "촬영 완료");
-      handleCheckStatus();
-      console.log(`${logPrefix} success`, { filename: res.filename, jobId: res.jobId, status: res.status });
-    } catch (err) {
-      console.error(`${logPrefix} failed`, err);
-      if (err instanceof CameraApiError && err.status === 409) {
-        setCaptureBusyMessage("카메라 사용 중(409): 프리뷰나 다른 녹화를 종료 후 재시도하세요.");
-      } else {
-        const message = err instanceof Error ? err.message : "캡처 요청 실패";
-        setCaptureBusyMessage(message);
-      }
-    } finally {
-      setIsCapturing(false);
-      captureLockRef.current = false;
-      console.log(`${logPrefix} end`);
-    }
-  };
-
-  const handleCaptureJpg = () =>
-    runCapture({
-      format: "jpg",
-      width: captureResolution.width,
-      height: captureResolution.height,
-      filename: makeFilename("jpg", "still"),
-    });
-
-  const handleCaptureMp4 = (seconds: number) =>
-    runCapture({
-      format: "mp4",
-      fps: captureFps,
-      durationSec: seconds,
-      width: captureResolution.width,
-      height: captureResolution.height,
-      filename: makeFilename("mp4", "swing"),
-    });
-
-  const handleCaptureAndAnalyze = (seconds: number) =>
-    runCapture(
-      {
-        format: "mp4",
-        fps: captureFps,
-        durationSec: seconds,
-        width: captureResolution.width,
-        height: captureResolution.height,
-        filename: makeFilename("mp4", "swing"),
-      },
-      true
-    );
-
   const handleAnalyzeShot = async (shot: Shot) => {
     setAnalyzingId(shot.id);
     setAnalyzeError(null);
@@ -1213,11 +1117,6 @@ function App() {
                 key={previewSessionId}
                 width={previewParams.width}
                 height={previewParams.height}
-                fps={previewParams.fps}
-                onChangeResolution={(width, height) =>
-                  setPreviewParams((prev) => ({ ...prev, width, height }))
-                }
-                onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
                 onStart={handleStartPreview}
                 onStop={handleStopPreview}
                 onStreamError={handleStreamError}
@@ -1241,23 +1140,6 @@ function App() {
               />
             </CardContent>
           </Card>
-          <div id="capture-section">
-            <CaptureControls
-              isCapturing={isCapturing}
-              resolution={captureResolution}
-              fps={captureFps}
-              durationSec={captureDuration}
-              onResolutionChange={(width, height) => setCaptureResolution({ width, height })}
-              onFpsChange={(value) => setCaptureFps(value)}
-              onDurationChange={(seconds) => setCaptureDuration(seconds)}
-              onCaptureJpg={handleCaptureJpg}
-              onCaptureMp4={handleCaptureMp4}
-              onCaptureAnalyze={handleCaptureAndAnalyze}
-              busyMessage={captureBusyMessage}
-              isBusy={false}
-            />
-          </div>
-          {/* <CaptureGallery items={captures} /> */}
         </div>
       )}
 

@@ -8,26 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { LiveOverlayBox } from "@/types/session";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 
 type CameraPreviewProps = {
   isActive: boolean;
   streamUrl: string | null;
   width: number;
   height: number;
-  fps: number;
   embedded?: boolean;
-  onChangeResolution: (width: number, height: number) => void;
-  onChangeFps: (fps: number) => void;
   onStart: () => void;
   onStop: () => void;
   onStreamError?: () => void;
@@ -38,24 +26,12 @@ type CameraPreviewProps = {
   overlayEnabled?: boolean;
 };
 
-const resolutionPresets = [
-  { label: "640 x 640", width: 640, height: 640 },
-  { label: "640 x 360", width: 640, height: 360 },
-  // { label: "1280 x 720 (best)", width: 1280, height: 720 },
-  // { label: "1280 x 1280", width: 1280, height: 1280 },
-];
-
-const fpsPresets = [5, 10, 15, 20];
-
 export function CameraPreview({
   isActive,
   streamUrl,
   width,
   height,
-  fps,
   embedded = false,
-  onChangeResolution,
-  onChangeFps,
   onStart,
   onStop,
   onStreamError,
@@ -67,7 +43,6 @@ export function CameraPreview({
 }: CameraPreviewProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const previewWrapRef = useRef<HTMLDivElement | null>(null);
-  const currentResolution = `${width}x${height}`;
   const handleStopClick = () => {
     if (imgRef.current) {
       imgRef.current.src = "";
@@ -128,37 +103,9 @@ export function CameraPreview({
     <CardContent className={embedded ? "pb-0 px-0 pt-0 space-y-4" : "space-y-4"}>
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">해상도 프리셋</p>
-
-            <div className="flex flex-wrap gap-2">
-              <Select
-                value={currentResolution}
-                onValueChange={(value) => {
-                  const [w, h] = value.split("x").map(Number);
-                  if (!Number.isNaN(w) && !Number.isNaN(h)) {
-                    onChangeResolution(w, h);
-                  }
-                }}
-              >
-                <SelectTrigger className="w-[200px] bg-white">
-                  <SelectValue placeholder="해상도 선택" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                    {resolutionPresets.map((preset) => {
-                      const value = `${preset.width}x${preset.height}`;
-                      return (
-                        <SelectItem value={value} key={preset.label}>
-                          {preset.label}
-                        </SelectItem>
-                      );
-                    })}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          프리뷰는 15fps 고정이며 해상도 프리셋은 설정 탭에서 선택합니다.
+        </p>
 
         <div className="p-3 border rounded-xl border-border bg-muted/40">
           <div

@@ -640,6 +640,10 @@ function App() {
       setSessionError("해상도가 너무 높습니다. 네트워크 상태를 고려해 낮춰주세요.");
       return;
     }
+    if (isPreviewOn && cameraSettings.autoStopPreviewOnCapture) {
+      handleStopPreview();
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+    }
     setSessionError(null);
     setSessionFilename(null);
     setSessionVideoUrl(null);

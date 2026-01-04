@@ -1,4 +1,11 @@
-export type SessionState = "idle" | "recording" | "stopping" | "analyzing" | "done" | "failed";
+export type SessionState =
+  | "idle"
+  | "starting"
+  | "recording"
+  | "stopping"
+  | "analyzing"
+  | "done"
+  | "failed";
 
 export type SessionStatus = "recording" | "recorded" | "analyzing" | "done" | "failed";
 

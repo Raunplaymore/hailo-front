@@ -654,6 +654,7 @@ function App() {
       await new Promise((resolve) => window.setTimeout(resolve, 300));
     }
     setSessionError(null);
+    setSessionState("starting");
     setSessionFilename(null);
     setSessionVideoUrl(null);
     setSessionMetaPath(null);

@@ -26,6 +26,7 @@ type SessionControlsProps = {
 
 const STATE_LABELS: Record<SessionState, string> = {
   idle: "대기",
+  starting: "시작 준비 중",
   recording: "촬영 중",
   stopping: "정지 중",
   analyzing: "분석 중",
@@ -35,6 +36,7 @@ const STATE_LABELS: Record<SessionState, string> = {
 
 const STATE_STYLES: Record<SessionState, string> = {
   idle: "bg-slate-50 text-slate-700 border border-slate-200",
+  starting: "bg-amber-50 text-amber-700 border border-amber-200",
   recording: "bg-amber-50 text-amber-700 border border-amber-200",
   stopping: "bg-slate-100 text-slate-700 border border-slate-200",
   analyzing: "bg-blue-50 text-blue-700 border border-blue-200",
@@ -65,7 +67,7 @@ export function SessionControls({
   onReset,
 }: SessionControlsProps) {
   const isRecording = state === "recording";
-  const isBusy = state === "stopping" || state === "analyzing";
+  const isBusy = state === "starting" || state === "stopping" || state === "analyzing";
   const canStart = state === "idle" || state === "done" || state === "failed";
   const showStart = !isRecording && !isBusy;
 

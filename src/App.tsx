@@ -59,6 +59,7 @@ const CAMERA_ENV_TOKEN =
   ((import.meta.env as unknown as Record<string, string | undefined>).NEXT_PUBLIC_CAMERA_AUTH_TOKEN ?? "");
 const AI_CONFIG_GOLF = "yolov8s_nms_golf.json";
 const DEFAULT_LENS = "lens_8mm_intrinsics.json";
+const SESSION_FPS = 60;
 
 const loadLocalJson = <T,>(key: string): T | null => {
   if (typeof window === "undefined") return null;
@@ -737,7 +738,7 @@ function App() {
       const payload = {
         width: previewParams.width,
         height: previewParams.height,
-        fps: previewParams.fps,
+        fps: SESSION_FPS,
         model: "yolov8s",
         durationSec: 0,
       };

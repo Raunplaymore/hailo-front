@@ -125,7 +125,7 @@ export function CameraPreview({
   );
 
   const content = (
-    <CardContent className={embedded ? "px-0 pt-0 space-y-4" : "space-y-4"}>
+    <CardContent className={embedded ? "pb-0 px-0 pt-0 space-y-4" : "space-y-4"}>
       {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -157,35 +157,13 @@ export function CameraPreview({
                 </SelectContent>
               </Select>
             </div>
-            {/* <div className="flex flex-wrap gap-2">
-              {resolutionPresets.map((preset) => {
-                const active = width === preset.width && height === preset.height;
-                return (
-                  <Button
-                    key={preset.label}
-                    type="button"
-                    variant={active ? "default" : "outline"}
-                    size="sm"
-                    fullWidth={false}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs",
-                      active && "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    )}
-                    onClick={() => onChangeResolution(preset.width, preset.height)}
-                  >
-                    {preset.label}
-                  </Button>
-                );
-              })}
-            </div> */}
           </div>
-          {/* FPS는 15 고정 */}
         </div>
 
         <div className="p-3 border rounded-xl border-border bg-muted/40">
           <div
             ref={previewWrapRef}
-            className="relative w-full overflow-hidden rounded-lg border border-border bg-black/70"
+            className="relative w-full overflow-hidden border rounded-lg border-border bg-black/70"
             style={{ aspectRatio: `${width} / ${height}`, minHeight: 220 }}
           >
             {isActive && streamUrl ? (
@@ -195,7 +173,7 @@ export function CameraPreview({
                   key={streamUrl}
                   src={streamUrl}
                   alt="Camera preview"
-                  className="absolute inset-0 h-full w-full object-contain"
+                  className="absolute inset-0 object-contain w-full h-full"
                   onError={() => onStreamError?.()}
                 />
                 {overlayEnabled && (
@@ -207,21 +185,17 @@ export function CameraPreview({
                   />
                 )}
                 {statusOverlay && (
-                  <span className="absolute left-2 top-2 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
+                  <span className="absolute px-3 py-1 text-xs font-semibold text-white rounded-full left-2 top-2 bg-black/70">
                     {statusOverlay}
                   </span>
                 )}
               </>
             ) : (
-              <div className="flex h-full w-full items-center justify-center">
+              <div className="flex items-center justify-center w-full h-full">
                 <p className="text-sm text-slate-200">프리뷰가 꺼져 있습니다.</p>
               </div>
             )}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            모바일/핫스팟에서는 낮은 해상도·FPS로 시작하세요. 프리뷰를 끄면 서버 스트림 연결도
-            해제됩니다.
-          </p>
         </div>
     </CardContent>
   );

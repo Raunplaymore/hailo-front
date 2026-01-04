@@ -74,7 +74,7 @@ export function SessionControls({
   const showStart = !isRecording && !isBusy;
 
   const header = (
-    <CardHeader className={embedded ? "px-0 pb-2" : "pb-3"}>
+    <CardHeader className={embedded ? "p-2 px-0" : "pb-3"}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground">AI 인퍼런스 세션</p>
@@ -160,7 +160,7 @@ export function SessionControls({
 
   if (embedded) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-1">
         {header}
         {content}
       </div>

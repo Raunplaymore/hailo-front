@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Card } from "../Card";
 import { Button } from "../Button";
 
@@ -43,19 +42,6 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
     onChange({ ...value, [key]: v === "" ? undefined : nextVal });
   };
 
-  const clubOptions = useMemo(
-    () => [
-      { value: "driver", label: "Driver" },
-      { value: "wood", label: "Fairway Wood" },
-      { value: "hybrid", label: "Hybrid" },
-      { value: "iron", label: "Iron" },
-      { value: "wedge", label: "Wedge" },
-      { value: "putter", label: "Putter" },
-      { value: "unknown", label: "기타/미지정" },
-    ],
-    []
-  );
-
   return (
     <Card className="space-y-4">
       <div>
@@ -64,21 +50,6 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-1 text-sm text-slate-700">
-          클럽
-          <select
-            value={value.club ?? "driver"}
-            onChange={(e) => handleChange("club", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-          >
-            {clubOptions.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <label className="grid gap-1 text-sm text-slate-700">
           FPS (선택)
           <input

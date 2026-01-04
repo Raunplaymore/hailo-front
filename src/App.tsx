@@ -461,7 +461,7 @@ function App() {
   };
 
   const handleStreamError = () => {
-    setPreviewError("프리뷰 연결이 끊어졌습니다. 다시 시도하세요.");
+    // setPreviewError("프리뷰 연결이 끊어졌습니다. 다시 시도하세요.");
     setIsPreviewOn(false);
     setStreamUrl(null);
     handleCheckStatus();
@@ -1134,9 +1134,11 @@ function App() {
                 sessionStatus={sessionRuntimeStatus}
                 error={sessionError || sessionRuntimeError}
                 analysisError={sessionAnalysisError}
+                club={settings.club}
                 onStart={handleSessionStart}
                 onStop={handleSessionStop}
                 onReset={handleSessionReset}
+                onClubChange={(club) => setSettings((prev) => ({ ...prev, club }))}
               />
             </CardContent>
           </Card>
@@ -1241,7 +1243,7 @@ function App() {
             {isAnalysisLoading && <p className="text-sm text-slate-500">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
             {jobStatus === "failed" && !analysis && selectedShot?.errorMessage && (
-              <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-xs text-red-700">
+              <div className="px-4 py-2 text-xs text-red-700 border border-red-100 rounded-xl bg-red-50">
                 실패 원인: {selectedShot.errorMessage}
               </div>
             )}

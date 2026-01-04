@@ -18,11 +18,13 @@ type SessionControlsProps = {
   sessionStatus?: string | null;
   error?: string | null;
   analysisError?: string | null;
+  club?: string | null;
   startDisabled?: boolean;
   embedded?: boolean;
   onStart: () => void;
   onStop: () => void;
   onReset: () => void;
+  onClubChange?: (club: string) => void;
 };
 
 const STATE_LABELS: Record<SessionState, string> = {
@@ -62,23 +64,34 @@ export function SessionControls({
   sessionStatus,
   error,
   analysisError,
+  club,
   startDisabled = false,
   embedded = false,
   onStart,
   onStop,
   onReset,
+  onClubChange,
 }: SessionControlsProps) {
   const isRecording = state === "recording";
   const isBusy = state === "starting" || state === "stopping" || state === "analyzing";
   const canStart = state === "idle" || state === "done" || state === "failed";
   const showStart = !isRecording && !isBusy;
+  const clubOptions = [
+    { value: "driver", label: "Driver" },
+    { value: "wood", label: "Fairway Wood" },
+    { value: "hybrid", label: "Hybrid" },
+    { value: "iron", label: "Iron" },
+    { value: "wedge", label: "Wedge" },
+    { value: "putter", label: "Putter" },
+    { value: "unknown", label: "기타/미지정" },
+  ];
 
   const header = (
     <CardHeader className={embedded ? "p-2 px-0" : "pb-3"}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground">AI 인퍼런스 세션</p>
-          <CardTitle className="text-lg">원탭 스윙 세션</CardTitle>
+          {/* <CardTitle className="text-lg">원탭 스윙 세션</CardTitle> */}
           <CardDescription>시작 → 실시간 인퍼런스 → 종료 → 분석</CardDescription>
         </div>
         <span
@@ -116,6 +129,20 @@ export function SessionControls({
           세션 상태: {sessionStatus}
         </p>
       )}
+      <label className="grid gap-1 text-sm text-muted-foreground">
+        <select
+          value={club ?? "driver"}
+          onChange={(e) => onClubChange?.(e.target.value)}
+          className="w-full px-3 py-2 text-sm border rounded-lg border-border bg-background text-foreground"
+          disabled={isRecording || isBusy || !onClubChange}
+        >
+          {clubOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="flex flex-wrap gap-2">
         {isRecording ? (
           <Button

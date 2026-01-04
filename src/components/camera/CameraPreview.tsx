@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 
-import { Button } from "@/components/ui/button";
 import { LiveOverlay } from "@/components/camera/LiveOverlay";
 import {
   Card,
@@ -8,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { LiveOverlayBox } from "@/types/session";
 
 type CameraPreviewProps = {
@@ -49,7 +49,15 @@ export function CameraPreview({
     }
     onStop();
   };
-  const startLabel = error ? "프리뷰 재연결" : "프리뷰 켜기";
+  const handleToggleChange = (checked: boolean) => {
+    if (checked) {
+      if (!startDisabled) {
+        onStart();
+      }
+      return;
+    }
+    handleStopClick();
+  };
 
   useEffect(() => {
     // isActive=false 또는 streamUrl이 비어질 때 명시적으로 src를 비워 스트림을 끊어준다.
@@ -65,49 +73,18 @@ export function CameraPreview({
     };
   }, [isActive, streamUrl]);
 
-  const header = (
-    <CardHeader className={embedded ? "px-0 pb-2 flex-row items-start justify-between gap-3" : "flex-row items-start justify-between gap-3"}>
-      <div>
-        <p className="text-xs text-muted-foreground">MJPEG 스트림</p>
-        <CardTitle className="text-xl">실시간 프리뷰</CardTitle>
-      </div>
-      <div className="flex gap-2">
-        {isActive ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            fullWidth={false}
-            className="rounded-lg"
-            onClick={handleStopClick}
-          >
-            프리뷰 끄기
-          </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            fullWidth={false}
-            className="rounded-lg"
-            onClick={onStart}
-            disabled={startDisabled}
-          >
-            {startLabel}
-          </Button>
-        )}
-      </div>
-    </CardHeader>
-  );
-
   const content = (
     <CardContent className={embedded ? "pb-0 px-0 pt-0 space-y-4" : "space-y-4"}>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <p className="text-xs text-muted-foreground">
-          프리뷰는 15fps 고정이며 해상도 프리셋은 설정 탭에서 선택합니다.
-        </p>
-
         <div className="p-3 border rounded-xl border-border bg-muted/40">
+          <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+            프리뷰
+            <Switch
+              checked={isActive}
+              onCheckedChange={handleToggleChange}
+              disabled={!isActive && startDisabled}
+              aria-label="프리뷰 켜기/끄기"
+            />
+          </div>
           <div
             ref={previewWrapRef}
             className="relative w-full overflow-hidden border rounded-lg border-border bg-black/70"
@@ -143,6 +120,7 @@ export function CameraPreview({
               </div>
             )}
           </div>
+          {error && <p className="p-2 pb-0 text-sm text-destructive">{error}</p>}
         </div>
     </CardContent>
   );
@@ -150,7 +128,6 @@ export function CameraPreview({
   if (embedded) {
     return (
       <div className="space-y-2">
-        {header}
         {content}
       </div>
     );
@@ -158,7 +135,6 @@ export function CameraPreview({
 
   return (
     <Card>
-      {header}
       {content}
     </Card>
   );

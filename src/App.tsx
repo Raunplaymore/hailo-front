@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./com
 import { useUpload } from "./hooks/useUpload";
 import { useShots } from "./hooks/useShots";
 import { useAnalysis } from "./hooks/useAnalysis";
+import { useToast } from "./hooks/use-toast";
 import { JobStatus, Shot } from "./types/shots";
 import { SettingsForm, UploadSettings } from "./components/settings/SettingsForm";
 import { API_BASE } from "./api/client";
@@ -151,7 +152,6 @@ function App() {
   });
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [isPreviewOn, setIsPreviewOn] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewSessionId, setPreviewSessionId] = useState<number>(0);
   const [sessionState, setSessionState] = useState<SessionState>("idle");
   const [sessionJobId, setSessionJobId] = useState<string | null>(null);
@@ -175,6 +175,7 @@ function App() {
   const [aiConfigNote, setAiConfigNote] = useState<string | null>(null);
   const [listMode, setListMode] = useState<"sessions" | "uploads">("sessions");
   const [uploadListTab, setUploadListTab] = useState<"pending" | "done">("pending");
+  const { toast } = useToast();
   const streamClients = cameraStatus?.streamClients ?? 0;
   const isStreaming = cameraStatus?.streaming === true;
 
@@ -439,10 +440,13 @@ function App() {
 
   const handleStartPreview = () => {
     if (previewParams.width * previewParams.height > MAX_PREVIEW_PIXELS) {
-      setPreviewError("해상도가 너무 높습니다. 네트워크 상태를 고려해 낮춰주세요.");
+      toast({
+        variant: "destructive",
+        title: "프리뷰 시작 실패",
+        description: "해상도가 너무 높습니다. 설정에서 낮춰주세요.",
+      });
       return;
     }
-    setPreviewError(null);
     try {
       const url = buildStreamUrl(cameraSettings.baseUrl, {
         ...previewParams,
@@ -453,21 +457,33 @@ function App() {
       setIsPreviewOn(true);
       setPreviewSessionId((id) => id + 1);
       rememberBase(cameraSettings.baseUrl);
+      toast({
+        title: "프리뷰 시작",
+        description: `${previewParams.width} x ${previewParams.height} · 15fps`,
+      });
     } catch (err) {
       setIsPreviewOn(false);
       const message = err instanceof Error ? err.message : "프리뷰를 시작할 수 없습니다.";
-      setPreviewError(message);
+      toast({
+        variant: "destructive",
+        title: "프리뷰 시작 실패",
+        description: message,
+      });
     }
   };
 
   const handleStreamError = () => {
-    // setPreviewError("프리뷰 연결이 끊어졌습니다. 다시 시도하세요.");
     setIsPreviewOn(false);
     setStreamUrl(null);
     handleCheckStatus();
+    toast({
+      variant: "destructive",
+      title: "프리뷰 연결 끊김",
+      description: "스트림이 종료되었습니다. 다시 켜주세요.",
+    });
   };
 
-  const handleStopPreview = async () => {
+  const handleStopPreview = async (silent = false) => {
     if (cameraSettings.baseUrl) {
       try {
         await stopStream(cameraSettings.baseUrl, cameraSettings.token || undefined);
@@ -492,6 +508,9 @@ function App() {
     handleCheckStatus();
     window.setTimeout(handleCheckStatus, 800);
     window.setTimeout(handleCheckStatus, 2500);
+    if (!silent) {
+      toast({ title: "프리뷰 종료", description: "스트림을 닫았습니다." });
+    }
   };
 
   const resolveSessionStatus = (status?: string): SessionStatus => {
@@ -730,7 +749,7 @@ function App() {
       return;
     }
     if (isPreviewOn && cameraSettings.autoStopPreviewOnCapture) {
-      await handleStopPreview();
+      await handleStopPreview(true);
       await new Promise((resolve) => window.setTimeout(resolve, 300));
     }
     setSessionError(null);
@@ -771,7 +790,7 @@ function App() {
       const message = err instanceof Error ? err.message : "세션 시작 실패";
       setSessionError(message);
       setSessionState("failed");
-      await handleStopPreview();
+      await handleStopPreview(true);
     }
   };
 
@@ -829,13 +848,13 @@ function App() {
         analysisJobId: analysis.jobId,
         metaPath: res.metaPath ?? undefined,
       });
-      await handleStopPreview();
+      await handleStopPreview(true);
       refreshSessions();
     } catch (err) {
       const message = err instanceof Error ? err.message : "세션 종료 실패";
       setSessionError(message);
       setSessionState("failed");
-      await handleStopPreview();
+      await handleStopPreview(true);
       if (sessionFilename) {
         updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
       }
@@ -924,7 +943,7 @@ function App() {
         if (status === "failed") {
           setSessionRuntimeError(res.errorMessage || "세션이 실패했습니다.");
           setSessionState("failed");
-          await handleStopPreview();
+          await handleStopPreview(true);
           return;
         }
         timer = window.setTimeout(poll, 1500);
@@ -969,7 +988,7 @@ function App() {
           const message = res.errorMessage ?? "분석이 실패했습니다.";
           setSessionAnalysisError(message);
           setSessionState("failed");
-          await handleStopPreview();
+          await handleStopPreview(true);
           if (sessionFilename) {
             updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
             setSelectedSession((prev) =>
@@ -1120,7 +1139,6 @@ function App() {
                 onStart={handleStartPreview}
                 onStop={handleStopPreview}
                 onStreamError={handleStreamError}
-                error={previewError}
                 statusOverlay={previewOverlayLabel}
                 overlayBoxes={liveBoxes}
                 overlayEnabled={sessionState === "recording"}

@@ -19,7 +19,6 @@ type CameraPreviewProps = {
   onStart: () => void;
   onStop: () => void;
   onStreamError?: () => void;
-  error?: string | null;
   startDisabled?: boolean;
   statusOverlay?: string | null;
   overlayBoxes?: LiveOverlayBox[];
@@ -35,7 +34,6 @@ export function CameraPreview({
   onStart,
   onStop,
   onStreamError,
-  error,
   startDisabled = false,
   statusOverlay = null,
   overlayBoxes = [],
@@ -120,7 +118,6 @@ export function CameraPreview({
               </div>
             )}
           </div>
-          {error && <p className="p-2 pb-0 text-sm text-destructive">{error}</p>}
         </div>
     </CardContent>
   );

@@ -681,6 +681,7 @@ function App() {
       const message = err instanceof Error ? err.message : "세션 시작 실패";
       setSessionError(message);
       setSessionState("failed");
+      handleStopPreview();
     }
   };
 
@@ -746,6 +747,7 @@ function App() {
       const message = err instanceof Error ? err.message : "세션 종료 실패";
       setSessionError(message);
       setSessionState("failed");
+      handleStopPreview();
       if (sessionFilename) {
         updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
       }
@@ -834,6 +836,7 @@ function App() {
         if (status === "failed") {
           setSessionRuntimeError(res.errorMessage || "세션이 실패했습니다.");
           setSessionState("failed");
+          handleStopPreview();
           return;
         }
         timer = window.setTimeout(poll, 1500);
@@ -878,6 +881,7 @@ function App() {
           const message = res.errorMessage ?? "분석이 실패했습니다.";
           setSessionAnalysisError(message);
           setSessionState("failed");
+          handleStopPreview();
           if (sessionFilename) {
             updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
             setSelectedSession((prev) =>

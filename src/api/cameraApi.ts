@@ -183,3 +183,16 @@ export const buildStreamUrl = (baseUrl: string, params: CameraStreamParams): str
   }
   return url.toString();
 };
+
+export const stopStream = async (baseUrl: string, token?: string): Promise<void> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/stream/stop`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "프리뷰 스트림을 종료하지 못했습니다.");
+  }
+};

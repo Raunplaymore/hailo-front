@@ -29,6 +29,7 @@ import {
   getStatus as getCameraStatus,
   setAiConfig,
   startCapture,
+  stopStream,
 } from "./api/cameraApi";
 import {
   deleteSession,
@@ -386,7 +387,15 @@ function App() {
     handleCheckStatus();
   };
 
-  const handleStopPreview = () => {
+  const handleStopPreview = async () => {
+    if (cameraSettings.baseUrl) {
+      try {
+        await stopStream(cameraSettings.baseUrl, cameraSettings.token || undefined);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "프리뷰 스트림 종료 실패";
+        console.warn(message);
+      }
+    }
     setIsPreviewOn(false);
     setStreamUrl(null);
     // 낙관적으로 busy/streaming을 해제하고 후속 폴링으로 정합성을 맞춥니다.
@@ -641,7 +650,7 @@ function App() {
       return;
     }
     if (isPreviewOn && cameraSettings.autoStopPreviewOnCapture) {
-      handleStopPreview();
+      await handleStopPreview();
       await new Promise((resolve) => window.setTimeout(resolve, 300));
     }
     setSessionError(null);
@@ -681,7 +690,7 @@ function App() {
       const message = err instanceof Error ? err.message : "세션 시작 실패";
       setSessionError(message);
       setSessionState("failed");
-      handleStopPreview();
+      await handleStopPreview();
     }
   };
 
@@ -739,15 +748,13 @@ function App() {
         analysisJobId: analysis.jobId,
         metaPath: res.metaPath ?? undefined,
       });
-      if (cameraSettings.autoStopPreviewOnCapture) {
-        handleStopPreview();
-      }
+      await handleStopPreview();
       refreshSessions();
     } catch (err) {
       const message = err instanceof Error ? err.message : "세션 종료 실패";
       setSessionError(message);
       setSessionState("failed");
-      handleStopPreview();
+      await handleStopPreview();
       if (sessionFilename) {
         updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
       }
@@ -836,7 +843,7 @@ function App() {
         if (status === "failed") {
           setSessionRuntimeError(res.errorMessage || "세션이 실패했습니다.");
           setSessionState("failed");
-          handleStopPreview();
+          await handleStopPreview();
           return;
         }
         timer = window.setTimeout(poll, 1500);
@@ -881,7 +888,7 @@ function App() {
           const message = res.errorMessage ?? "분석이 실패했습니다.";
           setSessionAnalysisError(message);
           setSessionState("failed");
-          handleStopPreview();
+          await handleStopPreview();
           if (sessionFilename) {
             updateSessionMap(sessionFilename, { status: "failed", errorMessage: message });
             setSelectedSession((prev) =>
@@ -944,7 +951,7 @@ function App() {
     }
 
     if (cameraSettings.autoStopPreviewOnCapture && isPreviewOn) {
-      handleStopPreview();
+      await handleStopPreview();
     }
 
     setIsCapturing(true);

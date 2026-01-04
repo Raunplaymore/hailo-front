@@ -19,6 +19,7 @@ type SessionControlsProps = {
   error?: string | null;
   analysisError?: string | null;
   startDisabled?: boolean;
+  embedded?: boolean;
   onStart: () => void;
   onStop: () => void;
   onReset: () => void;
@@ -62,6 +63,7 @@ export function SessionControls({
   error,
   analysisError,
   startDisabled = false,
+  embedded = false,
   onStart,
   onStop,
   onReset,
@@ -71,87 +73,104 @@ export function SessionControls({
   const canStart = state === "idle" || state === "done" || state === "failed";
   const showStart = !isRecording && !isBusy;
 
+  const header = (
+    <CardHeader className={embedded ? "px-0 pb-2" : "pb-3"}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground">AI 인퍼런스 세션</p>
+          <CardTitle className="text-lg">원탭 스윙 세션</CardTitle>
+          <CardDescription>시작 → 실시간 인퍼런스 → 종료 → 분석</CardDescription>
+        </div>
+        <span
+          className={cn(
+            "rounded-full px-2 py-1 text-xs font-semibold",
+            STATE_STYLES[state]
+          )}
+        >
+          {STATE_LABELS[state]}
+        </span>
+      </div>
+    </CardHeader>
+  );
+
+  const content = (
+    <CardContent className={embedded ? "px-0 pt-0 space-y-3" : "space-y-3"}>
+      {(error || analysisError) && (
+        <p className="text-sm text-destructive">
+          {error || analysisError}
+        </p>
+      )}
+      {jobId && (
+        <p className="text-xs text-muted-foreground">Session ID: {jobId}</p>
+      )}
+      {filename && (
+        <p className="text-xs text-muted-foreground">파일: {filename}</p>
+      )}
+      {analysisStatus && (
+        <p className="text-xs text-muted-foreground">
+          분석 상태: {ANALYSIS_LABELS[analysisStatus] ?? analysisStatus}
+        </p>
+      )}
+      {sessionStatus && (
+        <p className="text-xs text-muted-foreground">
+          세션 상태: {sessionStatus}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {isRecording ? (
+          <Button
+            type="button"
+            variant="destructive"
+            fullWidth={false}
+            className="rounded-lg"
+            onClick={onStop}
+          >
+            Stop
+          </Button>
+        ) : showStart ? (
+          <Button
+            type="button"
+            fullWidth={false}
+            className="rounded-lg"
+            onClick={onStart}
+            disabled={startDisabled || isBusy}
+          >
+            Start
+          </Button>
+        ) : null}
+        {canStart && (state === "done" || state === "failed") && (
+          <Button
+            type="button"
+            variant="outline"
+            fullWidth={false}
+            className="rounded-lg"
+            onClick={onReset}
+          >
+            새 세션 준비
+          </Button>
+        )}
+        {isBusy && (
+          <Button type="button" variant="outline" fullWidth={false} className="rounded-lg" disabled>
+            처리 중...
+          </Button>
+        )}
+      </div>
+    </CardContent>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-2">
+        {header}
+        {content}
+      </div>
+    );
+  }
+
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground">AI 인퍼런스 세션</p>
-            <CardTitle className="text-lg">원탭 스윙 세션</CardTitle>
-            <CardDescription>시작 → 실시간 인퍼런스 → 종료 → 분석</CardDescription>
-          </div>
-          <span
-            className={cn(
-              "rounded-full px-2 py-1 text-xs font-semibold",
-              STATE_STYLES[state]
-            )}
-          >
-            {STATE_LABELS[state]}
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {(error || analysisError) && (
-          <p className="text-sm text-destructive">
-            {error || analysisError}
-          </p>
-        )}
-        {jobId && (
-          <p className="text-xs text-muted-foreground">Session ID: {jobId}</p>
-        )}
-        {filename && (
-          <p className="text-xs text-muted-foreground">파일: {filename}</p>
-        )}
-        {analysisStatus && (
-          <p className="text-xs text-muted-foreground">
-            분석 상태: {ANALYSIS_LABELS[analysisStatus] ?? analysisStatus}
-          </p>
-        )}
-        {sessionStatus && (
-          <p className="text-xs text-muted-foreground">
-            세션 상태: {sessionStatus}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          {isRecording ? (
-            <Button
-              type="button"
-              variant="destructive"
-              fullWidth={false}
-              className="rounded-lg"
-              onClick={onStop}
-            >
-              Stop
-            </Button>
-          ) : showStart ? (
-            <Button
-              type="button"
-              fullWidth={false}
-              className="rounded-lg"
-              onClick={onStart}
-              disabled={startDisabled || isBusy}
-            >
-              Start
-            </Button>
-          ) : null}
-          {canStart && (state === "done" || state === "failed") && (
-            <Button
-              type="button"
-              variant="outline"
-              fullWidth={false}
-              className="rounded-lg"
-              onClick={onReset}
-            >
-              새 세션 준비
-            </Button>
-          )}
-          {isBusy && (
-            <Button type="button" variant="outline" fullWidth={false} className="rounded-lg" disabled>
-              처리 중...
-            </Button>
-          )}
-        </div>
-      </CardContent>
+      {header}
+      {content}
     </Card>
   );
 }

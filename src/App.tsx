@@ -1134,36 +1134,44 @@ function App() {
     >
       {activeTab === "camera" && (
         <div className="space-y-4">
-          <SessionControls
-            state={sessionState}
-            jobId={sessionJobId}
-            filename={sessionFilename}
-            analysisStatus={sessionAnalysisStatus ?? undefined}
-            sessionStatus={sessionRuntimeStatus}
-            error={sessionError || sessionRuntimeError}
-            analysisError={sessionAnalysisError}
-            onStart={handleSessionStart}
-            onStop={handleSessionStop}
-            onReset={handleSessionReset}
-          />
-          <div id="camera-preview" />
-          <CameraPreview
-            isActive={isPreviewOn}
-            streamUrl={streamUrl}
-            key={previewSessionId}
-            width={previewParams.width}
-            height={previewParams.height}
-            fps={previewParams.fps}
-            onChangeResolution={(width, height) => setPreviewParams((prev) => ({ ...prev, width, height }))}
-            onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
-            onStart={handleStartPreview}
-            onStop={handleStopPreview}
-            onStreamError={handleStreamError}
-            error={previewError}
-            statusOverlay={previewOverlayLabel}
-            overlayBoxes={liveBoxes}
-            overlayEnabled={sessionState === "recording"}
-          />
+          <Card>
+            <CardContent className="space-y-4">
+              <div id="camera-preview" />
+              <CameraPreview
+                embedded
+                isActive={isPreviewOn}
+                streamUrl={streamUrl}
+                key={previewSessionId}
+                width={previewParams.width}
+                height={previewParams.height}
+                fps={previewParams.fps}
+                onChangeResolution={(width, height) =>
+                  setPreviewParams((prev) => ({ ...prev, width, height }))
+                }
+                onChangeFps={(value) => setPreviewParams((prev) => ({ ...prev, fps: value }))}
+                onStart={handleStartPreview}
+                onStop={handleStopPreview}
+                onStreamError={handleStreamError}
+                error={previewError}
+                statusOverlay={previewOverlayLabel}
+                overlayBoxes={liveBoxes}
+                overlayEnabled={sessionState === "recording"}
+              />
+              <SessionControls
+                embedded
+                state={sessionState}
+                jobId={sessionJobId}
+                filename={sessionFilename}
+                analysisStatus={sessionAnalysisStatus ?? undefined}
+                sessionStatus={sessionRuntimeStatus}
+                error={sessionError || sessionRuntimeError}
+                analysisError={sessionAnalysisError}
+                onStart={handleSessionStart}
+                onStop={handleSessionStop}
+                onReset={handleSessionReset}
+              />
+            </CardContent>
+          </Card>
           <div id="capture-section">
             <CaptureControls
               isCapturing={isCapturing}

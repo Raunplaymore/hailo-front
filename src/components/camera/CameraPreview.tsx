@@ -25,6 +25,7 @@ type CameraPreviewProps = {
   width: number;
   height: number;
   fps: number;
+  embedded?: boolean;
   onChangeResolution: (width: number, height: number) => void;
   onChangeFps: (fps: number) => void;
   onStart: () => void;
@@ -52,6 +53,7 @@ export function CameraPreview({
   width,
   height,
   fps,
+  embedded = false,
   onChangeResolution,
   onChangeFps,
   onStart,
@@ -88,42 +90,43 @@ export function CameraPreview({
     };
   }, [isActive, streamUrl]);
 
-  return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted-foreground">MJPEG 스트림</p>
-          <CardTitle className="text-xl">실시간 프리뷰</CardTitle>
-        </div>
-        <div className="flex gap-2">
-          {isActive ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              fullWidth={false}
-              className="rounded-lg"
-              onClick={handleStopClick}
-            >
-              프리뷰 끄기
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              fullWidth={false}
-              className="rounded-lg"
-              onClick={onStart}
-              disabled={startDisabled}
-            >
-              {startLabel}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+  const header = (
+    <CardHeader className={embedded ? "px-0 pb-2 flex-row items-start justify-between gap-3" : "flex-row items-start justify-between gap-3"}>
+      <div>
+        <p className="text-xs text-muted-foreground">MJPEG 스트림</p>
+        <CardTitle className="text-xl">실시간 프리뷰</CardTitle>
+      </div>
+      <div className="flex gap-2">
+        {isActive ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            fullWidth={false}
+            className="rounded-lg"
+            onClick={handleStopClick}
+          >
+            프리뷰 끄기
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            fullWidth={false}
+            className="rounded-lg"
+            onClick={onStart}
+            disabled={startDisabled}
+          >
+            {startLabel}
+          </Button>
+        )}
+      </div>
+    </CardHeader>
+  );
 
-      <CardContent className="space-y-4">
-        {error && <p className="text-sm text-destructive">{error}</p>}
+  const content = (
+    <CardContent className={embedded ? "px-0 pt-0 space-y-4" : "space-y-4"}>
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
@@ -246,7 +249,22 @@ export function CameraPreview({
             해제됩니다.
           </p>
         </div>
-      </CardContent>
+    </CardContent>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-2">
+        {header}
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      {header}
+      {content}
     </Card>
   );
 }

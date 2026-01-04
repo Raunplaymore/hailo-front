@@ -4,6 +4,8 @@ import {
   CapturePayload,
   CaptureResponse,
   AiConfigStatus,
+  CalibrationData,
+  CalibrationListItem,
 } from "../types/camera";
 
 export class CameraApiError extends Error {
@@ -195,4 +197,40 @@ export const stopStream = async (baseUrl: string, token?: string): Promise<void>
   if (!res.ok) {
     throw await buildError(res, "프리뷰 스트림을 종료하지 못했습니다.");
   }
+};
+
+export const listCalibrations = async (
+  baseUrl: string,
+  token?: string
+): Promise<CalibrationListItem[]> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/calibration/list`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "캘리브레이션 목록을 불러오지 못했습니다.");
+  }
+  const json = (await res.json()) as { items?: string[] | CalibrationListItem[] };
+  const items = Array.isArray(json?.items) ? json.items : [];
+  return items.map((item) => (typeof item === "string" ? { name: item } : item));
+};
+
+export const getCalibration = async (
+  baseUrl: string,
+  name: string,
+  token?: string
+): Promise<CalibrationData> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/calibration/${encodeURIComponent(name)}`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "캘리브레이션 정보를 불러오지 못했습니다.");
+  }
+  const json = (await res.json()) as CalibrationData;
+  return json;
 };

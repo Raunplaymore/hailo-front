@@ -4,6 +4,7 @@ import { Button } from "../Button";
 
 export type UploadSettings = {
   club?: string;
+  lens?: string;
   fps?: number;
   roi?: string;
   cam_distance?: number;
@@ -16,11 +17,13 @@ export type UploadSettings = {
 
 type SettingsFormProps = {
   value: UploadSettings;
+  lensOptions?: string[];
+  lensError?: string | null;
   onChange: (next: UploadSettings) => void;
   onSubmit?: () => void;
 };
 
-export function SettingsForm({ value, onChange, onSubmit }: SettingsFormProps) {
+export function SettingsForm({ value, lensOptions = [], lensError, onChange, onSubmit }: SettingsFormProps) {
   const toNumber = (v: string) => {
     const n = Number(v);
     return Number.isNaN(n) ? undefined : n;
@@ -123,6 +126,27 @@ export function SettingsForm({ value, onChange, onSubmit }: SettingsFormProps) {
             onChange={(e) => handleChange("cam_height", e.target.value)}
             className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           />
+        </label>
+
+        <label className="grid gap-1 text-sm text-slate-700 md:col-span-2">
+          렌즈 선택
+          <select
+            value={value.lens ?? ""}
+            onChange={(e) => handleChange("lens", e.target.value)}
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          >
+            <option value="" disabled>
+              렌즈를 선택하세요
+            </option>
+            {lensOptions.map((lens) => (
+              <option key={lens} value={lens}>
+                {lens}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-slate-500">
+            {lensError || "렌즈 선택 시 h_fov/v_fov가 자동 입력됩니다."}
+          </span>
         </label>
 
         <label className="grid gap-1 text-sm text-slate-700">

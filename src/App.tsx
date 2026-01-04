@@ -27,6 +27,8 @@ import {
   captureAndAnalyze,
   CameraApiError,
   getStatus as getCameraStatus,
+  getCalibration,
+  listCalibrations,
   setAiConfig,
   startCapture,
   stopStream,
@@ -56,6 +58,7 @@ const CAMERA_ENV_TOKEN =
   (import.meta.env.VITE_CAMERA_AUTH_TOKEN as string | undefined) ||
   ((import.meta.env as unknown as Record<string, string | undefined>).NEXT_PUBLIC_CAMERA_AUTH_TOKEN ?? "");
 const AI_CONFIG_GOLF = "yolov8s_nms_golf.json";
+const DEFAULT_LENS = "lens_8mm_intrinsics.json";
 
 const loadLocalJson = <T,>(key: string): T | null => {
   if (typeof window === "undefined") return null;
@@ -92,7 +95,10 @@ function App() {
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [settings, setSettings] = useState<UploadSettings>({
     club: "driver",
+    lens: DEFAULT_LENS,
   });
+  const [lensOptions, setLensOptions] = useState<string[]>([]);
+  const [lensError, setLensError] = useState<string | null>(null);
   const [cameraSettings, setCameraSettings] = useState<CameraSettingsValue>(() => {
     const stored = loadLocalJson<CameraSettingsValue>("cameraSettings");
     return {
@@ -184,6 +190,68 @@ function App() {
     if (typeof window === "undefined") return;
     localStorage.setItem("sessionStatusMap", JSON.stringify(sessionStatusMap));
   }, [sessionStatusMap]);
+
+  const applyLensCalibration = async (lensName: string) => {
+    if (!cameraSettings.baseUrl) return;
+    try {
+      const calibration = await getCalibration(
+        cameraSettings.baseUrl,
+        lensName,
+        cameraSettings.token || undefined
+      );
+      const hFov = Number(calibration?.data?.h_fov_deg);
+      const vFov = Number(calibration?.data?.v_fov_deg);
+      setSettings((prev) => ({
+        ...prev,
+        lens: lensName,
+        h_fov: Number.isFinite(hFov) ? Number(hFov.toFixed(2)) : prev.h_fov,
+        v_fov: Number.isFinite(vFov) ? Number(vFov.toFixed(2)) : prev.v_fov,
+      }));
+      setLensError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "캘리브레이션 정보를 불러오지 못했습니다.";
+      setLensError(message);
+    }
+  };
+
+  useEffect(() => {
+    if (!cameraSettings.baseUrl) {
+      setLensOptions([]);
+      setLensError("카메라 서버 주소를 먼저 입력하세요.");
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const list = await listCalibrations(
+          cameraSettings.baseUrl,
+          cameraSettings.token || undefined
+        );
+        if (cancelled) return;
+        const names = list.map((item) => item.name);
+        setLensOptions(names);
+        setLensError(null);
+        const currentLens = settings.lens;
+        const nextLens = currentLens || (names.includes(DEFAULT_LENS) ? DEFAULT_LENS : names[0]);
+        const needsFov =
+          nextLens &&
+          (settings.h_fov === undefined || settings.h_fov === null ||
+            settings.v_fov === undefined || settings.v_fov === null);
+        if (nextLens && (nextLens !== currentLens || needsFov)) {
+          await applyLensCalibration(nextLens);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "캘리브레이션 목록을 불러오지 못했습니다.";
+        setLensOptions([]);
+        setLensError(message);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [cameraSettings.baseUrl, cameraSettings.token]);
 
   const handleDelete = async (shot: Shot) => {
     setDeletingId(shot.id);
@@ -1368,7 +1436,16 @@ function App() {
           />
           <SettingsForm
             value={settings}
-            onChange={(next) => setSettings(next)}
+            lensOptions={lensOptions}
+            lensError={lensError}
+            onChange={(next) => {
+              const nextLens = next.lens;
+              const prevLens = settings.lens;
+              setSettings(next);
+              if (nextLens && nextLens !== prevLens) {
+                applyLensCalibration(nextLens);
+              }
+            }}
             onSubmit={() => setActiveTab("upload")}
           />
         </div>

@@ -65,3 +65,16 @@ export type AiConfigStatus = {
   options: string[];
   needsRestart?: boolean;
 };
+
+export type CalibrationListItem = {
+  name: string;
+};
+
+export type CalibrationData = {
+  name: string;
+  data: {
+    h_fov_deg?: number;
+    v_fov_deg?: number;
+    [key: string]: unknown;
+  };
+};

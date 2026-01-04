@@ -3,8 +3,6 @@ import {
   CameraStreamParams,
   CapturePayload,
   CaptureResponse,
-  AutoRecordStatus,
-  AutoRecordResponse,
   AiConfigStatus,
 } from "../types/camera";
 
@@ -122,58 +120,6 @@ export const captureAndAnalyze = async (
   }
 
   return json;
-};
-
-export const startAutoRecord = async (baseUrl: string, token?: string): Promise<AutoRecordStatus> => {
-  const normalized = ensureBaseUrl(baseUrl);
-  const res = await fetch(`${normalized}/api/camera/auto-record/start`, {
-    method: "POST",
-    headers: {
-      ...authHeaders(token),
-    },
-  });
-  if (res.status === 409) {
-    throw new CameraApiError("이미 자동 촬영이 동작 중입니다.(409)", 409);
-  }
-  if (!res.ok) {
-    throw await buildError(res, "자동 촬영을 시작하지 못했습니다.");
-  }
-  const json = (await res.json()) as AutoRecordResponse;
-  return json.status;
-};
-
-export const stopAutoRecord = async (baseUrl: string, token?: string): Promise<AutoRecordStatus> => {
-  const normalized = ensureBaseUrl(baseUrl);
-  const res = await fetch(`${normalized}/api/camera/auto-record/stop`, {
-    method: "POST",
-    headers: {
-      ...authHeaders(token),
-    },
-  });
-  if (!res.ok) {
-    throw await buildError(res, "자동 촬영을 종료하지 못했습니다.");
-  }
-  const json = (await res.json()) as AutoRecordResponse;
-  return json.status;
-};
-
-export const getAutoRecordStatus = async (
-  baseUrl: string,
-  token?: string
-): Promise<AutoRecordStatus> => {
-  const normalized = ensureBaseUrl(baseUrl);
-  const res = await fetch(`${normalized}/api/camera/auto-record/status`, {
-    headers: {
-      ...authHeaders(token),
-    },
-  });
-
-  if (!res.ok) {
-    throw await buildError(res, "자동 촬영 상태를 불러오지 못했습니다.");
-  }
-
-  const json = (await res.json()) as AutoRecordResponse;
-  return json.status;
 };
 
 export const getAiConfig = async (baseUrl: string, token?: string): Promise<AiConfigStatus> => {

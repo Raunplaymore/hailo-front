@@ -14,10 +14,6 @@
 - **리스트 & 재생**: 카메라 `GET /api/session/list` 기반으로 세션 히스토리 구성(필요 시 `/api/files` fallback), 분석 상태 뱃지/CTA 제공. 필요 시 세션 삭제 가능.
 - **분석 뷰**: 이벤트 타임라인(Address/Top/Impact/Finish), 요약 코멘트, 핵심 지표(스윙 플레인/템포/임팩트 안정성) 표시.
 - **모바일 우선**: iOS/핫스팟 환경에서 프리뷰/캡처가 빠르게 동작하도록 저해상도·저FPS 프리셋 제공.
-- **자동 촬영 모드(Ready)**: `자동 촬영 시작/중지` 버튼, 상태 배지(대기/어드레스 감지/안정 상태 확보/촬영중/마무리 처리 중/정지 중/실패), 프리뷰 오버레이, 실패 시 수동 촬영 전환 버튼.
-  - 어드레스 완료: person bbox가 2초 안정적일 때
-  - 종료: person 미검출 연속 프레임 또는 Stop 버튼
-  - API: `POST /api/camera/auto-record/start|stop`, `GET /api/camera/auto-record/status`(1초 폴링, state 기반 UI), recordingFilename으로 `/api/files/detail` 상태 추적.
 
 ## 카메라 API 연동 요약
 
@@ -38,7 +34,6 @@
   - 파일명 규칙: `golf_YYYYMMDD_HHmmss_mmm_type.ext` (프런트에서 생성).
   - busy/streaming 시 409, 인증 401, 타임아웃 504 처리.
 - 파일 서빙: `/uploads/:filename`
-- 자동 모드: `POST /api/camera/auto-record/start|stop`, `GET /api/camera/auto-record/status` 폴링(1s), recordingFilename로 `/api/files/detail` 상태 확인 → 완료 시 분석 뷰로 이동.
 - AI 라벨 구성은 `yolov8s_nms_golf.json` 고정 사용(웹에서 자동 적용).
 
 ## 백엔드 분석 API 연동 요약

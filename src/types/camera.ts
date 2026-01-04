@@ -60,29 +60,6 @@ export type CaptureItem = {
   status?: string;
 };
 
-export type AutoRecordState =
-  | "idle"
-  | "arming"
-  | "addressLocked"
-  | "recording"
-  | "finishLocked"
-  | "stopping"
-  | "failed"
-  | (string & {});
-
-export type AutoRecordStatus = {
-  enabled: boolean;
-  state: AutoRecordState;
-  recordingFilename?: string | null;
-  startedAt?: string | null;
-  lastError?: string | null;
-};
-
-export type AutoRecordResponse = {
-  ok?: boolean;
-  status: AutoRecordStatus;
-};
-
 export type AiConfigStatus = {
   current: string;
   options: string[];

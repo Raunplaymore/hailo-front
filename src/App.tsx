@@ -20,17 +20,14 @@ import { CameraPreview } from "./components/camera/CameraPreview";
 import { CaptureControls } from "./components/camera/CaptureControls";
 import { CaptureGallery } from "./components/camera/CaptureGallery";
 import { SessionControls } from "./components/camera/SessionControls";
-import { AutoRecordStatus, CameraStatus, CaptureItem, CapturePayload } from "./types/camera";
+import { CameraStatus, CaptureItem, CapturePayload } from "./types/camera";
 import { LiveOverlayBox, SessionRecord, SessionState, SessionStatus } from "./types/session";
 import {
   buildStreamUrl,
   captureAndAnalyze,
   CameraApiError,
-  getAutoRecordStatus,
   getStatus as getCameraStatus,
   setAiConfig,
-  startAutoRecord,
-  stopAutoRecord,
   startCapture,
 } from "./api/cameraApi";
 import {
@@ -44,7 +41,6 @@ import {
   stopSession,
 } from "./api/sessionApi";
 import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus } from "./api/shots";
-// import { AutoRecordPanel } from "./components/camera/AutoRecordPanel";
 import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 
@@ -165,26 +161,7 @@ function App() {
   const [captures, setCaptures] = useState<CaptureItem[]>([]);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [autoStatus, setAutoStatus] = useState<AutoRecordStatus | null>(null);
-  const [autoError, setAutoError] = useState<string | null>(null);
-  const [autoPendingFilename, setAutoPendingFilename] = useState<string | null>(null);
   const [aiConfigNote, setAiConfigNote] = useState<string | null>(null);
-  const autoPollTimer = useRef<number | null>(null);
-  const autoRefreshTimer = useRef<number | null>(null);
-  const autoStateKey =
-    autoStatus && typeof autoStatus.state === "string"
-      ? autoStatus.state.toLowerCase()
-      : "";
-  const isAutoActive = autoStateKey ? !["idle", "failed", "stopped"].includes(autoStateKey) : false;
-  const autoStateLabels: Record<string, string> = {
-    idle: "대기",
-    arming: "어드레스 감지",
-    addresslocked: "안정 상태 확보",
-    recording: "촬영중",
-    finishlocked: "마무리 처리 중",
-    stopping: "정지 중",
-    failed: "실패",
-  };
   const [listMode, setListMode] = useState<"sessions" | "uploads">("sessions");
   const [uploadListTab, setUploadListTab] = useState<"pending" | "done">("pending");
   const streamClients = cameraStatus?.streamClients ?? 0;
@@ -925,90 +902,6 @@ function App() {
     };
   }, [sessionState, sessionAnalysisJobId, sessionFilename]);
 
-  const clearAutoPoll = () => {
-    if (autoPollTimer.current) {
-      window.clearInterval(autoPollTimer.current);
-      autoPollTimer.current = null;
-    }
-  };
-
-  const clearAutoRefresh = () => {
-    if (autoRefreshTimer.current) {
-      window.clearInterval(autoRefreshTimer.current);
-      autoRefreshTimer.current = null;
-    }
-  };
-
-  const fetchAutoStatus = async () => {
-    if (!cameraSettings.baseUrl) {
-      setAutoError("카메라 서버 주소를 입력하세요.");
-      return;
-    }
-    try {
-      const res = await getAutoRecordStatus(cameraSettings.baseUrl, cameraSettings.token || undefined);
-      setAutoStatus(res);
-      setAutoError(null);
-      setAutoPendingFilename(res.recordingFilename || null);
-      const stateKeyLocal = res.state?.toLowerCase?.() ?? res.state;
-      if (!res.recordingFilename && (stateKeyLocal === "idle" || stateKeyLocal === "stopped" || stateKeyLocal === "failed")) {
-        setAutoPendingFilename(null);
-      }
-      const stateKey = res.state?.toLowerCase?.() ?? res.state;
-      if (!res.recordingFilename && (stateKey === "idle" || stateKey === "stopped" || stateKey === "failed")) {
-        setAutoPendingFilename(null);
-        clearAutoPoll();
-        clearAutoRefresh();
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "자동 촬영 상태 확인 실패";
-      setAutoError(message);
-    }
-  };
-
-  const startAutoPolling = () => {
-    clearAutoPoll();
-    fetchAutoStatus();
-    autoPollTimer.current = window.setInterval(fetchAutoStatus, 1000);
-  };
-
-  const handleStartAuto = async () => {
-    if (!cameraSettings.baseUrl) {
-      setAutoError("카메라 서버 주소를 입력하세요.");
-      return;
-    }
-    try {
-      setAutoError(null);
-      const res = await startAutoRecord(cameraSettings.baseUrl, cameraSettings.token || undefined);
-      setAutoStatus(res);
-      if (res.recordingFilename) {
-        setAutoPendingFilename(res.recordingFilename);
-      }
-      startAutoPolling();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "자동 촬영 시작 실패";
-      setAutoError(message);
-    }
-  };
-
-  const handleStopAuto = async () => {
-    if (!cameraSettings.baseUrl) {
-      setAutoError("카메라 서버 주소를 입력하세요.");
-      return;
-    }
-    try {
-      const res = await stopAutoRecord(cameraSettings.baseUrl, cameraSettings.token || undefined);
-      setAutoStatus(res);
-      if (res.recordingFilename) {
-        setAutoPendingFilename(res.recordingFilename);
-      }
-      clearAutoPoll();
-      clearAutoRefresh();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "자동 촬영 중지 실패";
-      setAutoError(message);
-    }
-  };
-
   const makeFilename = (ext: "jpg" | "mp4", type: string) => {
     const now = new Date();
     const pad = (n: number, len = 2) => n.toString().padStart(len, "0");
@@ -1193,10 +1086,6 @@ function App() {
   );
   const analyzedShots = sortedShots.filter((shot) => isAnalyzedDone(shot));
   const pendingShots = sortedShots.filter((shot) => !isAnalyzedDone(shot));
-  const autoOverlayLabel =
-    autoStatus && autoStatus.state && autoStatus.state.toLowerCase() !== "idle"
-      ? autoStateLabels[autoStateKey] ?? autoStatus.state
-      : null;
   const sessionOverlayLabel =
     sessionState === "recording"
       ? "AI 세션 촬영중"
@@ -1205,7 +1094,7 @@ function App() {
       : sessionState === "analyzing"
       ? "분석 중"
       : null;
-  const previewOverlayLabel = sessionOverlayLabel ?? autoOverlayLabel;
+  const previewOverlayLabel = sessionOverlayLabel;
 
   useEffect(() => {
     if (activeTab !== "list") return;
@@ -1219,44 +1108,6 @@ function App() {
     }, 1000);
     return () => window.clearInterval(interval);
   }, [activeTab, shots, refreshShots]);
-
-  useEffect(() => {
-    if (!autoPendingFilename) return;
-    refreshShots();
-    clearAutoRefresh();
-    autoRefreshTimer.current = window.setInterval(() => {
-      refreshShots();
-      fetchAutoStatus();
-    }, 1500);
-    return () => clearAutoRefresh();
-  }, [autoPendingFilename, refreshShots]);
-
-  useEffect(() => {
-    if (!autoPendingFilename) return;
-    const match = shots.find((shot) => shot.filename === autoPendingFilename);
-    const status = match?.status ?? match?.analysis?.status;
-    if (match && (status === "succeeded" || match.analysis)) {
-      selectShot(match);
-      setSelectedSession(null);
-      setActiveTab("analysis");
-      setAutoPendingFilename(null);
-      clearAutoRefresh();
-      clearAutoPoll();
-    }
-  }, [shots, autoPendingFilename, selectShot]);
-
-  useEffect(() => {
-    if (!isAutoActive && !autoPendingFilename) {
-      clearAutoPoll();
-    }
-  }, [isAutoActive, autoPendingFilename]);
-
-  useEffect(() => {
-    return () => {
-      clearAutoPoll();
-      clearAutoRefresh();
-    };
-  }, []);
 
   return (
     <Shell
@@ -1297,17 +1148,6 @@ function App() {
             overlayBoxes={liveBoxes}
             overlayEnabled={sessionState === "recording"}
           />
-          {/* <AutoRecordPanel
-            status={autoStatus}
-            isRunning={Boolean(isAutoActive)}
-            isLoading={isStatusLoading}
-            error={autoError}
-            onStart={handleStartAuto}
-            onStop={handleStopAuto}
-            onFallbackManual={() =>
-              document.getElementById("capture-section")?.scrollIntoView({ behavior: "smooth" })
-            }
-          /> */}
           <div id="capture-section">
             <CaptureControls
               isCapturing={isCapturing}

@@ -57,6 +57,7 @@ const AI_CONFIG_GOLF = "yolov8s_nms_golf.json";
 const DEFAULT_LENS = "lens_8mm_intrinsics.json";
 const DEFAULT_PREVIEW_RESOLUTION = "640x360";
 const SESSION_FPS = 60;
+const SESSION_RESOLUTION = { width: 1456, height: 1088 };
 
 const loadLocalJson = <T,>(key: string): T | null => {
   if (typeof window === "undefined") return null;
@@ -766,8 +767,8 @@ function App() {
     setLiveBoxes([]);
     try {
       const payload = {
-        width: previewParams.width,
-        height: previewParams.height,
+        width: SESSION_RESOLUTION.width,
+        height: SESSION_RESOLUTION.height,
         fps: SESSION_FPS,
         model: "yolov8s",
         durationSec: 0,

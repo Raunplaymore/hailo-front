@@ -179,71 +179,45 @@ export function CameraPreview({
               })}
             </div> */}
           </div>
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">FPS</p>
-            <div className="flex flex-wrap gap-2">
-              {fpsPresets.map((item) => {
-                const active = fps === item;
-                return (
-                  <Button
-                    key={item}
-                    type="button"
-                    variant={active ? "default" : "outline"}
-                    size="sm"
-                    fullWidth={false}
-                    className={cn(
-                      "rounded-full px-3 py-1 text-xs",
-                      active && "bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    )}
-                    onClick={() => onChangeFps(item)}
-                  >
-                    {item} fps
-                  </Button>
-                );
-              })}
-            </div>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input
-                type="number"
-                value={fps}
-                min={5}
-                max={30}
-                onChange={(e) => onChangeFps(Number(e.target.value) || 0)}
-                className="w-24 px-2 text-sm border rounded-lg shadow-sm h-9 border-input bg-background focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              />
-              직접 입력
-            </label>
-          </div>
+          {/* FPS는 15 고정 */}
         </div>
 
         <div className="p-3 border rounded-xl border-border bg-muted/40">
-          {isActive && streamUrl ? (
-            <div className="relative" ref={previewWrapRef}>
-              <img
-                ref={imgRef}
-                key={streamUrl}
-                src={streamUrl}
-                alt="Camera preview"
-                className="w-full rounded-lg border border-border object-contain bg-black max-h-[360px]"
-                onError={() => onStreamError?.()}
-              />
-              {overlayEnabled && (
-                <LiveOverlay
-                  containerRef={previewWrapRef}
-                  boxes={overlayBoxes}
-                  sourceWidth={width}
-                  sourceHeight={height}
+          <div
+            ref={previewWrapRef}
+            className="relative w-full overflow-hidden rounded-lg border border-border bg-black/70"
+            style={{ aspectRatio: `${width} / ${height}`, minHeight: 220 }}
+          >
+            {isActive && streamUrl ? (
+              <>
+                <img
+                  ref={imgRef}
+                  key={streamUrl}
+                  src={streamUrl}
+                  alt="Camera preview"
+                  className="absolute inset-0 h-full w-full object-contain"
+                  onError={() => onStreamError?.()}
                 />
-              )}
-              {statusOverlay && (
-                <span className="absolute left-2 top-2 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
-                  {statusOverlay}
-                </span>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">프리뷰가 꺼져 있습니다.</p>
-          )}
+                {overlayEnabled && (
+                  <LiveOverlay
+                    containerRef={previewWrapRef}
+                    boxes={overlayBoxes}
+                    sourceWidth={width}
+                    sourceHeight={height}
+                  />
+                )}
+                {statusOverlay && (
+                  <span className="absolute left-2 top-2 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
+                    {statusOverlay}
+                  </span>
+                )}
+              </>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <p className="text-sm text-slate-200">프리뷰가 꺼져 있습니다.</p>
+              </div>
+            )}
+          </div>
           <p className="mt-2 text-xs text-muted-foreground">
             모바일/핫스팟에서는 낮은 해상도·FPS로 시작하세요. 프리뷰를 끄면 서버 스트림 연결도
             해제됩니다.

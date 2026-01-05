@@ -56,6 +56,18 @@ const ANALYSIS_LABELS: Record<JobStatus, string> = {
   failed: "실패",
 };
 
+const STATE_STEP_INDEX: Record<SessionState, number> = {
+  idle: 0,
+  starting: 1,
+  recording: 2,
+  stopping: 3,
+  analyzing: 4,
+  done: 5,
+  failed: 5,
+};
+
+const STEP_LABELS = ["대기", "준비", "촬영", "정지", "분석", "완료"];
+
 export function SessionControls({
   state,
   jobId,
@@ -76,6 +88,11 @@ export function SessionControls({
   const isBusy = state === "starting" || state === "stopping" || state === "analyzing";
   const canStart = state === "idle" || state === "done" || state === "failed";
   const showStart = !isRecording && !isBusy;
+  const stepLabels = [...STEP_LABELS];
+  if (state === "failed") {
+    stepLabels[stepLabels.length - 1] = "실패";
+  }
+  const activeStep = STATE_STEP_INDEX[state];
   const clubOptions = [
     { value: "driver", label: "Driver" },
     { value: "wood", label: "Wood" },
@@ -104,6 +121,30 @@ export function SessionControls({
 
   const content = (
     <CardContent className={embedded ? "px-0 pt-0 space-y-3" : "space-y-3"}>
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">진행 상태</p>
+        <div className="flex flex-wrap items-center justify-between">
+          {stepLabels.map((label, index) => {
+            const isActive = index === activeStep;
+            const isComplete = index < activeStep;
+            const isFailed = state === "failed" && index === activeStep;
+            return (
+              <div
+                key={label}
+                className={cn(
+                  "flex items-center justify-center rounded-sm border px-3 py-1 text-[12px] font-semibold",
+                  isComplete && "border-emerald-200 bg-emerald-50 text-emerald-700",
+                  isActive && !isFailed && "border-blue-200 bg-blue-50 text-blue-700",
+                  isFailed && "border-red-200 bg-red-50 text-red-700",
+                  !isActive && !isComplete && !isFailed && "border-border bg-muted/50 text-muted-foreground"
+                )}
+              >
+                {label}
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {(error || analysisError) && (
         <p className="text-sm text-destructive">
           {error || analysisError}

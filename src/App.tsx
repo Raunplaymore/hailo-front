@@ -24,6 +24,7 @@ import { LiveOverlayBox, SessionRecord, SessionState, SessionStatus } from "./ty
 import {
   buildStreamUrl,
   getAutoRecordStatus,
+  getAutoRecordLive,
   getStatus as getCameraStatus,
   getCalibration,
   listCalibrations,
@@ -934,6 +935,7 @@ function App() {
     if (status.state === "failed") {
       setSessionError(status.lastError || "자동 녹화에 실패했습니다.");
       setSessionState("failed");
+      setLiveBoxes([]);
       await handleStopPreview(true);
       return;
     }
@@ -974,17 +976,18 @@ function App() {
           });
           await handleStopPreview(true);
           refreshSessions();
-        } catch (err) {
-          const message = err instanceof Error ? err.message : "분석을 시작하지 못했습니다.";
-          setSessionAnalysisError(message);
-          setSessionState("failed");
-          updateSessionMap(filename, { status: "failed", errorMessage: message });
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "분석을 시작하지 못했습니다.";
+            setSessionAnalysisError(message);
+            setSessionState("failed");
+            updateSessionMap(filename, { status: "failed", errorMessage: message });
+          }
+        } else {
+          setSessionState("idle");
+          setLiveBoxes([]);
         }
-      } else {
-        setSessionState("idle");
+        return;
       }
-      return;
-    }
 
     const mapped = mapAutoRecordState(status.state);
     setSessionState(mapped);
@@ -1028,6 +1031,46 @@ function App() {
   }, [sessionState, cameraSettings.baseUrl, cameraSettings.token, isPreviewOn]);
 
   useEffect(() => {
+    if (!cameraSettings.baseUrl) return;
+    if (!AUTO_RECORD_ACTIVE_STATES.has(sessionState)) return;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const poll = async () => {
+      try {
+        const res = await getAutoRecordLive(
+          cameraSettings.baseUrl,
+          cameraSettings.token || undefined,
+          30
+        );
+        if (cancelled) return;
+        setLiveBoxes(
+          normalizeLiveBoxes(res, {
+            width: SESSION_RESOLUTION.width,
+            height: SESSION_RESOLUTION.height,
+          })
+        );
+      } catch (err) {
+        if (cancelled) return;
+      } finally {
+        if (!cancelled) {
+          timer = window.setTimeout(poll, 300);
+        }
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [sessionState, cameraSettings.baseUrl, cameraSettings.token]);
+
+  useEffect(() => {
+    if (AUTO_RECORD_ACTIVE_STATES.has(sessionState)) return;
     if (sessionState !== "recording" || !sessionJobId || !cameraSettings.baseUrl) {
       setLiveBoxes([]);
       return;
@@ -1069,6 +1112,7 @@ function App() {
   }, [sessionState, sessionJobId, cameraSettings.baseUrl, cameraSettings.token]);
 
   useEffect(() => {
+    if (AUTO_RECORD_ACTIVE_STATES.has(sessionState)) return;
     if (!sessionJobId || !cameraSettings.baseUrl) {
       setSessionRuntimeStatus(null);
       return;
@@ -1259,6 +1303,11 @@ function App() {
       ? "분석 중"
       : null;
   const previewOverlayLabel = sessionOverlayLabel;
+  const isOverlayActive =
+    sessionState === "arming" ||
+    sessionState === "addressLocked" ||
+    sessionState === "recording" ||
+    sessionState === "finishLocked";
 
   useEffect(() => {
     if (activeTab !== "list") return;
@@ -1297,7 +1346,7 @@ function App() {
                 onStreamError={handleStreamError}
                 statusOverlay={previewOverlayLabel}
                 overlayBoxes={liveBoxes}
-                overlayEnabled={sessionState === "recording"}
+                overlayEnabled={isOverlayActive}
               />
               <SessionControls
                 embedded

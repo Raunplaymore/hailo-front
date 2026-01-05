@@ -102,3 +102,9 @@ export type AutoRecordStatusResponse = {
   status: AutoRecordStatus;
   error?: string;
 };
+
+export type AutoRecordLiveResponse = {
+  ok: boolean;
+  frames?: unknown[];
+  error?: string;
+};

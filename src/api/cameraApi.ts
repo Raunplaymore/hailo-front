@@ -4,6 +4,7 @@ import {
   CapturePayload,
   CaptureResponse,
   AiConfigStatus,
+  AutoRecordLiveResponse,
   AutoRecordStatusResponse,
   CalibrationData,
   CalibrationListItem,
@@ -286,4 +287,23 @@ export const stopAutoRecord = async (
     throw await buildError(res, json.error || "자동 녹화를 종료하지 못했습니다.");
   }
   return json;
+};
+
+export const getAutoRecordLive = async (
+  baseUrl: string,
+  token?: string,
+  tailFrames = 30
+): Promise<AutoRecordLiveResponse> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const url = new URL("/api/camera/auto-record/live", normalized);
+  url.searchParams.set("tailFrames", String(tailFrames));
+  const res = await fetch(url.toString(), {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "자동 녹화 메타를 불러오지 못했습니다.");
+  }
+  return (await res.json()) as AutoRecordLiveResponse;
 };

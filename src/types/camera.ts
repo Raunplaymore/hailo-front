@@ -78,3 +78,27 @@ export type CalibrationData = {
     [key: string]: unknown;
   };
 };
+
+export type AutoRecordState =
+  | "idle"
+  | "arming"
+  | "addressLocked"
+  | "recording"
+  | "finishLocked"
+  | "stopping"
+  | "failed";
+
+export type AutoRecordStatus = {
+  enabled: boolean;
+  state: AutoRecordState;
+  startedAt: string | null;
+  recordingFilename: string | null;
+  lastRecordingFilename?: string | null;
+  lastError: string | null;
+};
+
+export type AutoRecordStatusResponse = {
+  ok: boolean;
+  status: AutoRecordStatus;
+  error?: string;
+};

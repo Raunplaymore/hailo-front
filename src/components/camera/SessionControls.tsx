@@ -30,7 +30,10 @@ type SessionControlsProps = {
 const STATE_LABELS: Record<SessionState, string> = {
   idle: "대기",
   starting: "시작 준비 중",
+  arming: "어드레스 감지 중",
+  addressLocked: "어드레스 완료",
   recording: "촬영 중",
+  finishLocked: "스윙 종료 감지",
   stopping: "정지 중",
   analyzing: "분석 중",
   done: "완료",
@@ -40,7 +43,10 @@ const STATE_LABELS: Record<SessionState, string> = {
 const STATE_STYLES: Record<SessionState, string> = {
   idle: "bg-slate-50 text-slate-700 border border-slate-200",
   starting: "bg-amber-50 text-amber-700 border border-amber-200",
+  arming: "bg-amber-50 text-amber-700 border border-amber-200",
+  addressLocked: "bg-emerald-50 text-emerald-700 border border-emerald-200",
   recording: "bg-amber-50 text-amber-700 border border-amber-200",
+  finishLocked: "bg-amber-50 text-amber-700 border border-amber-200",
   stopping: "bg-slate-100 text-slate-700 border border-slate-200",
   analyzing: "bg-blue-50 text-blue-700 border border-blue-200",
   done: "bg-emerald-50 text-emerald-700 border border-emerald-200",
@@ -59,14 +65,17 @@ const ANALYSIS_LABELS: Record<JobStatus, string> = {
 const STATE_STEP_INDEX: Record<SessionState, number> = {
   idle: 0,
   starting: 1,
+  arming: 1,
+  addressLocked: 1,
   recording: 2,
+  finishLocked: 3,
   stopping: 3,
   analyzing: 4,
   done: 5,
   failed: 5,
 };
 
-const STEP_LABELS = ["대기", "준비", "촬영", "정지", "분석", "완료"];
+const STEP_LABELS = ["대기", "어드레스 감지", "촬영", "정지", "분석", "완료"];
 
 export function SessionControls({
   state,
@@ -85,9 +94,21 @@ export function SessionControls({
   onClubChange,
 }: SessionControlsProps) {
   const isRecording = state === "recording";
-  const isBusy = state === "starting" || state === "stopping" || state === "analyzing";
+  const isBusy =
+    state === "starting" ||
+    state === "arming" ||
+    state === "addressLocked" ||
+    state === "finishLocked" ||
+    state === "stopping" ||
+    state === "analyzing";
   const canStart = state === "idle" || state === "done" || state === "failed";
   const showStart = !isRecording && !isBusy;
+  const showStop =
+    isRecording ||
+    state === "starting" ||
+    state === "arming" ||
+    state === "addressLocked" ||
+    state === "finishLocked";
   const stepLabels = [...STEP_LABELS];
   if (state === "failed") {
     stepLabels[stepLabels.length - 1] = "실패";
@@ -123,7 +144,7 @@ export function SessionControls({
     <CardContent className={embedded ? "px-0 pt-0 space-y-3" : "space-y-3"}>
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">진행 상태</p>
-        <div className="flex flex-wrap items-center justify-between">
+        <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap">
           {stepLabels.map((label, index) => {
             const isActive = index === activeStep;
             const isComplete = index < activeStep;
@@ -132,7 +153,7 @@ export function SessionControls({
               <div
                 key={label}
                 className={cn(
-                  "flex items-center justify-center rounded-sm border px-3 py-1 text-[12px] font-semibold",
+                  "flex items-center justify-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
                   isComplete && "border-emerald-200 bg-emerald-50 text-emerald-700",
                   isActive && !isFailed && "border-blue-200 bg-blue-50 text-blue-700",
                   isFailed && "border-red-200 bg-red-50 text-red-700",
@@ -181,7 +202,7 @@ export function SessionControls({
         </select>
       </label>
       <div className="flex flex-wrap gap-2">
-        {isRecording ? (
+        {showStop ? (
           <Button
             type="button"
             variant="destructive"

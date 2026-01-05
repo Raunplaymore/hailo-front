@@ -1,7 +1,10 @@
 export type SessionState =
   | "idle"
   | "starting"
+  | "arming"
+  | "addressLocked"
   | "recording"
+  | "finishLocked"
   | "stopping"
   | "analyzing"
   | "done"

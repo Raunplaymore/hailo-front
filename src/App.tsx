@@ -19,14 +19,17 @@ import { CameraSettings, CameraSettingsValue } from "./components/camera/CameraS
 import { CameraStatusPanel } from "./components/camera/CameraStatusPanel";
 import { CameraPreview } from "./components/camera/CameraPreview";
 import { SessionControls } from "./components/camera/SessionControls";
-import { CameraStatus } from "./types/camera";
+import { AutoRecordState, AutoRecordStatus, CameraStatus } from "./types/camera";
 import { LiveOverlayBox, SessionRecord, SessionState, SessionStatus } from "./types/session";
 import {
   buildStreamUrl,
+  getAutoRecordStatus,
   getStatus as getCameraStatus,
   getCalibration,
   listCalibrations,
   setAiConfig,
+  startAutoRecord,
+  stopAutoRecord,
   stopStream,
 } from "./api/cameraApi";
 import {
@@ -36,7 +39,6 @@ import {
   listSessionFiles,
   resolveCameraFileUrl,
   SessionApiError,
-  startSession,
   stopSession,
 } from "./api/sessionApi";
 import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus } from "./api/shots";
@@ -79,6 +81,35 @@ const parsePreviewResolution = (value?: string) => {
     return { width, height };
   }
   return { width: 640, height: 360 };
+};
+
+const AUTO_RECORD_ACTIVE_STATES = new Set<SessionState>([
+  "starting",
+  "arming",
+  "addressLocked",
+  "recording",
+  "finishLocked",
+  "stopping",
+]);
+
+const mapAutoRecordState = (state: AutoRecordState): SessionState => {
+  switch (state) {
+    case "arming":
+      return "arming";
+    case "addressLocked":
+      return "addressLocked";
+    case "recording":
+      return "recording";
+    case "finishLocked":
+      return "finishLocked";
+    case "stopping":
+      return "stopping";
+    case "failed":
+      return "failed";
+    case "idle":
+    default:
+      return "idle";
+  }
 };
 
 function App() {
@@ -168,6 +199,8 @@ function App() {
   const [sessionAnalysisJobId, setSessionAnalysisJobId] = useState<string | null>(null);
   const [sessionAnalysisStatus, setSessionAnalysisStatus] = useState<JobStatus | null>(null);
   const [sessionAnalysisError, setSessionAnalysisError] = useState<string | null>(null);
+  const [autoRecordStatus, setAutoRecordStatus] = useState<AutoRecordStatus | null>(null);
+  const lastAutoFilenameRef = useRef<string | null>(null);
   const [liveBoxes, setLiveBoxes] = useState<LiveOverlayBox[]>([]);
   const livePollTimer = useRef<number | null>(null);
   const livePollId = useRef(0);
@@ -755,6 +788,7 @@ function App() {
     }
     setSessionError(null);
     setSessionState("starting");
+    setSessionJobId(null);
     setSessionFilename(null);
     setSessionVideoUrl(null);
     setSessionMetaPath(null);
@@ -763,27 +797,20 @@ function App() {
     setSessionAnalysisError(null);
     setSessionRuntimeStatus(null);
     setSessionRuntimeError(null);
-    setSessionLiveSize(null);
+    setSessionLiveSize({ width: SESSION_RESOLUTION.width, height: SESSION_RESOLUTION.height });
     setLiveBoxes([]);
+    setAutoRecordStatus(null);
+    lastAutoFilenameRef.current = null;
     try {
-      const payload = {
-        width: SESSION_RESOLUTION.width,
-        height: SESSION_RESOLUTION.height,
-        fps: SESSION_FPS,
-        model: "yolov8s",
-        durationSec: 0,
-      };
-      const res = await startSession(
+      const res = await startAutoRecord(
         cameraSettings.baseUrl,
-        payload,
         cameraSettings.token || undefined
       );
-      setSessionJobId(res.jobId);
-      setSessionFilename(res.videoFile ?? null);
-      setSessionVideoUrl(res.videoUrl ?? null);
-      setSessionMetaPath(res.metaPath ?? null);
-      setSessionLiveSize({ width: payload.width, height: payload.height });
-      setSessionState("recording");
+      const status = res.status;
+      setAutoRecordStatus(status);
+      setSessionRuntimeStatus(status.state);
+      setSessionRuntimeError(status.lastError ?? null);
+      setSessionState(mapAutoRecordState(status.state));
       if (!isPreviewOn) {
         handleStartPreview();
       }
@@ -800,6 +827,25 @@ function App() {
       setSessionError("카메라 서버 주소를 입력하세요.");
       return;
     }
+    const isAutoRecord = AUTO_RECORD_ACTIVE_STATES.has(sessionState);
+    if (isAutoRecord) {
+      setSessionError(null);
+      setSessionState("stopping");
+      try {
+        const res = await stopAutoRecord(
+          cameraSettings.baseUrl,
+          cameraSettings.token || undefined
+        );
+        await processAutoRecordStatus(res.status);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "세션 종료 실패";
+        setSessionError(message);
+        setSessionState("failed");
+        await handleStopPreview(true);
+      }
+      return;
+    }
+
     if (!sessionJobId) {
       setSessionError("세션 ID가 없습니다. 다시 시작해주세요.");
       return;
@@ -876,7 +922,110 @@ function App() {
     setSessionAnalysisError(null);
     setSessionLiveSize(null);
     setLiveBoxes([]);
+    setAutoRecordStatus(null);
+    lastAutoFilenameRef.current = null;
   };
+
+  const processAutoRecordStatus = async (status: AutoRecordStatus) => {
+    setAutoRecordStatus(status);
+    setSessionRuntimeStatus(status.state);
+    setSessionRuntimeError(status.lastError ?? null);
+
+    if (status.state === "failed") {
+      setSessionError(status.lastError || "자동 녹화에 실패했습니다.");
+      setSessionState("failed");
+      await handleStopPreview(true);
+      return;
+    }
+
+    if (status.state === "idle") {
+      const filename = status.lastRecordingFilename || status.recordingFilename;
+      if (filename && lastAutoFilenameRef.current !== filename) {
+        lastAutoFilenameRef.current = filename;
+        const videoUrl = resolveCameraFileUrl(
+          cameraSettings.baseUrl,
+          `/uploads/${encodeURIComponent(filename)}`,
+          filename
+        );
+        setSessionFilename(filename);
+        setSessionVideoUrl(videoUrl);
+        setSessionMetaPath(null);
+        updateSessionMap(filename, {
+          status: "recorded",
+          videoUrl,
+        });
+        try {
+          const analysis = await createAnalysisJobFromFile(filename);
+          setSessionAnalysisJobId(analysis.jobId);
+          setSessionAnalysisStatus(analysis.status ?? "queued");
+          setSessionState("analyzing");
+          updateSessionMap(filename, {
+            status: "analyzing",
+            analysisJobId: analysis.jobId,
+          });
+          setSelectedSession({
+            id: analysis.jobId ?? filename,
+            filename,
+            createdAt: new Date().toISOString(),
+            status: "analyzing",
+            videoUrl,
+            jobId: analysis.jobId,
+            analysisJobId: analysis.jobId,
+          });
+          await handleStopPreview(true);
+          refreshSessions();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "분석을 시작하지 못했습니다.";
+          setSessionAnalysisError(message);
+          setSessionState("failed");
+          updateSessionMap(filename, { status: "failed", errorMessage: message });
+        }
+      } else {
+        setSessionState("idle");
+      }
+      return;
+    }
+
+    const mapped = mapAutoRecordState(status.state);
+    setSessionState(mapped);
+    if (status.state === "recording" && !isPreviewOn) {
+      handleStartPreview();
+    }
+  };
+
+  useEffect(() => {
+    if (!cameraSettings.baseUrl) return;
+    if (!AUTO_RECORD_ACTIVE_STATES.has(sessionState)) return;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const poll = async () => {
+      try {
+        const res = await getAutoRecordStatus(
+          cameraSettings.baseUrl,
+          cameraSettings.token || undefined
+        );
+        if (cancelled) return;
+        await processAutoRecordStatus(res.status);
+      } catch (err) {
+        if (cancelled) return;
+        setSessionRuntimeError("자동 녹화 상태를 불러오지 못했습니다.");
+      } finally {
+        if (!cancelled) {
+          timer = window.setTimeout(poll, 500);
+        }
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [sessionState, cameraSettings.baseUrl, cameraSettings.token, isPreviewOn]);
 
   useEffect(() => {
     if (sessionState !== "recording" || !sessionJobId || !cameraSettings.baseUrl) {
@@ -1096,8 +1245,14 @@ function App() {
   const analyzedShots = sortedShots.filter((shot) => isAnalyzedDone(shot));
   const pendingShots = sortedShots.filter((shot) => !isAnalyzedDone(shot));
   const sessionOverlayLabel =
-    sessionState === "recording"
+    sessionState === "arming"
+      ? "어드레스 감지 중"
+      : sessionState === "addressLocked"
+      ? "어드레스 확인"
+      : sessionState === "recording"
       ? "AI 세션 촬영중"
+      : sessionState === "finishLocked"
+      ? "스윙 종료 감지"
       : sessionState === "stopping"
       ? "세션 종료 중"
       : sessionState === "analyzing"

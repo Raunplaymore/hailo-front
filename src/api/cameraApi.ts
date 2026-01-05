@@ -4,6 +4,7 @@ import {
   CapturePayload,
   CaptureResponse,
   AiConfigStatus,
+  AutoRecordStatusResponse,
   CalibrationData,
   CalibrationListItem,
 } from "../types/camera";
@@ -232,5 +233,57 @@ export const getCalibration = async (
     throw await buildError(res, "캘리브레이션 정보를 불러오지 못했습니다.");
   }
   const json = (await res.json()) as CalibrationData;
+  return json;
+};
+
+export const getAutoRecordStatus = async (
+  baseUrl: string,
+  token?: string
+): Promise<AutoRecordStatusResponse> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/auto-record/status`, {
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  if (!res.ok) {
+    throw await buildError(res, "자동 녹화 상태를 불러오지 못했습니다.");
+  }
+  return (await res.json()) as AutoRecordStatusResponse;
+};
+
+export const startAutoRecord = async (
+  baseUrl: string,
+  token?: string
+): Promise<AutoRecordStatusResponse> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/auto-record/start`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  const json = (await res.json()) as AutoRecordStatusResponse;
+  if (!res.ok || json.ok === false) {
+    throw await buildError(res, json.error || "자동 녹화를 시작하지 못했습니다.");
+  }
+  return json;
+};
+
+export const stopAutoRecord = async (
+  baseUrl: string,
+  token?: string
+): Promise<AutoRecordStatusResponse> => {
+  const normalized = ensureBaseUrl(baseUrl);
+  const res = await fetch(`${normalized}/api/camera/auto-record/stop`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(token),
+    },
+  });
+  const json = (await res.json()) as AutoRecordStatusResponse;
+  if (!res.ok || json.ok === false) {
+    throw await buildError(res, json.error || "자동 녹화를 종료하지 못했습니다.");
+  }
   return json;
 };

@@ -30,11 +30,11 @@ const STATUS_LABELS: Record<SessionStatus, string> = {
 };
 
 const STATUS_STYLES: Record<SessionStatus, string> = {
-  recording: "bg-amber-50 text-amber-700 border border-amber-200",
-  recorded: "bg-slate-50 text-slate-700 border border-slate-200",
-  analyzing: "bg-blue-50 text-blue-700 border border-blue-200",
-  done: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  failed: "bg-red-50 text-red-700 border border-red-200",
+  recording: "bg-amber-400/10 text-amber-100 border border-amber-300/30",
+  recorded: "bg-muted/60 text-muted-foreground border border-border",
+  analyzing: "bg-sky-400/10 text-sky-100 border border-sky-300/30",
+  done: "bg-emerald-400/10 text-emerald-100 border border-emerald-300/30",
+  failed: "bg-red-400/10 text-red-100 border border-red-300/30",
 };
 
 export function SessionList({
@@ -95,7 +95,7 @@ export function SessionList({
                     )}
                   >
                     {session.status === "analyzing" && (
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-sky-300" />
                     )}
                     {STATUS_LABELS[session.status]}
                   </span>

@@ -18,21 +18,21 @@ export function Button({
 }: ButtonProps) {
   const base = `${
     fullWidth ? "w-full" : "w-auto"
-  } rounded-xl font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2`;
+  } rounded-xl font-semibold transition focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background`;
 
   const styles = {
     primary:
-      "py-3 text-lg text-white shadow-lg shadow-blue-500/20 " +
+      "py-3 text-lg shadow-lg shadow-emerald-950/30 " +
       (rest.disabled || isLoading
-        ? "bg-slate-400 cursor-not-allowed opacity-80"
-        : "bg-blue-600 hover:bg-blue-700"),
+        ? "bg-muted text-muted-foreground cursor-not-allowed opacity-80"
+        : "bg-primary text-primary-foreground hover:bg-primary/90"),
     outline:
-      "py-3 text-base border border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200",
+      "py-3 text-base border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
     danger:
-      "px-3 py-1 text-sm font-bold min-w-[64px] border border-red-500 rounded-full " +
+      "px-3 py-1 text-sm font-bold min-w-[64px] border rounded-full " +
       (rest.disabled || isLoading
-        ? "bg-red-200 text-red-700 cursor-not-allowed"
-        : "bg-red-50 text-red-700 hover:bg-red-100"),
+        ? "border-border bg-muted text-muted-foreground cursor-not-allowed"
+        : "border-destructive/40 bg-destructive/10 text-red-100 hover:bg-destructive/20"),
   } as const;
 
   return (

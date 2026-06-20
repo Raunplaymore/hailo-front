@@ -110,7 +110,7 @@ export function ShotList({
                       <button
                         type="button"
                         onClick={() => onTitleClick(shot)}
-                        className="text-left text-sm font-semibold text-blue-700 hover:underline"
+                        className="text-left text-sm font-semibold text-sky-200 hover:underline"
                       >
                         {shot.originalName || shot.filename}
                       </button>
@@ -199,7 +199,7 @@ export function ShotList({
                         size="sm"
                         fullWidth={false}
                         disabled={deletingId === shot.id}
-                        className="text-red-600 hover:bg-red-50"
+                        className="text-red-200 hover:bg-red-400/10 hover:text-red-100"
                       >
                         {deletingId === shot.id ? "삭제중" : "삭제"}
                       </Button>
@@ -232,8 +232,8 @@ export function ShotList({
 function Badge({ tone, children }: { tone: "processing" | "success"; children: React.ReactNode }) {
   const styles =
     tone === "processing"
-      ? "bg-blue-50 text-blue-700 border border-blue-200"
-      : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+      ? "bg-sky-400/10 text-sky-100 border border-sky-300/30"
+      : "bg-emerald-400/10 text-emerald-100 border border-emerald-300/30";
   return (
     <span
       className={cn(
@@ -241,7 +241,7 @@ function Badge({ tone, children }: { tone: "processing" | "success"; children: R
         styles
       )}
     >
-      {tone === "processing" && <span className="h-2 w-2 animate-pulse rounded-full bg-blue-500" />}
+      {tone === "processing" && <span className="h-2 w-2 animate-pulse rounded-full bg-sky-300" />}
       {children}
     </span>
   );

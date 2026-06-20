@@ -40,10 +40,10 @@ const STATUS_LABELS: Record<JobStatus, string> = {
 const STATUS_TONES: Record<JobStatus, string> = {
   idle: "bg-muted text-foreground border border-border",
   "not-analyzed": "bg-muted text-muted-foreground border border-border",
-  queued: "bg-amber-50 text-amber-800 border border-amber-200",
-  running: "bg-blue-50 text-blue-700 border border-blue-200",
-  succeeded: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  failed: "bg-red-50 text-red-700 border border-red-200",
+  queued: "bg-amber-400/10 text-amber-100 border border-amber-300/30",
+  running: "bg-sky-400/10 text-sky-100 border border-sky-300/30",
+  succeeded: "bg-emerald-400/10 text-emerald-100 border border-emerald-300/30",
+  failed: "bg-red-400/10 text-red-100 border border-red-300/30",
 };
 
 const formatMs = (value?: number | null) => (value == null ? "-" : `${Math.round(value)} ms`);

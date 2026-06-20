@@ -45,12 +45,12 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
   return (
     <Card className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">업로드/분석 설정</h2>
-        <p className="text-sm text-slate-600">분석 시 함께 전달할 선택 옵션들입니다.</p>
+        <h2 className="text-lg font-semibold text-foreground">업로드/분석 설정</h2>
+        <p className="text-sm text-muted-foreground">분석 시 함께 전달할 선택 옵션들입니다.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-1 text-sm text-slate-700">
+        <label className="grid gap-1 text-sm text-muted-foreground">
           FPS (선택)
           <input
             type="number"
@@ -58,22 +58,22 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
             placeholder="예: 60"
             value={value.fps ?? ""}
             onChange={(e) => handleChange("fps", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700 md:col-span-2">
+        <label className="grid gap-1 text-sm text-muted-foreground md:col-span-2">
           ROI [x,y,w,h] (JSON)
           <input
             type="text"
             placeholder='예: [100,200,400,400]'
             value={value.roi ?? ""}
             onChange={(e) => handleChange("roi", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700">
+        <label className="grid gap-1 text-sm text-muted-foreground">
           카메라-볼 거리(m)
           <input
             type="number"
@@ -82,11 +82,11 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
             placeholder="예: 3.0"
             value={value.cam_distance ?? ""}
             onChange={(e) => handleChange("cam_distance", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700">
+        <label className="grid gap-1 text-sm text-muted-foreground">
           카메라 높이(m)
           <input
             type="number"
@@ -95,16 +95,16 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
             placeholder="예: 1.2"
             value={value.cam_height ?? ""}
             onChange={(e) => handleChange("cam_height", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700 md:col-span-2">
+        <label className="grid gap-1 text-sm text-muted-foreground md:col-span-2">
           렌즈 선택
           <select
             value={value.lens ?? ""}
             onChange={(e) => handleChange("lens", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           >
             <option value="" disabled>
               렌즈를 선택하세요
@@ -115,12 +115,12 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
               </option>
             ))}
           </select>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-muted-foreground">
             {lensError || "렌즈 선택 시 h_fov/v_fov가 자동 입력됩니다."}
           </span>
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700">
+        <label className="grid gap-1 text-sm text-muted-foreground">
           수평 FOV(도)
           <input
             type="number"
@@ -129,11 +129,11 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
             placeholder="예: 60"
             value={value.h_fov ?? ""}
             onChange={(e) => handleChange("h_fov", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700">
+        <label className="grid gap-1 text-sm text-muted-foreground">
           수직 FOV(도)
           <input
             type="number"
@@ -142,11 +142,11 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
             placeholder="예: 34"
             value={value.v_fov ?? ""}
             onChange={(e) => handleChange("v_fov", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700">
+        <label className="grid gap-1 text-sm text-muted-foreground">
           임팩트 프레임 번호
           <input
             type="number"
@@ -154,11 +154,11 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
             placeholder="예: 70"
             value={value.impact_frame ?? ""}
             onChange={(e) => handleChange("impact_frame", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
 
-        <label className="grid gap-1 text-sm text-slate-700">
+        <label className="grid gap-1 text-sm text-muted-foreground">
           추적 프레임 수
           <input
             type="number"
@@ -166,7 +166,7 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
             placeholder="기본 20"
             value={value.track_frames ?? ""}
             onChange={(e) => handleChange("track_frames", e.target.value)}
-            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
           />
         </label>
       </div>

@@ -100,7 +100,7 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
                     "rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
                     disabled
                       ? "cursor-not-allowed border-border bg-muted/60 text-muted-foreground"
-                      : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"
                   )}
                 >
                   <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}</span>

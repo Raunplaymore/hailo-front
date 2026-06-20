@@ -1330,10 +1330,9 @@ function App() {
       onSettingsClick={() => setActiveTab("settings")}
     >
       {activeTab === "camera" && (
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="space-y-4">
-              <div id="camera-preview" />
+        <section className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+            <div id="camera-preview" className="min-w-0">
               <CameraPreview
                 embedded
                 isActive={isPreviewOn}
@@ -1348,6 +1347,9 @@ function App() {
                 overlayBoxes={liveBoxes}
                 overlayEnabled={isOverlayActive}
               />
+            </div>
+
+            <aside className="space-y-4">
               <SessionControls
                 embedded
                 state={sessionState}
@@ -1363,9 +1365,62 @@ function App() {
                 onReset={handleSessionReset}
                 onClubChange={(club) => setSettings((prev) => ({ ...prev, club }))}
               />
-            </CardContent>
-          </Card>
-        </div>
+
+              <Card className="border-white/10 bg-card/80 shadow-2xl shadow-black/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">System Status</CardTitle>
+                  <CardDescription>
+                    카메라 연결과 프리뷰 상태를 빠르게 확인합니다.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {statusError && (
+                    <p className="rounded-xl border border-red-400/25 bg-red-400/10 px-3 py-2 text-sm text-red-100" role="alert">
+                      {statusError}
+                    </p>
+                  )}
+                  <dl className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-xl border border-border bg-muted/35 p-3">
+                      <dt className="text-xs text-muted-foreground">Camera</dt>
+                      <dd className="mt-1 font-semibold text-foreground">
+                        {cameraStatus ? (cameraStatus.cameraDetected ? "Detected" : "Not found") : "-"}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-border bg-muted/35 p-3">
+                      <dt className="text-xs text-muted-foreground">Preview</dt>
+                      <dd className="mt-1 font-semibold text-foreground">
+                        {isPreviewOn ? "On" : "Off"}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-border bg-muted/35 p-3">
+                      <dt className="text-xs text-muted-foreground">Streaming</dt>
+                      <dd className="mt-1 font-semibold text-foreground">
+                        {isStreaming ? "Active" : "Idle"}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-border bg-muted/35 p-3">
+                      <dt className="text-xs text-muted-foreground">Clients</dt>
+                      <dd className="mt-1 font-semibold text-foreground">{streamClients}</dd>
+                    </div>
+                  </dl>
+                  <div className="rounded-xl border border-border bg-muted/35 p-3 text-xs text-muted-foreground">
+                    <p>
+                      Preview preset:{" "}
+                      <span className="font-semibold text-foreground">
+                        {previewParams.width} x {previewParams.height} · {previewParams.fps}fps
+                      </span>
+                    </p>
+                    {lastStatusCheckedAt && (
+                      <p className="mt-1">
+                        Last checked: {new Date(lastStatusCheckedAt).toLocaleTimeString()}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </aside>
+          </div>
+        </section>
       )}
 
       {activeTab === "upload" && (
@@ -1463,10 +1518,10 @@ function App() {
       {activeTab === "analysis" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            {isAnalysisLoading && <p className="text-sm text-slate-500">분석 상태를 불러오는 중...</p>}
-            {analysisError && <p className="text-sm text-red-600">{analysisError}</p>}
+            {isAnalysisLoading && <p className="text-sm text-muted-foreground">분석 상태를 불러오는 중...</p>}
+            {analysisError && <p className="text-sm text-destructive">{analysisError}</p>}
             {jobStatus === "failed" && !analysis && selectedShot?.errorMessage && (
-              <div className="px-4 py-2 text-xs text-red-700 border border-red-100 rounded-xl bg-red-50">
+              <div className="px-4 py-2 text-xs text-red-100 border border-red-300/30 rounded-xl bg-red-400/10">
                 실패 원인: {selectedShot.errorMessage}
               </div>
             )}
@@ -1565,7 +1620,7 @@ function App() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative w-full max-w-xl p-4 space-y-3 bg-white shadow-xl rounded-xl">
+          <div className="relative w-full max-w-xl p-4 space-y-3 border border-border bg-card shadow-2xl shadow-black/40 rounded-xl">
             <div className="flex items-center justify-end">
               <Button
                 type="button"
@@ -1579,7 +1634,7 @@ function App() {
             </div>
             <video
               key={analysisTarget.id}
-              className="w-full rounded-lg border border-slate-200 max-h-[600px] object-contain"
+              className="w-full rounded-lg border border-border max-h-[600px] object-contain"
               controls
               preload="metadata"
               src={selectedVideoUrl}

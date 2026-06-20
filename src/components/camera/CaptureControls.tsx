@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Flag, Video } from "lucide-react";
 
 import { Button as ShadButton } from "@/components/ui/button";
 import {
@@ -112,7 +113,7 @@ export function CaptureControls({
       </CardHeader>
       <CardContent>
 
-        {busyMessage && <p className="mb-2 text-sm text-red-600">{busyMessage}</p>}
+        {busyMessage && <p className="mb-2 text-sm text-destructive">{busyMessage}</p>}
         {isBusy && (
           <p className="mb-2 text-sm text-amber-600">
             카메라 사용 중(스트리밍/녹화). 스트림을 끄거나 완료된 뒤에 캡처를 시도하세요.
@@ -120,7 +121,7 @@ export function CaptureControls({
         )}
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3">
-            <p className="text-xs text-slate-500">해상도</p>
+            <p className="text-xs text-muted-foreground">해상도</p>
             <div className="flex flex-wrap gap-2">
               <Select
                 value={`${resolution.width}x${resolution.height}`}
@@ -134,7 +135,7 @@ export function CaptureControls({
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="해상도" />
                 </SelectTrigger>
-                <SelectContent className="bg-white">
+                <SelectContent className="bg-card">
                   <SelectGroup>
                     <SelectLabel>해상도</SelectLabel>
                     {captureResolutionPresets.map((preset) => {
@@ -197,15 +198,19 @@ export function CaptureControls({
               onClick={() => setSelectedAction("video")}
               disabled={isBusy}
               variant={selectedAction === "video" ? "primary" : "outline"}
+              className="gap-2"
             >
-              🎥 Video
+              <Video className="size-4" aria-hidden="true" />
+              Video
             </ShadButton>
             <ShadButton
               onClick={() => setSelectedAction("swing")}
               disabled={isBusy}
               variant={selectedAction === "swing" ? "primary" : "outline"}
+              className="gap-2"
             >
-              ⛳️ Swing
+              <Flag className="size-4" aria-hidden="true" />
+              Swing
             </ShadButton>
           </ButtonGroup>
         </div>
@@ -220,7 +225,7 @@ export function CaptureControls({
             {countdown !== null ? `${countdown}...` : isCapturing ? "진행 중..." : "Action!"}
           </ShadButton>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-muted-foreground">
           캡처 요청 중에는 상태 스피너가 표시됩니다. 409 응답 시 “카메라 사용 중”으로 안내합니다.
         </p>
       </CardContent>

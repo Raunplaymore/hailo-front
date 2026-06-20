@@ -42,7 +42,7 @@ export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) 
           <label
             className={cn(
               "flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-dashed border-border bg-muted/50 p-4 transition",
-              "hover:border-blue-200 hover:bg-blue-50"
+              "hover:border-primary/50 hover:bg-primary/10"
             )}
           >
             <span className="text-sm text-foreground">영상 파일을 선택하세요</span>

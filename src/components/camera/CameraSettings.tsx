@@ -56,7 +56,7 @@ export function CameraSettings({
             value={value.baseUrl}
             onChange={(e) => onChange({ ...value, baseUrl: e.target.value })}
             placeholder="예: http://라즈베리파이:3001"
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <p className="text-xs text-muted-foreground">
             핫스팟 연결 시 IP를 직접 입력하고 저장해 두세요.
@@ -72,7 +72,7 @@ export function CameraSettings({
             type="checkbox"
             checked={value.autoStopPreviewOnCapture}
             onChange={(e) => onChange({ ...value, autoStopPreviewOnCapture: e.target.checked })}
-            className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-blue-200"
+            className="h-4 w-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
           />
           <span className="text-sm text-foreground">녹화 전에 프리뷰 자동 종료</span>
         </label>
@@ -82,7 +82,7 @@ export function CameraSettings({
           <select
             value={value.previewResolution}
             onChange={(e) => onChange({ ...value, previewResolution: e.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             <option value="640x640">640 x 640</option>
             <option value="640x360">640 x 360</option>
@@ -127,7 +127,7 @@ export function CameraSettings({
                   key={item}
                   type="button"
                   onClick={() => onSelectHistory(item)}
-                  className="rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-foreground transition hover:border-blue-400 hover:text-blue-600"
+                  className="rounded-full border border-border bg-muted/60 px-3 py-1 text-xs text-foreground transition hover:border-primary/60 hover:text-emerald-100"
                 >
                   {item}
                 </button>

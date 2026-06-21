@@ -39,8 +39,8 @@ export function Shell<T extends string>({
   const isSettingsActive = String(active) === "settings";
 
   return (
-    <div className="min-h-screen bg-background px-4 pb-32 pt-5 text-foreground sm:px-6 lg:pb-10 lg:pt-8">
-      <main className="mx-auto w-full max-w-7xl space-y-5">
+    <div className="min-h-screen w-full overflow-x-hidden bg-background px-4 pb-32 pt-5 text-foreground sm:px-6 lg:pb-10 lg:pt-8">
+      <main className="mx-auto w-full max-w-7xl min-w-0 space-y-5 overflow-x-hidden">
         <header className="rounded-2xl border border-white/10 bg-card/80 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
@@ -102,7 +102,7 @@ export function Shell<T extends string>({
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 overflow-x-hidden px-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] lg:hidden">
         <div className="mx-auto max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-card/95 shadow-[0_-12px_28px_rgba(0,0,0,0.35)] backdrop-blur">
           <ul
             className="grid w-full"

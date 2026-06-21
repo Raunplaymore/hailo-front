@@ -37,12 +37,18 @@
   }
 
   html {
+    width: 100%;
     min-height: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
     background-color: hsl(var(--background));
   }
 
   body {
+    width: 100%;
     min-height: 100vh;
+    max-width: 100%;
+    overflow-x: hidden;
     background:
       radial-gradient(circle at 20% -10%, hsl(199 89% 48% / 0.14), transparent 28rem),
       radial-gradient(circle at 85% 0%, hsl(158 84% 45% / 0.10), transparent 24rem),
@@ -52,6 +58,12 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: contain;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   button,

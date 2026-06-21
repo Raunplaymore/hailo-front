@@ -17,6 +17,7 @@ import { SettingsForm, UploadSettings } from "./components/settings/SettingsForm
 import { API_BASE } from "./api/client";
 import { CameraSettings, CameraSettingsValue } from "./components/camera/CameraSettings";
 import { CameraStatusPanel } from "./components/camera/CameraStatusPanel";
+import { FieldConnectionPanel } from "./components/camera/FieldConnectionPanel";
 import { CameraPreview } from "./components/camera/CameraPreview";
 import { SessionControls } from "./components/camera/SessionControls";
 import { AutoRecordState, AutoRecordStatus, CameraStatus } from "./types/camera";
@@ -1374,58 +1375,23 @@ function App() {
                 onClubChange={(club) => setSettings((prev) => ({ ...prev, club }))}
               />
 
-              <Card className="border-white/10 bg-card/80 shadow-2xl shadow-black/20">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">System Status</CardTitle>
-                  <CardDescription>
-                    카메라 연결과 프리뷰 상태를 빠르게 확인합니다.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {statusError && (
-                    <p className="rounded-xl border border-red-400/25 bg-red-400/10 px-3 py-2 text-sm text-red-100" role="alert">
-                      {statusError}
-                    </p>
-                  )}
-                  <dl className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="rounded-xl border border-border bg-muted/35 p-3">
-                      <dt className="text-xs text-muted-foreground">Camera</dt>
-                      <dd className="mt-1 font-semibold text-foreground">
-                        {cameraStatus ? (cameraStatus.cameraDetected ? "Detected" : "Not found") : "-"}
-                      </dd>
-                    </div>
-                    <div className="rounded-xl border border-border bg-muted/35 p-3">
-                      <dt className="text-xs text-muted-foreground">Preview</dt>
-                      <dd className="mt-1 font-semibold text-foreground">
-                        {isPreviewOn ? "On" : "Off"}
-                      </dd>
-                    </div>
-                    <div className="rounded-xl border border-border bg-muted/35 p-3">
-                      <dt className="text-xs text-muted-foreground">Streaming</dt>
-                      <dd className="mt-1 font-semibold text-foreground">
-                        {isStreaming ? "Active" : "Idle"}
-                      </dd>
-                    </div>
-                    <div className="rounded-xl border border-border bg-muted/35 p-3">
-                      <dt className="text-xs text-muted-foreground">Clients</dt>
-                      <dd className="mt-1 font-semibold text-foreground">{streamClients}</dd>
-                    </div>
-                  </dl>
-                  <div className="rounded-xl border border-border bg-muted/35 p-3 text-xs text-muted-foreground">
-                    <p>
-                      Preview preset:{" "}
-                      <span className="font-semibold text-foreground">
-                        {previewParams.width} x {previewParams.height} · {previewParams.fps}fps
-                      </span>
-                    </p>
-                    {lastStatusCheckedAt && (
-                      <p className="mt-1">
-                        Last checked: {new Date(lastStatusCheckedAt).toLocaleTimeString()}
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <FieldConnectionPanel
+                baseUrl={cameraSettings.baseUrl}
+                status={cameraStatus}
+                statusError={statusError}
+                isLoading={isStatusLoading}
+                lastCheckedAt={lastStatusCheckedAt}
+                isPreviewOn={isPreviewOn}
+                isStreaming={isStreaming}
+                streamClients={streamClients}
+                previewPreset={previewParams}
+                sessionState={sessionState}
+                aiConfigNote={aiConfigNote}
+                onRefresh={handleCheckStatus}
+                onOpenSettings={() => setActiveTab("settings")}
+                onStartPreview={handleStartPreview}
+                onStopPreview={() => handleStopPreview()}
+              />
             </aside>
           </div>
         </section>

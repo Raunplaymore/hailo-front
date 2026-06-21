@@ -19,7 +19,7 @@ export class SessionApiError extends Error {
 
 const normalizeBaseUrl = (baseUrl: string) => baseUrl.replace(/\/+$/, "");
 
-const authHeaders = (token?: string) => (token ? { Authorization: `Bearer ${token}` } : {});
+const authHeaders = (token?: string): HeadersInit => (token ? { Authorization: `Bearer ${token}` } : {});
 
 const ensureBaseUrl = (baseUrl: string) => {
   if (!baseUrl) {

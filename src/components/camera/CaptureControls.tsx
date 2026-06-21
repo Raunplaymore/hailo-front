@@ -65,7 +65,7 @@ export function CaptureControls({
 }: CaptureControlsProps) {
   const [selectedAction, setSelectedAction] = useState<"video" | "swing">("video");
   const [countdown, setCountdown] = useState<number | null>(null);
-  const countdownTimer = useRef<NodeJS.Timeout | null>(null);
+  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleAction = () => {
     if (selectedAction === "swing") {

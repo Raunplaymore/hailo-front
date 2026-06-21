@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { LiveOverlayBox } from "@/types/session";
 
 type LiveOverlayProps = {
-  containerRef: React.RefObject<HTMLElement>;
+  containerRef: React.RefObject<HTMLElement | null>;
   boxes: LiveOverlayBox[];
   sourceWidth: number;
   sourceHeight: number;

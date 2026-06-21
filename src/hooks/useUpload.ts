@@ -6,14 +6,14 @@ type UseUploadOptions = {
   onSuccess?: (shot?: Shot) => void;
 };
 
-export function useUpload(options?: UseUploadOptions) {
+export function useUpload(hookOptions?: UseUploadOptions) {
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<string>("");
 
   const start = async (
     file: File,
     sourceType: "upload" | "camera" = "upload",
-    options?: {
+    uploadOptions?: {
       club?: string;
       fps?: number;
       roi?: string;
@@ -28,11 +28,11 @@ export function useUpload(options?: UseUploadOptions) {
     setIsUploading(true);
     setMessage("업로드 중...");
     try {
-      const shot = await createAnalysisJob(file, sourceType, options);
+      const shot = await createAnalysisJob(file, sourceType, uploadOptions);
       setMessage(
         `업로드 완료. 분석 Job ${shot.jobId ?? shot.id}이 ${shot.status ?? "대기"} 상태입니다.`
       );
-      options?.onSuccess?.(shot);
+      hookOptions?.onSuccess?.(shot);
       return shot;
     } catch (error) {
       console.error(error);

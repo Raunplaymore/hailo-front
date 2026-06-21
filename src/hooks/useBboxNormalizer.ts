@@ -11,8 +11,12 @@ interface RawDetection {
   box?: number[] | Record<string, number>;
   rect?: number[] | Record<string, number>;
   bbox_xywh?: number[];
+  x?: number;
+  y?: number;
   xmin?: number;
   ymin?: number;
+  xmax?: number;
+  ymax?: number;
   x1?: number;
   y1?: number;
   x2?: number;
@@ -104,12 +108,13 @@ function normalizeDetection(
     [xmin, ymin, width, height] = box.map(Number);
   }
   // 객체 형식
-  else if (box && typeof box === 'object') {
+  else if (box && typeof box === 'object' && !Array.isArray(box)) {
+    const boxObj = box as Record<string, number | undefined>;
     // xyxy 형식 (x1, y1, x2, y2)
-    const x1 = box.xmin ?? box.x1 ?? box.left ?? box.x ?? detection.xmin ?? detection.x1 ?? detection.left;
-    const y1 = box.ymin ?? box.y1 ?? box.top ?? box.y ?? detection.ymin ?? detection.y1 ?? detection.top;
-    const x2 = box.xmax ?? box.x2 ?? box.right ?? detection.xmax ?? detection.x2 ?? detection.right;
-    const y2 = box.ymax ?? box.y2 ?? box.bottom ?? detection.ymax ?? detection.y2 ?? detection.bottom;
+    const x1 = boxObj.xmin ?? boxObj.x1 ?? boxObj.left ?? boxObj.x ?? detection.xmin ?? detection.x1 ?? detection.left;
+    const y1 = boxObj.ymin ?? boxObj.y1 ?? boxObj.top ?? boxObj.y ?? detection.ymin ?? detection.y1 ?? detection.top;
+    const x2 = boxObj.xmax ?? boxObj.x2 ?? boxObj.right ?? detection.xmax ?? detection.x2 ?? detection.right;
+    const y2 = boxObj.ymax ?? boxObj.y2 ?? boxObj.bottom ?? detection.ymax ?? detection.y2 ?? detection.bottom;
 
     if (x1 != null && y1 != null && x2 != null && y2 != null) {
       xmin = Number(x1);
@@ -121,8 +126,8 @@ function normalizeDetection(
     else {
       xmin = Number(x1 ?? 0);
       ymin = Number(y1 ?? 0);
-      width = Number(box.w ?? box.width ?? detection.w ?? detection.width);
-      height = Number(box.h ?? box.height ?? detection.h ?? detection.height);
+      width = Number(boxObj.w ?? boxObj.width ?? detection.w ?? detection.width);
+      height = Number(boxObj.h ?? boxObj.height ?? detection.h ?? detection.height);
     }
   }
 

@@ -38,7 +38,7 @@
 
 ## 백엔드 분석 API 연동 요약
 
-- `POST /api/analyze/from-file` : `{ jobId, filename, force? }` → `{ ok, jobId, status }`
+- `POST /api/analyze/from-file` : `{ jobId, filename, metaPath?, force? }` → `{ ok, jobId, status }`
 - `GET /api/analyze/:jobId` : `pending | running | done | failed` 상태 + 동일 스키마 결과 반환
 
 ## 환경변수

@@ -56,7 +56,7 @@ const buildError = async (res: Response, fallback: string) => {
   return new CameraApiError(message, status, bodyText);
 };
 
-const authHeaders = (token?: string) => (token ? { Authorization: `Bearer ${token}` } : {});
+const authHeaders = (token?: string): HeadersInit => (token ? { Authorization: `Bearer ${token}` } : {});
 
 const ensureBaseUrl = (baseUrl: string) => {
   if (!baseUrl) {

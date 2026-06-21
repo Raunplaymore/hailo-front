@@ -878,6 +878,7 @@ function App() {
 
       const analysis = await createAnalysisJobFromFile(filename, {
         jobId: resolvedJobId,
+        metaPath: res.metaPath,
       });
       setSessionAnalysisJobId(analysis.jobId);
       setSessionAnalysisStatus(analysis.status ?? "queued");

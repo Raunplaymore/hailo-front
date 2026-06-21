@@ -182,7 +182,7 @@ export function ShotList({
                     {isAnalyzeAvailable && (
                       <Button
                         type="button"
-                        onClick={() => onAnalyze(shot)}
+                        onClick={() => onAnalyze?.(shot)}
                         variant="outline"
                         size="sm"
                         fullWidth={false}

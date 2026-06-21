@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SessionState, SessionStatus, LiveOverlayBox } from '../types/session';
+import { SessionState, SessionStatus, LiveOverlayBox, SessionRecord } from '../types/session';
 import { AutoRecordState, AutoRecordStatus } from '../types/camera';
-import { JobStatus, SessionRecord } from '../types/shots';
+import { JobStatus } from '../types/shots';
 import {
   getAutoRecordStatus,
   getAutoRecordLive,

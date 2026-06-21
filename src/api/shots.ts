@@ -555,7 +555,7 @@ export const createShot = createAnalysisJob;
 
 export const createAnalysisJobFromFile = async (
   filename: string,
-  options?: { force?: boolean; jobId?: string }
+  options?: { force?: boolean; jobId?: string; metaPath?: string | null }
 ): Promise<{ jobId: string; filename: string; status?: JobStatus }> => {
   const derivedJobId = options?.jobId ?? filename.replace(/\.[^.]+$/, "");
   const res = await fetch(`${API_BASE}/api/analyze/from-file`, {
@@ -566,6 +566,7 @@ export const createAnalysisJobFromFile = async (
     body: JSON.stringify({
       jobId: derivedJobId,
       filename,
+      ...(options?.metaPath ? { metaPath: options.metaPath } : {}),
       ...(options?.force ? { force: true } : {}),
     }),
   });

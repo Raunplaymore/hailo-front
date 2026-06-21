@@ -356,6 +356,7 @@ function App() {
       createdAt: session.createdAt,
       sourceType: "camera",
       videoUrl: session.videoUrl,
+      metaPath: session.metaPath ?? null,
       jobId: analysisJobId,
       status,
     };
@@ -945,6 +946,7 @@ function App() {
       const filename = status.lastRecordingFilename || status.recordingFilename;
       if (filename && lastAutoFilenameRef.current !== filename) {
         lastAutoFilenameRef.current = filename;
+        const metaPath = status.lastRecordingMetaPath ?? null;
         const videoUrl = resolveCameraFileUrl(
           cameraSettings.baseUrl,
           `/uploads/${encodeURIComponent(filename)}`,
@@ -952,13 +954,14 @@ function App() {
         );
         setSessionFilename(filename);
         setSessionVideoUrl(videoUrl);
-        setSessionMetaPath(null);
+        setSessionMetaPath(metaPath);
         updateSessionMap(filename, {
           status: "recorded",
           videoUrl,
+          metaPath: metaPath ?? undefined,
         });
         try {
-          const analysis = await createAnalysisJobFromFile(filename);
+          const analysis = await createAnalysisJobFromFile(filename, { metaPath });
           setSessionAnalysisJobId(analysis.jobId);
           setSessionAnalysisStatus(analysis.status ?? "queued");
           setSessionState("analyzing");
@@ -974,6 +977,7 @@ function App() {
             videoUrl,
             jobId: analysis.jobId,
             analysisJobId: analysis.jobId,
+            metaPath: metaPath ?? undefined,
           });
           await handleStopPreview(true);
           refreshSessions();
@@ -1220,7 +1224,7 @@ function App() {
       let nextStatus: any = "queued";
 
       try {
-        const res = await createAnalysisJobFromFile(shot.filename);
+        const res = await createAnalysisJobFromFile(shot.filename, { metaPath: shot.metaPath });
         jobId = res.jobId;
         nextStatus = res.status ?? "queued";
       } catch (err) {
@@ -1253,7 +1257,10 @@ function App() {
     setAnalyzingId(shot.id);
     setAnalyzeError(null);
     try {
-      const res = await createAnalysisJobFromFile(shot.filename, { force: true });
+      const res = await createAnalysisJobFromFile(shot.filename, {
+        force: true,
+        metaPath: shot.metaPath,
+      });
       selectShot({ ...shot, jobId: res.jobId, status: res.status ?? "queued" });
       setSelectedSession(null);
       await refreshShots();

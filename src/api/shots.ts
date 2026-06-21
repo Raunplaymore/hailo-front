@@ -36,6 +36,7 @@ type FilesDetailRes = {
     status?: JobStatus;
     size?: number;
     modifiedAt?: string;
+    metaPath?: string | null;
     analysis?: any;
     errorCode?: string | null;
     errorMessage?: string | null;
@@ -367,6 +368,7 @@ const mapToShot = (item: any): Shot => {
     jobId,
     sourceType: (item?.sourceType as SourceType) ?? "upload",
     videoUrl: resolveUrl(item) || item?.url,
+    metaPath: item?.metaPath ?? item?.meta_path ?? null,
     originalName: resolveOriginalName(item) || undefined,
     createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
     status: normalizedStatus ?? analysis?.status,
@@ -524,12 +526,18 @@ export const fetchAnalysisStatus = async (
   try {
     const res = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}`);
     const status = normalizeJobStatus(res.status);
-    const analysis = normalizeAnalysis(res, res.jobId ?? jobId, status);
+    const rawAnalysis = res.analysis ?? res;
+    const analysis = normalizeAnalysis(rawAnalysis, res.jobId ?? jobId, status);
     return {
       jobId: res.jobId ?? jobId,
       status,
       analysis,
-      errorMessage: res.errorMessage ?? res.error ?? res.message,
+      errorMessage:
+        res.errorMessage ??
+        rawAnalysis?.errorMessage ??
+        res.error ??
+        rawAnalysis?.error ??
+        res.message,
     };
   } catch (err) {
     console.warn("fetchAnalysisStatus failed", err);
@@ -542,7 +550,7 @@ export const fetchAnalysisResult = async (jobId: string): Promise<AnalysisResult
     const result = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}`);
     if (!result) return null;
     const status = normalizeJobStatus(result.status);
-    return normalizeAnalysis(result, jobId, status);
+    return normalizeAnalysis(result.analysis ?? result, jobId, status);
   } catch (err) {
     console.warn("fetchAnalysisResult failed (ignored):", err);
     return null;
@@ -580,9 +588,10 @@ export const createAnalysisJobFromFile = async (
     status?: string;
     ok?: boolean;
     error?: string;
+    errorMessage?: string;
   };
   if (json.ok === false) {
-    throw new Error(json.error || "분석을 시작하지 못했습니다.");
+    throw new Error(json.error || json.errorMessage || "분석을 시작하지 못했습니다.");
   }
   return {
     jobId: json.jobId ?? derivedJobId,

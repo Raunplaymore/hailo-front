@@ -93,13 +93,14 @@ export function useSessionRecording(options: UseSessionRecordingOptions) {
         const recordedFilename = status.lastRecordingFilename || status.recordingFilename;
         if (recordedFilename && lastAutoFilenameRef.current !== recordedFilename) {
           lastAutoFilenameRef.current = recordedFilename;
+          const recordedMetaPath = status.lastRecordingMetaPath ?? null;
           const url = resolveCameraFileUrl(baseUrl, `/uploads/${encodeURIComponent(recordedFilename)}`, recordedFilename);
           setFilename(recordedFilename);
           setVideoUrl(url);
-          setMetaPath(null);
+          setMetaPath(recordedMetaPath);
 
           try {
-            const analysis = await createAnalysisJobFromFile(recordedFilename);
+            const analysis = await createAnalysisJobFromFile(recordedFilename, { metaPath: recordedMetaPath });
             setAnalysisJobId(analysis.jobId);
             setAnalysisStatus(analysis.status ?? 'queued');
             setState('analyzing');
@@ -110,6 +111,7 @@ export function useSessionRecording(options: UseSessionRecordingOptions) {
               createdAt: new Date().toISOString(),
               status: 'analyzing',
               videoUrl: url,
+              metaPath: recordedMetaPath ?? undefined,
               jobId: analysis.jobId,
               analysisJobId: analysis.jobId,
             });

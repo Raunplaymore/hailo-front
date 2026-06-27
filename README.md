@@ -49,7 +49,8 @@
 - `VITE_API_BASE_LOCAL` / `VITE_API_BASE_PI` (옵션): 기존 키 호환.
 - `VITE_CAMERA_BASE_URL` (또는 `VITE_CAMERA_API_BASE`, `NEXT_PUBLIC_CAMERA_API_BASE`): 카메라 서버 주소 예) `http://raspberrypi.local:3001`
 - `VITE_CAMERA_AUTH_TOKEN` 또는 `NEXT_PUBLIC_CAMERA_AUTH_TOKEN` (옵션): 카메라 API Bearer 토큰
-- `CAMERA_BASE_URL` (옵션): `npm run start`에서 사용하는 서버 프록시 대상(미설정 시 `VITE_CAMERA_BASE_URL` 또는 `http://127.0.0.1:3001`).
+- `BACK_BASE_URL` / `CAMERA_BASE_URL` (옵션): `npm run start`에서 사용하는 런타임 프록시 대상입니다. 미설정 시 각각 `http://127.0.0.1:3000`, `http://127.0.0.1:3001`을 사용합니다.
+- `server.js` 런타임 프록시는 `VITE_*`를 읽지 않습니다. `VITE_*`는 브라우저 번들 빌드 전용입니다.
 - 기타 프리뷰/분석 관련 실험용 값이 필요하면 `VITE_` prefix를 사용해 추가합니다.
 
 ## 실행

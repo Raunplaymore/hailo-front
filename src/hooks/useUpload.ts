@@ -24,6 +24,7 @@ const isSupportedVideoFile = (file: File): boolean => {
 export function useUpload(hookOptions?: UseUploadOptions) {
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<string>("");
+  const [activeFilename, setActiveFilename] = useState<string>("");
 
   const start = async (
     file: File,
@@ -47,6 +48,7 @@ export function useUpload(hookOptions?: UseUploadOptions) {
     }
 
     setIsUploading(true);
+    setActiveFilename(file.name);
     setMessage(`${file.name} 업로드 중...`);
     try {
       const shot = await createAnalysisJob(file, sourceType, uploadOptions);
@@ -65,5 +67,5 @@ export function useUpload(hookOptions?: UseUploadOptions) {
     }
   };
 
-  return { isUploading, message, start, setMessage };
+  return { isUploading, message, activeFilename, start, setMessage };
 }

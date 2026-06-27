@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { UploadSettings } from "../settings/SettingsForm";
@@ -16,11 +17,12 @@ import { UploadSettings } from "../settings/SettingsForm";
 type UploadCardProps = {
   isUploading: boolean;
   message: string;
+  activeFilename?: string;
   settings?: UploadSettings;
   onUpload: (file: File) => void | Promise<void>;
 };
 
-export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) {
+export function UploadCard({ isUploading, message, activeFilename, onUpload }: UploadCardProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -40,10 +42,32 @@ export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) 
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div
+            className={cn(
+              "rounded-xl border px-4 py-3 transition",
+              isUploading
+                ? "border-emerald-300/50 bg-emerald-500/10 text-emerald-50"
+                : "border-border bg-muted/40 text-foreground"
+            )}
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-3">
+              {isUploading ? <Spinner className="size-5" /> : <div className="size-5 rounded-full border border-border bg-background" />}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">
+                  {isUploading ? "업로드 중" : "업로드 대기"}
+                </p>
+                <p className="truncate text-xs opacity-80">
+                  {activeFilename || "선택한 파일이 여기에 표시됩니다."}
+                </p>
+              </div>
+            </div>
+          </div>
           <label
             className={cn(
               "flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-dashed border-border bg-muted/50 p-4 transition",
-              "hover:border-primary/50 hover:bg-primary/10"
+              "hover:border-primary/50 hover:bg-primary/10",
+              isUploading && "pointer-events-none opacity-60"
             )}
           >
             <span className="text-sm text-foreground">영상 파일을 선택하세요</span>
@@ -52,6 +76,7 @@ export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) 
               type="file"
               accept=".mp4,.mov,video/mp4,video/quicktime"
               onChange={handleChange}
+              disabled={isUploading}
               className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted"
             />
           </label>
@@ -70,7 +95,10 @@ export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) 
             disabled={isUploading}
             fullWidth
           >
-            {isUploading ? "업로드 중..." : "업로드"}
+            <span className="inline-flex items-center gap-2">
+              {isUploading && <Spinner className="size-4" />}
+              {isUploading ? "업로드 중..." : "업로드"}
+            </span>
           </Button>
         </CardFooter>
       </Card>

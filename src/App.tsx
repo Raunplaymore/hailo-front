@@ -1401,6 +1401,7 @@ function App() {
         <UploadCard
           isUploading={upload.isUploading}
           message={upload.message}
+          activeFilename={upload.activeFilename}
           settings={settings}
           onUpload={async (file) => {
             const shot = await upload.start(file, "upload", settings);

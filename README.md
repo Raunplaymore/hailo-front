@@ -44,8 +44,8 @@
 ## 환경변수
 
 - `.env.example`를 참고해 로컬 `.env`를 생성하세요.
-- `VITE_BACK_BASE_URL` (또는 `VITE_API_BASE`): 프런트에서 호출할 기본 백엔드(hailo-back) 주소 예) `http://localhost:3000`
-- `VITE_BACK_BASE_URL_LOCAL` / `VITE_BACK_BASE_URL_PI` (옵션): 호스트 자동 추론용 기본값.
+- `VITE_BACK_BASE_URL` (또는 `VITE_API_BASE`): 기본은 비워두고 same-origin `/api` 프록시를 사용합니다. Vite dev에서 별도 백엔드를 직접 붙일 때만 예) `http://localhost:3000`
+- `VITE_BACK_BASE_URL_LOCAL` / `VITE_BACK_BASE_URL_PI` (옵션): 기본은 비워두고 필요할 때만 설정합니다.
 - `VITE_API_BASE_LOCAL` / `VITE_API_BASE_PI` (옵션): 기존 키 호환.
 - `VITE_CAMERA_BASE_URL` (또는 `VITE_CAMERA_API_BASE`, `NEXT_PUBLIC_CAMERA_API_BASE`): 카메라 서버 주소 예) `http://raspberrypi.local:3001`
 - `VITE_CAMERA_AUTH_TOKEN` 또는 `NEXT_PUBLIC_CAMERA_AUTH_TOKEN` (옵션): 카메라 API Bearer 토큰

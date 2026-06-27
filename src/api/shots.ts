@@ -490,12 +490,12 @@ const withVideoUrl = (shot: Shot): Shot => {
 const mapToShot = (item: any): Shot => {
   const filename = resolveFilename(item);
   const jobId = item?.jobId ?? item?.analysis?.jobId ?? item?.id ?? filename;
-  const rawStatus = item?.status ?? item?.analysis?.status;
-  const normalizedStatus: JobStatus | undefined = rawStatus ? normalizeJobStatus(rawStatus) : undefined;
   const analysis = item?.analysis
-    ? normalizeAnalysis(item.analysis, jobId, item.analysis.status ?? normalizedStatus)
+    ? normalizeAnalysis(item.analysis, jobId, item.analysis.status ?? item?.status)
     : null;
-  const effectiveStatus = normalizedStatus ?? analysis?.status;
+  const analysisStatus = analysis?.status;
+  const itemStatus = item?.status ? normalizeJobStatus(item.status) : undefined;
+  const effectiveStatus = analysisStatus ?? itemStatus;
   const analyzedFlag =
     item?.analyzed ?? (Boolean(analysis && analysis.status === "succeeded") || effectiveStatus === "succeeded");
 

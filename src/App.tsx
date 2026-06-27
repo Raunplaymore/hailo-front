@@ -1288,7 +1288,7 @@ function App() {
   };
 
   const isAnalyzedDone = (shot: Shot) => {
-    const status = (shot.status ?? shot.analysis?.status) as string | undefined;
+    const status = (shot.analysis?.status ?? shot.status) as string | undefined;
     return status === "succeeded" && Boolean(shot.analysis);
   };
 
@@ -1321,7 +1321,7 @@ function App() {
   useEffect(() => {
     if (activeTab !== "list") return;
     const hasInProgress = shots.some((shot) => {
-      const status = (shot.status ?? shot.analysis?.status) as string | undefined;
+      const status = (shot.analysis?.status ?? shot.status) as string | undefined;
       return status === "queued" || status === "running";
     });
     if (!hasInProgress) return;

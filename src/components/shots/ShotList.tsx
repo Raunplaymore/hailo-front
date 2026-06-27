@@ -94,7 +94,7 @@ export function ShotList({
         ) : (
           <ul className="m-0 grid list-none gap-3 p-0">
             {shots.map((shot) => {
-              const effectiveStatus = (shot.status ?? shot.analysis?.status) as string | undefined;
+              const effectiveStatus = (shot.analysis?.status ?? shot.status) as string | undefined;
               const isDone = effectiveStatus === "succeeded" && Boolean(shot.analysis);
               const isProcessing = effectiveStatus === "queued" || effectiveStatus === "running";
               const isFailed = effectiveStatus === "failed";

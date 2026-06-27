@@ -88,6 +88,7 @@ export type PendingMetric = {
 export type AnalysisResult = {
   jobId: string;
   status: JobStatus;
+  analysisVersion?: string | null;
   events: Partial<Record<SwingEventKey, SwingEventTiming>>;
   metrics: AnalysisMetrics;
   pending: PendingMetric[];

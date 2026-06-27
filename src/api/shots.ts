@@ -444,6 +444,16 @@ const normalizeAnalysis = (
   return {
     jobId,
     status: normalizeJobStatus(status),
+    analysisVersion:
+      typeof raw?.analysisVersion === "string"
+        ? raw.analysisVersion
+        : typeof raw?.analysis_version === "string"
+          ? raw.analysis_version
+          : typeof metricsBlock?.analysisVersion === "string"
+            ? metricsBlock.analysisVersion
+            : typeof metricsBlock?.analysis_version === "string"
+              ? metricsBlock.analysis_version
+              : null,
     events,
     metrics: {
       tempo,

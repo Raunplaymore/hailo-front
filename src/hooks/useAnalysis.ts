@@ -11,6 +11,15 @@ type UseAnalysisResult = {
 
 const POLL_INTERVAL_MS = 1800;
 
+const isInferStyleAnalysis = (analysis: AnalysisResult | null | undefined) => {
+  if (!analysis) return false;
+  const version = String(analysis.analysisVersion || "").toLowerCase();
+  if (version.includes("service7") || version.includes("hailo-coach") || version.includes("infer")) {
+    return true;
+  }
+  return Boolean(analysis.metrics?.shaftPlane || analysis.metrics?.trackingQuality || analysis.metrics?.backswing);
+};
+
 export function useAnalysis(selected: Shot | null): UseAnalysisResult {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(selected?.analysis ?? null);
   const [status, setStatus] = useState<JobStatus>(selected?.analysis?.status ?? selected?.status ?? "idle");
@@ -70,9 +79,12 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
       }
     };
 
-    // 이미 분석 데이터가 있으면 상태를 보여주고, 필요 시 결과 재조회
+    // 이미 service7/infer 분석 데이터가 있으면 상태를 보여주고, 없으면 재조회
     if (existingAnalysis && existingAnalysis.jobId === jobId) {
-      if (existingAnalysis.status === "succeeded" || existingAnalysis.status === "failed") {
+      if (
+        (existingAnalysis.status === "succeeded" || existingAnalysis.status === "failed") &&
+        isInferStyleAnalysis(existingAnalysis)
+      ) {
         setIsLoading(false);
         return () => undefined;
       }

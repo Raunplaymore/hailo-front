@@ -5,15 +5,17 @@ module.exports = {
   apps: [
     {
       name: "hailo-front", // CI에서 pm2 reload 대상으로 사용하는 이름
-      // dist 정적 서빙 (vite preview 대신 serve 사용)
       cwd: process.env.FRONT_HOME || "/home/ray/hailo-front",
-      script: "npx",
-      args: "serve -s current/dist -l 4173",
+      script: "server.js",
       exec_mode: "fork",
       instances: 1,
       env: {
         NODE_ENV: "production",
         PORT: 4173,
+        FRONT_DIST_DIR:
+          process.env.FRONT_DIST_DIR || "/home/ray/hailo-front/current/dist",
+        BACK_BASE_URL: process.env.BACK_BASE_URL || "http://127.0.0.1:3000",
+        CAMERA_BASE_URL: process.env.CAMERA_BASE_URL || "http://127.0.0.1:3001",
       },
     },
   ],

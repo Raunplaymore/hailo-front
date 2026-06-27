@@ -8,6 +8,7 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const distDir = process.env.FRONT_DIST_DIR || path.join(__dirname, "dist");
 
 const cameraTarget =
   process.env.CAMERA_BASE_URL ||
@@ -34,9 +35,9 @@ app.use("/api/session", createProxyMiddleware(createProxyOptions(cameraTarget)))
 app.use("/api", createProxyMiddleware(createProxyOptions(backTarget)));
 app.use("/uploads", createProxyMiddleware(createProxyOptions(backTarget)));
 
-app.use(express.static(path.join(__dirname, "dist"), { extensions: ["html"] }));
+app.use(express.static(distDir, { extensions: ["html"] }));
 app.get("*", (_req, res) => {
-  res.sendFile(path.join(__dirname, "dist", "index.html"));
+  res.sendFile(path.join(distDir, "index.html"));
 });
 
 app.listen(port, () => {

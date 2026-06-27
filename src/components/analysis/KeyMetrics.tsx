@@ -18,7 +18,8 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
   const fallback = isRunning ? "분석 중" : "데이터 부족";
 
   const tempoRatio = analysis?.metrics.tempo?.ratio ?? fallback;
-  const swingPlane = analysis?.metrics.swingPlane ?? fallback;
+  const shaftPlane = formatMetricLabel(analysis?.metrics.shaftPlane) ?? analysis?.metrics.swingPlane ?? fallback;
+  const backswing = formatMetricLabel(analysis?.metrics.backswing) ?? fallback;
   const impactStability = analysis?.metrics.impactStability ?? fallback;
 
   return (
@@ -27,13 +28,21 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
         <CardTitle className="text-lg">핵심 지표</CardTitle>
         <CardDescription>분석 결과에서 핵심 지표를 요약합니다.</CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-3 gap-2">
-        <MetricCard label="Swing Plane" value={swingPlane} />
+      <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <MetricCard label="Shaft Plane" value={shaftPlane} />
         <MetricCard label="Tempo" value={tempoRatio} />
+        <MetricCard label="Backswing" value={backswing} />
         <MetricCard label="Impact Stability" value={impactStability} />
       </CardContent>
     </Card>
   );
+}
+
+function formatMetricLabel(metric?: { label?: string | null; confidence?: number | null; score?: number | null }) {
+  if (!metric?.label) return null;
+  const confidence = metric.confidence ?? metric.score;
+  if (confidence == null) return metric.label;
+  return `${metric.label} (${Math.round(confidence * 100)}%)`;
 }
 
 type MetricCardProps = {

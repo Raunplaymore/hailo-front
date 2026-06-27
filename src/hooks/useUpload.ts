@@ -6,6 +6,21 @@ type UseUploadOptions = {
   onSuccess?: (shot?: Shot) => void;
 };
 
+const SUPPORTED_EXTENSIONS = [".mp4", ".mov"];
+const SUPPORTED_MIME_TYPES = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/mov",
+  "video/x-m4v",
+]);
+
+const isSupportedVideoFile = (file: File): boolean => {
+  const lowerName = file.name.toLowerCase();
+  const hasSupportedExtension = SUPPORTED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+  if (hasSupportedExtension) return true;
+  return Boolean(file.type && SUPPORTED_MIME_TYPES.has(file.type.toLowerCase()));
+};
+
 export function useUpload(hookOptions?: UseUploadOptions) {
   const [isUploading, setIsUploading] = useState(false);
   const [message, setMessage] = useState<string>("");
@@ -25,8 +40,13 @@ export function useUpload(hookOptions?: UseUploadOptions) {
       track_frames?: number;
     }
   ): Promise<Shot | undefined> => {
+    if (!isSupportedVideoFile(file)) {
+      setMessage("지원하지 않는 영상 형식입니다. MP4 또는 iPhone MOV 파일을 선택하세요.");
+      return undefined;
+    }
+
     setIsUploading(true);
-    setMessage("업로드 중...");
+    setMessage(`${file.name} 업로드 중...`);
     try {
       const shot = await createAnalysisJob(file, sourceType, uploadOptions);
       setMessage(
@@ -36,7 +56,8 @@ export function useUpload(hookOptions?: UseUploadOptions) {
       return shot;
     } catch (error) {
       console.error(error);
-      setMessage("업로드 실패. 다시 시도하세요.");
+      const message = error instanceof Error ? error.message : "업로드 실패. 다시 시도하세요.";
+      setMessage(`업로드 실패: ${message}`);
       return undefined;
     } finally {
       setIsUploading(false);

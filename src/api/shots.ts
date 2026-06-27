@@ -607,6 +607,7 @@ export const createAnalysisJob = async (
     v_fov?: number;
     impact_frame?: number;
     track_frames?: number;
+    metaPath?: string | null;
   }
 ): Promise<Shot> => {
   const buildFormData = () => {
@@ -622,6 +623,7 @@ export const createAnalysisJob = async (
     if (options?.v_fov != null) fd.append("v_fov", String(options.v_fov));
     if (options?.impact_frame != null) fd.append("impact_frame", String(options.impact_frame));
     if (options?.track_frames != null) fd.append("track_frames", String(options.track_frames));
+    if (options?.metaPath) fd.append("metaPath", options.metaPath);
     return fd;
   };
 

@@ -38,6 +38,7 @@ export function useUpload(hookOptions?: UseUploadOptions) {
       v_fov?: number;
       impact_frame?: number;
       track_frames?: number;
+      metaPath?: string | null;
     }
   ): Promise<Shot | undefined> => {
     if (!isSupportedVideoFile(file)) {

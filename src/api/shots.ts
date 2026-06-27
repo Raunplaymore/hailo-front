@@ -1,15 +1,20 @@
 import { ApiError, client, API_BASE } from "./client";
 import {
+  AnalysisMetricDetail,
   AnalysisResult,
   BallMetrics,
+  BackswingMetrics,
   EventTimingMetrics,
   JobStatus,
   PendingMetric,
+  ReadinessMetrics,
   Shot,
+  ShaftPlaneMetrics,
   SourceType,
   SwingEventKey,
   SwingEventTiming,
   TempoMetrics,
+  TrackingQualityMetrics,
 } from "../types/shots";
 
 type UploadRes = {
@@ -47,21 +52,21 @@ type FilesDetailRes = {
 
 const PENDING_METRICS: PendingMetric[] = [
   {
-    key: "clubPath",
-    label: "Club Path",
-    description: "YOLO 기반 클럽 헤드 트래킹 고도화 후 제공 예정입니다.",
-    status: "coming-soon",
-  },
-  {
-    key: "swingPlane",
-    label: "Swing Plane",
-    description: "샤프트/헤드 감지를 안정화한 뒤 활성화됩니다.",
+    key: "pelvisPose",
+    label: "Pelvis Rotation",
+    description: "골반 회전은 포즈 키포인트 모델 연동 후 직접 판정합니다.",
     status: "coming-soon",
   },
   {
     key: "attackAngle",
     label: "Attack Angle",
-    description: "단일 카메라에서 신뢰도 확보 후 표시할 예정입니다.",
+    description: "정면/측면 보정값 확보 후 표시합니다.",
+    status: "coming-soon",
+  },
+  {
+    key: "threeDimensionalPath",
+    label: "3D Club Path",
+    description: "다중 시점 또는 캘리브레이션 정보가 확보되면 제공합니다.",
     status: "coming-soon",
   },
 ];
@@ -127,6 +132,12 @@ const toNumberOrNull = (value: any): number | null => {
   return Number.isFinite(num) ? num : null;
 };
 
+const toOptionalNumber = (value: any): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
 const normalizeEvents = (events: any): Partial<Record<SwingEventKey, SwingEventTiming>> => {
   const keys: SwingEventKey[] = ["address", "top", "impact", "finish"];
   if (!events || typeof events !== "object") return {};
@@ -177,13 +188,27 @@ const normalizeTempo = (metrics: any): TempoMetrics | undefined => {
   return {
     backswingMs: toNumberOrNull(backswing),
     downswingMs: toNumberOrNull(downswing),
-    ratio: ratio != null ? String(ratio) : null,
+    ratio: normalizeTempoRatio(ratio),
   };
+};
+
+const normalizeTempoRatio = (value: any): string | null => {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return `${Number(value.toFixed(2))}:1`;
+  const text = String(value);
+  if (text.includes(":")) return text;
+  const num = Number(text);
+  return Number.isFinite(num) ? `${Number(num.toFixed(2))}:1` : text;
 };
 
 const normalizeJobStatus = (status: any): JobStatus => {
   if (!status || typeof status !== "string") return "queued";
   switch (status.toLowerCase()) {
+    case "idle":
+      return "idle";
+    case "not-analyzed":
+    case "not_analyzed":
+      return "not-analyzed";
     case "pending":
       return "queued";
     case "done":
@@ -252,9 +277,89 @@ const normalizeBall = (metrics: any): BallMetrics | undefined => {
       launchDirection: (launchDirection as BallMetrics["launchDirection"]) ?? "unknown",
       launchAngle,
       speedRelative,
+      confidence: toOptionalNumber(ball.confidence),
     };
   }
   return undefined;
+};
+
+const normalizeMetricDetail = (value: any): AnalysisMetricDetail | undefined => {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string" || typeof value === "number") {
+    return { label: String(value) };
+  }
+  if (typeof value !== "object") return undefined;
+
+  const detail: AnalysisMetricDetail = {
+    label:
+      typeof value.label === "string"
+        ? value.label
+        : typeof value.name === "string"
+        ? value.name
+        : typeof value.type === "string"
+        ? value.type
+        : null,
+    confidence: toOptionalNumber(value.confidence),
+    score: toOptionalNumber(value.score),
+    comment:
+      typeof value.comment === "string"
+        ? value.comment
+        : typeof value.description === "string"
+        ? value.description
+        : null,
+  };
+
+  return detail.label || detail.confidence != null || detail.score != null || detail.comment
+    ? detail
+    : undefined;
+};
+
+const normalizeShaftPlane = (value: any): ShaftPlaneMetrics | undefined => {
+  const base = normalizeMetricDetail(value);
+  if (!base || typeof value !== "object") return base;
+  return {
+    ...base,
+    angleDeg: toOptionalNumber(value.angleDeg ?? value.angle_deg),
+    addressAngleDeg: toOptionalNumber(value.addressAngleDeg ?? value.address_angle_deg),
+    sampleCount: toOptionalNumber(value.sampleCount ?? value.sample_count),
+  };
+};
+
+const normalizeBackswing = (value: any): BackswingMetrics | undefined => {
+  const base = normalizeMetricDetail(value);
+  if (!base || typeof value !== "object") return base;
+  return {
+    ...base,
+    clubTravelRatio: toOptionalNumber(value.clubTravelRatio ?? value.club_travel_ratio),
+    topHeightRatio: toOptionalNumber(value.topHeightRatio ?? value.top_height_ratio),
+  };
+};
+
+const normalizeReadiness = (value: any): ReadinessMetrics | undefined => {
+  const base = normalizeMetricDetail(value);
+  if (!base || typeof value !== "object") return base;
+  return {
+    ...base,
+    readyFrames: toOptionalNumber(value.readyFrames ?? value.ready_frames),
+    notReadyFrames: toOptionalNumber(value.notReadyFrames ?? value.not_ready_frames),
+  };
+};
+
+const normalizeTrackingQuality = (value: any): TrackingQualityMetrics | undefined => {
+  const base = normalizeMetricDetail(value);
+  if (!base || typeof value !== "object") return base;
+  return {
+    ...base,
+    frames: toOptionalNumber(value.frames),
+    clubHeadFrames: toOptionalNumber(value.clubHeadFrames ?? value.club_head_frames),
+    clubHandleFrames: toOptionalNumber(value.clubHandleFrames ?? value.club_handle_frames),
+    ballFrames: toOptionalNumber(value.ballFrames ?? value.ball_frames),
+    personFrames: toOptionalNumber(value.personFrames ?? value.person_frames),
+    clubHeadConfidence: toOptionalNumber(value.clubHeadConfidence ?? value.club_head_confidence),
+    clubHandleConfidence: toOptionalNumber(value.clubHandleConfidence ?? value.club_handle_confidence),
+    ballConfidence: toOptionalNumber(value.ballConfidence ?? value.ball_confidence),
+    personConfidence: toOptionalNumber(value.personConfidence ?? value.person_confidence),
+  };
 };
 
 const deriveEventTiming = (
@@ -292,6 +397,17 @@ const normalizeAnalysis = (
     metricsBlock?.impact_stability ??
     raw?.impactStability ??
     raw?.impact_stability;
+  const shaftPlaneRaw =
+    metricsBlock?.shaftPlane ?? metricsBlock?.shaft_plane ?? raw?.shaftPlane ?? raw?.shaft_plane;
+  const backswingRaw =
+    metricsBlock?.backswing ?? metricsBlock?.backSwing ?? metricsBlock?.back_swing ?? raw?.backswing;
+  const readinessRaw =
+    metricsBlock?.readiness ?? metricsBlock?.readyState ?? metricsBlock?.ready_state ?? raw?.readiness;
+  const trackingQualityRaw =
+    metricsBlock?.trackingQuality ??
+    metricsBlock?.tracking_quality ??
+    raw?.trackingQuality ??
+    raw?.tracking_quality;
   const formatScore = (value: number | null | undefined) =>
     value == null || Number.isNaN(value) ? null : `${Math.round(value * 100)}%`;
   const toText = (value: any): string | null => {
@@ -323,24 +439,32 @@ const normalizeAnalysis = (
     (Array.isArray(raw?.coach_comments) && raw.coach_comments) ||
     (Array.isArray(raw?.coachComments) && raw.coachComments) ||
     undefined;
+  const confidence = toOptionalNumber(raw?.confidence ?? metricsBlock?.confidence);
 
   return {
     jobId,
-    status,
+    status: normalizeJobStatus(status),
     events,
     metrics: {
       tempo,
       eventTiming,
       ball,
       swingPlane: toText(swingPlaneRaw),
+      swingPlaneDetail: normalizeMetricDetail(swingPlaneRaw),
       impactStability: toText(impactStabilityRaw),
+      impactStabilityDetail: normalizeMetricDetail(impactStabilityRaw),
+      shaftPlane: normalizeShaftPlane(shaftPlaneRaw),
+      backswing: normalizeBackswing(backswingRaw),
+      readiness: normalizeReadiness(readinessRaw),
+      trackingQuality: normalizeTrackingQuality(trackingQualityRaw),
     },
     pending: [...PENDING_METRICS],
     createdAt: raw?.createdAt ?? raw?.created_at,
     finishedAt: raw?.finishedAt ?? raw?.finished_at,
     errorMessage: raw?.errorMessage ?? raw?.error,
     summary,
-    coachSummary,
+    coachSummary: coachSummary?.map((item: any) => String(item)),
+    confidence,
   };
 };
 

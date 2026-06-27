@@ -23,9 +23,9 @@ const EVENT_LABELS: Record<SwingEventKey, string> = {
 };
 
 const PENDING_FALLBACK = [
-  { key: "clubPath", label: "Club Path", description: "YOLO 클럽 트래킹 적용 후 활성화 예정" },
-  { key: "swingPlane", label: "Swing Plane", description: "단일 카메라 신뢰도 확보 후 제공" },
-  { key: "attackAngle", label: "Attack Angle", description: "헤드 궤적 안정화 후 제공" },
+  { key: "pelvisPose", label: "Pelvis Rotation", description: "포즈 키포인트 모델 연동 후 직접 판정" },
+  { key: "attackAngle", label: "Attack Angle", description: "정면/측면 보정값 확보 후 제공" },
+  { key: "threeDimensionalPath", label: "3D Club Path", description: "다중 시점 캘리브레이션 후 제공" },
 ];
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -48,6 +48,12 @@ const STATUS_TONES: Record<JobStatus, string> = {
 
 const formatMs = (value?: number | null) => (value == null ? "-" : `${Math.round(value)} ms`);
 const formatAngle = (value?: number | null) => (value == null ? "-" : `${value.toFixed(1)}°`);
+const formatPercent = (value?: number | null) => (value == null ? "-" : `${Math.round(value * 100)}%`);
+const formatMetricLabel = (metric?: { label?: string | null; confidence?: number | null; score?: number | null }) => {
+  if (!metric?.label) return "-";
+  const value = metric.confidence ?? metric.score;
+  return value == null ? metric.label : `${metric.label} (${formatPercent(value)})`;
+};
 
 export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProps) {
   const currentStatus: JobStatus = analysis?.status ?? status ?? "idle";
@@ -101,6 +107,10 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   const tempo = analysis?.metrics.tempo;
   const eventTiming = analysis?.metrics.eventTiming;
   const ball = analysis?.metrics.ball;
+  const shaftPlane = analysis?.metrics.shaftPlane;
+  const backswing = analysis?.metrics.backswing;
+  const readiness = analysis?.metrics.readiness;
+  const trackingQuality = analysis?.metrics.trackingQuality;
   const pending = analysis?.pending ?? PENDING_FALLBACK;
 
   return (
@@ -168,8 +178,31 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
 
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">준비 중 지표</p>
-            <span className="text-xs text-muted-foreground">YOLO 기반 클럽 트래킹 후 공개</span>
+            <p className="text-sm text-muted-foreground">Service7 전신/클럽 진단</p>
+            <span className="text-xs text-muted-foreground">2D 추적 기준</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <MetricCard label="Shaft Plane" value={formatMetricLabel(shaftPlane)} />
+            <MetricCard label="Shaft Angle" value={formatAngle(shaftPlane?.angleDeg)} />
+            <MetricCard label="Backswing" value={formatMetricLabel(backswing)} />
+            <MetricCard label="Readiness" value={formatMetricLabel(readiness)} />
+            <MetricCard label="Tracking Quality" value={formatMetricLabel(trackingQuality)} />
+            <MetricCard label="Overall Confidence" value={formatPercent(analysis?.confidence)} />
+          </div>
+          {trackingQuality && (
+            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
+              <MetricCard label="Club Head Frames" value={trackingQuality.clubHeadFrames ?? "-"} />
+              <MetricCard label="Handle Frames" value={trackingQuality.clubHandleFrames ?? "-"} />
+              <MetricCard label="Ball Frames" value={trackingQuality.ballFrames ?? "-"} />
+              <MetricCard label="Person Frames" value={trackingQuality.personFrames ?? "-"} />
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">확장 예정 지표</p>
+            <span className="text-xs text-muted-foreground">추가 센서/포즈 모델 필요</span>
           </div>
           <div className="space-y-1">
             {pending.map((p) => (

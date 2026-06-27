@@ -26,6 +26,42 @@ export type BallMetrics = {
   launchDirection?: "left" | "center" | "right" | "unknown";
   launchAngle?: number | null;
   speedRelative?: "fast" | "medium" | "slow" | "unknown";
+  confidence?: number | null;
+};
+
+export type AnalysisMetricDetail = {
+  label?: string | null;
+  confidence?: number | null;
+  score?: number | null;
+  comment?: string | null;
+};
+
+export type ShaftPlaneMetrics = AnalysisMetricDetail & {
+  angleDeg?: number | null;
+  addressAngleDeg?: number | null;
+  sampleCount?: number | null;
+};
+
+export type BackswingMetrics = AnalysisMetricDetail & {
+  clubTravelRatio?: number | null;
+  topHeightRatio?: number | null;
+};
+
+export type ReadinessMetrics = AnalysisMetricDetail & {
+  readyFrames?: number | null;
+  notReadyFrames?: number | null;
+};
+
+export type TrackingQualityMetrics = AnalysisMetricDetail & {
+  frames?: number | null;
+  clubHeadFrames?: number | null;
+  clubHandleFrames?: number | null;
+  ballFrames?: number | null;
+  personFrames?: number | null;
+  clubHeadConfidence?: number | null;
+  clubHandleConfidence?: number | null;
+  ballConfidence?: number | null;
+  personConfidence?: number | null;
 };
 
 export type AnalysisMetrics = {
@@ -33,7 +69,13 @@ export type AnalysisMetrics = {
   eventTiming?: EventTimingMetrics;
   ball?: BallMetrics;
   swingPlane?: string | null;
+  swingPlaneDetail?: AnalysisMetricDetail;
   impactStability?: string | null;
+  impactStabilityDetail?: AnalysisMetricDetail;
+  shaftPlane?: ShaftPlaneMetrics;
+  backswing?: BackswingMetrics;
+  readiness?: ReadinessMetrics;
+  trackingQuality?: TrackingQualityMetrics;
 };
 
 export type PendingMetric = {
@@ -54,6 +96,7 @@ export type AnalysisResult = {
   errorMessage?: string;
   summary?: string | null;
   coachSummary?: string[];
+  confidence?: number | null;
 };
 
 export type Shot = {

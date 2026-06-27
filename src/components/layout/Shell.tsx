@@ -39,7 +39,7 @@ export function Shell<T extends string>({
   const isSettingsActive = String(active) === "settings";
 
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-background px-4 pb-32 pt-5 text-foreground sm:px-6 lg:pb-10 lg:pt-8">
+    <div className="min-h-screen w-full overflow-x-hidden bg-background px-4 pb-44 pt-5 text-foreground sm:px-6 lg:pb-10 lg:pt-8">
       <main className="mx-auto w-full max-w-7xl min-w-0 space-y-5 overflow-x-hidden">
         <header className="rounded-2xl border border-white/10 bg-card/80 p-4 shadow-2xl shadow-black/25 backdrop-blur sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

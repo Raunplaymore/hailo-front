@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Eye, Trash2 } from "lucide-react";
 import { SessionRecord, SessionStatus } from "@/types/session";
 
 type SessionListProps = {
@@ -78,13 +81,13 @@ export function SessionList({
             {sessions.map((session) => (
               <li
                 key={session.id}
-                className="flex w-full flex-col gap-2 break-words rounded-xl border border-border bg-card p-3 text-sm"
+                className="flex w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
               >
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold">
+                <div className="min-w-0 space-y-1">
+                  <span className="block w-full text-sm font-semibold leading-5" style={TITLE_CLAMP_STYLE}>
                     {session.filename}
                   </span>
-                  <span className="break-words text-xs text-muted-foreground">
+                  <span className="block break-words text-xs text-muted-foreground">
                     {STATUS_LABELS[session.status]} ·{" "}
                     {new Date(session.createdAt).toLocaleString()}
                   </span>
@@ -110,7 +113,7 @@ export function SessionList({
                     </span>
                   )}
                 </div>
-                <div className="mt-1 flex justify-end gap-2">
+                <div className="mt-1 flex flex-wrap justify-end gap-2 border-t border-border/70 pt-3">
                   <Button
                     type="button"
                     onClick={() => onSelect(session)}
@@ -118,18 +121,22 @@ export function SessionList({
                     size="sm"
                     fullWidth={false}
                     disabled={session.status === "recording"}
+                    className="gap-2"
                   >
+                    <Eye className="h-4 w-4" />
                     결과 보기
                   </Button>
                   <Button
                     type="button"
                     onClick={() => onDelete(session)}
-                    variant="outline"
-                    size="sm"
+                    variant="destructive"
+                    size="icon"
                     fullWidth={false}
                     disabled={session.status === "recording" || deletingId === session.id}
+                    aria-label={deletingId === session.id ? "삭제 중" : "삭제"}
+                    title={deletingId === session.id ? "삭제 중" : "삭제"}
                   >
-                    {deletingId === session.id ? "삭제 중..." : "삭제"}
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </li>
@@ -140,3 +147,10 @@ export function SessionList({
     </Card>
   );
 }
+
+const TITLE_CLAMP_STYLE: CSSProperties = {
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};

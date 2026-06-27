@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Eye, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { API_BASE } from "../../api/client";
 import { Shot } from "../../types/shots";
 
@@ -105,21 +108,25 @@ export function ShotList({
                   key={shot.id}
                   className="flex w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
                 >
-                  <div className="flex flex-col gap-1">
+                  <div className="min-w-0 space-y-1">
                     {onTitleClick ? (
                       <button
                         type="button"
                         onClick={() => onTitleClick(shot)}
-                        className="text-left text-sm font-semibold text-sky-200 hover:underline"
+                        className="block w-full text-left text-sm font-semibold leading-5 text-sky-200 hover:underline"
+                        style={TITLE_CLAMP_STYLE}
                       >
                         {shot.originalName || shot.filename}
                       </button>
                     ) : (
-                      <span className="text-sm font-semibold">
+                      <span
+                        className="block w-full text-sm font-semibold leading-5"
+                        style={TITLE_CLAMP_STYLE}
+                      >
                         {shot.originalName || shot.filename}
                       </span>
                     )}
-                    <span className="break-words text-xs text-muted-foreground">
+                    <span className="block break-words text-xs text-muted-foreground">
                       {shot.sourceType} · {statusLabel(effectiveStatus, isDone)} ·{" "}
                       {new Date(shot.modifiedAt ?? shot.createdAt).toLocaleString()}
                     </span>
@@ -169,15 +176,17 @@ export function ShotList({
                     )}
                   </div>
 
-                  <div className="mt-1 flex flex-wrap items-center justify-end gap-2">
+                  <div className="mt-1 flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-3">
                     <Button
                       type="button"
                       onClick={() => onSelect(shot)}
                       variant="outline"
                       size="sm"
                       fullWidth={false}
+                      className="gap-2"
                     >
-                      {isOpen ? "접기" : "보기"}
+                      {isOpen ? <RotateCcw className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <span>{isOpen ? "접기" : "보기"}</span>
                     </Button>
                     {isAnalyzeAvailable && (
                       <Button
@@ -187,21 +196,31 @@ export function ShotList({
                         size="sm"
                         fullWidth={false}
                         disabled={analyzingId === shot.id}
+                        className="gap-2"
                       >
-                        {analyzingId === shot.id ? "분석중..." : analyzeButtonLabel}
+                        {analyzingId === shot.id ? (
+                          "분석중..."
+                        ) : (
+                          <>
+                            <RefreshCw className="h-4 w-4" />
+                            <span>{analyzeButtonLabel}</span>
+                          </>
+                        )}
                       </Button>
                     )}
                     {onDelete && (
                       <Button
                         type="button"
                         onClick={() => onDelete(shot)}
-                        variant="ghost"
-                        size="sm"
+                        variant="destructive"
+                        size="icon"
                         fullWidth={false}
                         disabled={deletingId === shot.id}
-                        className="text-red-200 hover:bg-red-400/10 hover:text-red-100"
+                        className="shrink-0"
+                        aria-label={deletingId === shot.id ? "삭제 중" : "삭제"}
+                        title={deletingId === shot.id ? "삭제 중" : "삭제"}
                       >
-                        {deletingId === shot.id ? "삭제중" : "삭제"}
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
@@ -228,6 +247,13 @@ export function ShotList({
     </Card>
   );
 }
+
+const TITLE_CLAMP_STYLE: CSSProperties = {
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden",
+};
 
 function Badge({ tone, children }: { tone: "processing" | "success"; children: React.ReactNode }) {
   const styles =

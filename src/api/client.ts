@@ -39,6 +39,12 @@ const parseBody = (text: string): unknown => {
   }
 };
 
+const looksLikeHtmlDocument = (value: unknown): value is string => {
+  if (typeof value !== "string") return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("<!doctype html") || normalized.startsWith("<html");
+};
+
 const getErrorMessage = (body: unknown, fallback: string): string => {
   if (!body) return fallback;
   if (typeof body === "string") return body || fallback;
@@ -53,11 +59,19 @@ const getErrorMessage = (body: unknown, fallback: string): string => {
 };
 
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE}${url}`, options);
+  const headers = new Headers(options.headers ?? {});
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+
+  const res = await fetch(`${API_BASE}${url}`, { ...options, headers });
   const text = await res.text().catch(() => "");
   const body = parseBody(text);
   if (!res.ok) {
     throw new ApiError(getErrorMessage(body, res.statusText), res.status, body);
+  }
+  if (looksLikeHtmlDocument(body)) {
+    throw new ApiError("API가 JSON 대신 HTML 문서를 반환했습니다.", res.status, body);
   }
   // 일부 엔드포인트가 빈 응답일 수 있으므로 안전하게 처리
   if (res.status === 204) return {} as T;

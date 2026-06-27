@@ -50,6 +50,14 @@ type FilesDetailRes = {
   }>;
 };
 
+const isFallbackableUploadError = (error: unknown): boolean => {
+  if (!(error instanceof ApiError)) return false;
+  if (error.status === 404 || error.status === 405) return true;
+  if (typeof error.body !== "string") return false;
+  const normalized = error.body.trim().toLowerCase();
+  return normalized.startsWith("<!doctype html") || normalized.startsWith("<html");
+};
+
 const PENDING_METRICS: PendingMetric[] = [
   {
     key: "pelvisPose",
@@ -633,10 +641,7 @@ export const createAnalysisJob = async (
   try {
     res = await send("/api/analyze");
   } catch (primaryError) {
-    const shouldFallback =
-      primaryError instanceof ApiError &&
-      (primaryError.status === 404 || primaryError.status === 405);
-    if (!shouldFallback) {
+    if (!isFallbackableUploadError(primaryError)) {
       throw primaryError;
     }
     console.warn("createAnalysisJob: /api/analyze unavailable, fallback to /api/upload?analyze=true", primaryError);

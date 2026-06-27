@@ -1,4 +1,4 @@
-import { client, API_BASE } from "./client";
+import { ApiError, client, API_BASE } from "./client";
 import {
   AnalysisResult,
   BallMetrics,
@@ -18,12 +18,14 @@ type UploadRes = {
   filename?: string;
   url?: string;
   originalName?: string;
-  file?: { filename?: string; url?: string; originalName?: string };
+  file?: string | { filename?: string; url?: string; originalName?: string };
   shot?: { id?: string; filename?: string; url?: string; originalName?: string; jobId?: string; status?: JobStatus };
   shotId?: string;
-  status?: JobStatus;
+  status?: string;
   analysis?: any;
   error?: string;
+  errorMessage?: string;
+  message?: string;
 };
 type FilesDetailRes = {
   ok: boolean;
@@ -69,7 +71,7 @@ const resolveFilename = (input: any): string => {
   if (typeof input === "string") return input;
   return (
     input.filename ||
-    input.file?.filename ||
+    (typeof input.file === "string" ? input.file : input.file?.filename) ||
     input.shot?.filename ||
     input.media?.filename ||
     input.fileName ||
@@ -81,13 +83,13 @@ const resolveFilename = (input: any): string => {
 const resolveUrl = (rawUrl: any): string => {
   if (!rawUrl) return "";
   if (typeof rawUrl === "string") return rawUrl;
-  return rawUrl.url || rawUrl.file?.url || rawUrl.shot?.url || "";
+  return rawUrl.url || (typeof rawUrl.file === "string" ? "" : rawUrl.file?.url) || rawUrl.shot?.url || "";
 };
 
 const resolveOriginalName = (input: any): string => {
   if (!input) return "";
   if (typeof input === "string") return input;
-  return input.originalName || input.file?.originalName || input.shot?.originalName || "";
+  return input.originalName || (typeof input.file === "string" ? "" : input.file?.originalName) || input.shot?.originalName || "";
 };
 
 const toTime = (value: any): number => {
@@ -354,13 +356,14 @@ const withVideoUrl = (shot: Shot): Shot => {
 const mapToShot = (item: any): Shot => {
   const filename = resolveFilename(item);
   const jobId = item?.jobId ?? item?.analysis?.jobId ?? item?.id ?? filename;
-  const analyzedFlag =
-    item?.analyzed ?? Boolean(item?.analysis) ?? item?.status === "succeeded";
-  const normalizedStatus: JobStatus | undefined =
-    item?.status === "completed" ? "succeeded" : item?.status;
+  const rawStatus = item?.status ?? item?.analysis?.status;
+  const normalizedStatus: JobStatus | undefined = rawStatus ? normalizeJobStatus(rawStatus) : undefined;
   const analysis = item?.analysis
     ? normalizeAnalysis(item.analysis, jobId, item.analysis.status ?? normalizedStatus)
     : null;
+  const effectiveStatus = normalizedStatus ?? analysis?.status;
+  const analyzedFlag =
+    item?.analyzed ?? (Boolean(analysis && analysis.status === "succeeded") || effectiveStatus === "succeeded");
 
   return withVideoUrl({
     id: item?.id ?? jobId ?? filename,
@@ -371,7 +374,7 @@ const mapToShot = (item: any): Shot => {
     metaPath: item?.metaPath ?? item?.meta_path ?? null,
     originalName: resolveOriginalName(item) || undefined,
     createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
-    status: normalizedStatus ?? analysis?.status,
+    status: effectiveStatus,
     analyzed: analyzedFlag,
     modifiedAt: item?.modifiedAt,
     size: item?.size,
@@ -472,35 +475,45 @@ export const createAnalysisJob = async (
     track_frames?: number;
   }
 ): Promise<Shot> => {
-  const fd = new FormData();
-  fd.append("video", file);
-  fd.append("sourceType", sourceType);
-  if (options?.club) fd.append("club", options.club);
-  if (options?.fps != null) fd.append("fps", String(options.fps));
-  if (options?.roi) fd.append("roi", options.roi);
-  if (options?.cam_distance != null) fd.append("cam_distance", String(options.cam_distance));
-  if (options?.cam_height != null) fd.append("cam_height", String(options.cam_height));
-  if (options?.h_fov != null) fd.append("h_fov", String(options.h_fov));
-  if (options?.v_fov != null) fd.append("v_fov", String(options.v_fov));
-  if (options?.impact_frame != null) fd.append("impact_frame", String(options.impact_frame));
-  if (options?.track_frames != null) fd.append("track_frames", String(options.track_frames));
+  const buildFormData = () => {
+    const fd = new FormData();
+    fd.append("video", file);
+    fd.append("sourceType", sourceType);
+    if (options?.club) fd.append("club", options.club);
+    if (options?.fps != null) fd.append("fps", String(options.fps));
+    if (options?.roi) fd.append("roi", options.roi);
+    if (options?.cam_distance != null) fd.append("cam_distance", String(options.cam_distance));
+    if (options?.cam_height != null) fd.append("cam_height", String(options.cam_height));
+    if (options?.h_fov != null) fd.append("h_fov", String(options.h_fov));
+    if (options?.v_fov != null) fd.append("v_fov", String(options.v_fov));
+    if (options?.impact_frame != null) fd.append("impact_frame", String(options.impact_frame));
+    if (options?.track_frames != null) fd.append("track_frames", String(options.track_frames));
+    return fd;
+  };
 
-  const send = async (url: string) => client.post<UploadRes>(url, fd);
+  const send = async (url: string) => client.post<UploadRes>(url, buildFormData());
 
   let res: UploadRes;
   try {
     res = await send("/api/analyze");
   } catch (primaryError) {
-    console.warn("createAnalysisJob: /api/analyze failed, fallback to /api/upload?analyze=true", primaryError);
+    const shouldFallback =
+      primaryError instanceof ApiError &&
+      (primaryError.status === 404 || primaryError.status === 405);
+    if (!shouldFallback) {
+      throw primaryError;
+    }
+    console.warn("createAnalysisJob: /api/analyze unavailable, fallback to /api/upload?analyze=true", primaryError);
     res = await send("/api/upload?analyze=true");
   }
 
   if (res.ok === false) {
-    throw new Error(res.error || "업로드/분석 요청 실패");
+    throw new Error(res.errorMessage || res.message || res.error || "업로드/분석 요청 실패");
   }
 
   const filename = resolveFilename(res) || file.name;
-  const url = resolveUrl(res) || res.url || res.file?.url || res.shot?.url;
+  const fileUrl = typeof res.file === "string" ? "" : res.file?.url;
+  const url = resolveUrl(res) || res.url || fileUrl || res.shot?.url;
   const originalName = resolveOriginalName(res) || file.name;
   const jobId = res.jobId ?? res.shot?.jobId ?? res.shotId ?? filename;
   const analysis = res.analysis

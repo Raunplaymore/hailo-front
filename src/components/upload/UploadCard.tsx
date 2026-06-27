@@ -17,7 +17,7 @@ type UploadCardProps = {
   isUploading: boolean;
   message: string;
   settings?: UploadSettings;
-  onUpload: (file: File) => void;
+  onUpload: (file: File) => void | Promise<void>;
 };
 
 export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) {
@@ -26,7 +26,8 @@ export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    onUpload(file);
+    void onUpload(file);
+    e.target.value = "";
   };
 
   return (
@@ -49,7 +50,7 @@ export function UploadCard({ isUploading, message, onUpload }: UploadCardProps) 
             <input
               ref={inputRef}
               type="file"
-              accept="video/*"
+              accept=".mp4,.mov,video/mp4,video/quicktime"
               onChange={handleChange}
               className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted"
             />

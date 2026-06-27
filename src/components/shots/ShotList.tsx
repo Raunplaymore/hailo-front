@@ -68,7 +68,7 @@ export function ShotList({
       <CardHeader className="flex-row items-center justify-between pb-3">
         <div>
           <CardTitle className="text-lg">{title}</CardTitle>
-          <CardDescription>업로드된 mp4 파일과 분석 상태를 확인하세요.</CardDescription>
+          <CardDescription>업로드된 MP4/MOV 파일과 분석 상태를 확인하세요.</CardDescription>
         </div>
         <Button
           type="button"

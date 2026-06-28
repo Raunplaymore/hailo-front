@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, formatMediaTitle } from "@/lib/utils";
 import { Eye, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { API_BASE } from "../../api/client";
 import { Shot } from "../../types/shots";
@@ -94,6 +94,7 @@ export function ShotList({
         ) : (
           <ul className="m-0 grid list-none gap-3 p-0">
             {shots.map((shot) => {
+              const displayTitle = formatMediaTitle(shot.filename, shot.originalName);
               const effectiveStatus = (shot.analysis?.status ?? shot.status) as string | undefined;
               const isDone = effectiveStatus === "succeeded" && Boolean(shot.analysis);
               const isProcessing = effectiveStatus === "queued" || effectiveStatus === "running";
@@ -116,14 +117,14 @@ export function ShotList({
                         className="block w-full text-left text-sm font-semibold leading-5 text-sky-200 hover:underline"
                         style={TITLE_CLAMP_STYLE}
                       >
-                        {shot.originalName || shot.filename}
+                        {displayTitle}
                       </button>
                     ) : (
                       <span
                         className="block w-full text-sm font-semibold leading-5"
                         style={TITLE_CLAMP_STYLE}
                       >
-                        {shot.originalName || shot.filename}
+                        {displayTitle}
                       </span>
                     )}
                     <span className="block break-words text-xs text-muted-foreground">

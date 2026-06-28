@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, formatMediaTitle } from "@/lib/utils";
 import { Eye, Trash2 } from "lucide-react";
 import { SessionRecord, SessionStatus } from "@/types/session";
 
@@ -78,15 +78,18 @@ export function SessionList({
           </div>
         ) : (
           <ul className="m-0 grid list-none gap-3 p-0">
-            {sessions.map((session) => (
-              <li
-                key={session.id}
-                className="flex w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
-              >
-                <div className="min-w-0 space-y-1">
-                  <span className="block w-full text-sm font-semibold leading-5" style={TITLE_CLAMP_STYLE}>
-                    {session.filename}
-                  </span>
+            {sessions.map((session) => {
+              const displayTitle = formatMediaTitle(session.filename);
+
+              return (
+                <li
+                  key={session.id}
+                  className="flex w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <span className="block w-full text-sm font-semibold leading-5" style={TITLE_CLAMP_STYLE}>
+                      {displayTitle}
+                    </span>
                   <span className="block break-words text-xs text-muted-foreground">
                     {STATUS_LABELS[session.status]} ·{" "}
                     {new Date(session.createdAt).toLocaleString()}
@@ -140,7 +143,8 @@ export function SessionList({
                   </Button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </CardContent>

@@ -16,19 +16,20 @@ const cameraTarget = process.env.CAMERA_BASE_URL || "http://127.0.0.1:3001";
 const backTarget = process.env.BACK_BASE_URL || "http://127.0.0.1:3000";
 const port = Number(process.env.PORT || 4173);
 
-const createProxyOptions = (target) => ({
+const createProxyOptions = (target, mountPath) => ({
   target,
   changeOrigin: true,
   ws: true,
   xfwd: true,
   proxyTimeout: 0,
   timeout: 0,
+  pathRewrite: (path) => `${mountPath}${path}`,
 });
 
-app.use("/api/camera", createProxyMiddleware(createProxyOptions(cameraTarget)));
-app.use("/api/session", createProxyMiddleware(createProxyOptions(cameraTarget)));
-app.use("/api", createProxyMiddleware(createProxyOptions(backTarget)));
-app.use("/uploads", createProxyMiddleware(createProxyOptions(backTarget)));
+app.use("/api/camera", createProxyMiddleware(createProxyOptions(cameraTarget, "/api/camera")));
+app.use("/api/session", createProxyMiddleware(createProxyOptions(cameraTarget, "/api/session")));
+app.use("/api", createProxyMiddleware(createProxyOptions(backTarget, "/api")));
+app.use("/uploads", createProxyMiddleware(createProxyOptions(backTarget, "/uploads")));
 
 app.use(express.static(distDir, { extensions: ["html"] }));
 app.get("*", (_req, res) => {

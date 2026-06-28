@@ -193,6 +193,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
             <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
               <MetricCard label="Club Head Frames" value={trackingQuality.clubHeadFrames ?? "-"} />
               <MetricCard label="Handle Frames" value={trackingQuality.clubHandleFrames ?? "-"} />
+              <MetricCard label="Club Frames" value={trackingQuality.clubFrames ?? "-"} />
               <MetricCard label="Ball Frames" value={trackingQuality.ballFrames ?? "-"} />
               <MetricCard label="Person Frames" value={trackingQuality.personFrames ?? "-"} />
             </div>

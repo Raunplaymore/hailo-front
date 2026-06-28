@@ -56,10 +56,12 @@ export type TrackingQualityMetrics = AnalysisMetricDetail & {
   frames?: number | null;
   clubHeadFrames?: number | null;
   clubHandleFrames?: number | null;
+  clubFrames?: number | null;
   ballFrames?: number | null;
   personFrames?: number | null;
   clubHeadConfidence?: number | null;
   clubHandleConfidence?: number | null;
+  clubConfidence?: number | null;
   ballConfidence?: number | null;
   personConfidence?: number | null;
 };

@@ -364,10 +364,12 @@ const normalizeTrackingQuality = (value: any): TrackingQualityMetrics | undefine
     frames: toOptionalNumber(value.frames),
     clubHeadFrames: toOptionalNumber(value.clubHeadFrames ?? value.club_head_frames),
     clubHandleFrames: toOptionalNumber(value.clubHandleFrames ?? value.club_handle_frames),
+    clubFrames: toOptionalNumber(value.clubFrames ?? value.club_frames),
     ballFrames: toOptionalNumber(value.ballFrames ?? value.ball_frames),
     personFrames: toOptionalNumber(value.personFrames ?? value.person_frames),
     clubHeadConfidence: toOptionalNumber(value.clubHeadConfidence ?? value.club_head_confidence),
     clubHandleConfidence: toOptionalNumber(value.clubHandleConfidence ?? value.club_handle_confidence),
+    clubConfidence: toOptionalNumber(value.clubConfidence ?? value.club_confidence),
     ballConfidence: toOptionalNumber(value.ballConfidence ?? value.ball_confidence),
     personConfidence: toOptionalNumber(value.personConfidence ?? value.person_confidence),
   };
@@ -521,7 +523,7 @@ const mapToShot = (item: any): Shot => {
   const jobId = item?.jobId ?? item?.analysis?.jobId ?? item?.id ?? filename;
   const analysis = item?.analysis
     ? normalizeAnalysis(
-        { ...item.analysis, progress: item?.progress ?? item?.analysis?.progress },
+        { ...item.analysis, progress: item?.analysis?.progress ?? item?.progress },
         jobId,
         item.analysis.status ?? item?.status
       )
@@ -684,7 +686,11 @@ export const createAnalysisJob = async (
   const originalName = resolveOriginalName(res) || file.name;
   const jobId = res.jobId ?? res.shot?.jobId ?? res.shotId ?? filename;
   const analysis = res.analysis
-    ? normalizeAnalysis({ ...res.analysis, progress: res.progress ?? res.analysis?.progress }, jobId, res.analysis.status ?? res.status)
+    ? normalizeAnalysis(
+        { ...res.analysis, progress: res.analysis?.progress ?? res.progress },
+        jobId,
+        res.analysis.status ?? res.status
+      )
     : null;
 
   return mapToShot({
@@ -706,8 +712,19 @@ export const fetchAnalysisStatus = async (
   try {
     const res = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}`);
     const status = normalizeJobStatus(res.status);
-    const rawAnalysis = { ...(res.analysis ?? res), progress: res.progress ?? res.analysis?.progress };
+    const rawAnalysis = {
+      ...(res.analysis ?? res),
+      progress: res.analysis?.progress ?? res.progress,
+    };
     const analysis = normalizeAnalysis(rawAnalysis, res.jobId ?? jobId, status);
+    console.log("[analysis-status]", {
+      jobId: res.jobId ?? jobId,
+      status,
+      topLevelProgress: res.progress ?? null,
+      analysisProgress: res.analysis?.progress ?? null,
+      normalizedProgress: analysis?.progress ?? null,
+      response: res,
+    });
     return {
       jobId: res.jobId ?? jobId,
       status,
@@ -730,11 +747,23 @@ export const fetchAnalysisResult = async (jobId: string): Promise<AnalysisResult
     const result = await client.get<any>(`/api/analyze/${encodeURIComponent(jobId)}`);
     if (!result) return null;
     const status = normalizeJobStatus(result.status);
-    return normalizeAnalysis(
-      { ...(result.analysis ?? result), progress: result.progress ?? result.analysis?.progress },
+    const normalized = normalizeAnalysis(
+      {
+        ...(result.analysis ?? result),
+        progress: result.analysis?.progress ?? result.progress,
+      },
       jobId,
       status
     );
+    console.log("[analysis-result]", {
+      jobId,
+      status,
+      topLevelProgress: result.progress ?? null,
+      analysisProgress: result.analysis?.progress ?? null,
+      normalizedProgress: normalized?.progress ?? null,
+      response: result,
+    });
+    return normalized;
   } catch (err) {
     console.warn("fetchAnalysisResult failed (ignored):", err);
     return null;

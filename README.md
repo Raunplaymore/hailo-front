@@ -41,6 +41,74 @@
 - `POST /api/analyze/from-file` : `{ jobId, filename, metaPath?, force? }` → `{ ok, jobId, status }`
 - `GET /api/analyze/:jobId` : `pending | running | done | failed` 상태 + 동일 스키마 결과 반환
 
+## Service7 640 HEF 기준
+
+- 현재 service7 업로드 분석은 `640 HEF` 기준이 더 낫습니다.
+- `960 HEF` 대비 실제 Pi 비교 결과:
+  - `player_ready`: `15 -> 51`
+  - `club_head`: `0 -> 3`
+  - `trackingQuality.score`: `0.03 -> 0.08`
+  - `confidence`: `0.09 -> 0.23`
+  - `shaftPlane`: `unknown -> flat`
+  - `readiness`: `0.33 -> 0.60`
+- 따라서 운영 기본값은 `640 HEF`로 두고, `960 HEF`는 비교용 백업으로 유지하는 것이 맞습니다.
+- 다만 `person=0`, `golf_ball` 약세는 여전히 남아 있어, 현재 상태를 최종 품질로 보지는 않습니다.
+
+## 2차 Calibration 기준
+
+`640 HEF`가 개선을 만들긴 했지만, 추적 품질은 아직 `weak`가 많습니다. 다음 calibration 수집은 아래 기준을 따릅니다.
+
+- 영상 구성:
+  - DTL `60~70%`
+  - 정면 `30~40%`
+- 샷 구성:
+  - address
+  - takeaway
+  - top
+  - impact
+  - finish
+- 촬영 조건:
+  - 전신이 프레임 안에 완전히 들어올 것
+  - 클럽 헤드와 손잡이가 배경에서 분리될 것
+  - 조명/배경/거리 variation 포함
+  - 세로형 업로드 원본 분포를 반영할 것
+- 제외 대상:
+  - 몸 일부가 잘린 근접 영상
+  - 클럽 헤드가 거의 안 보이는 어두운 영상
+  - 서비스에 실제로 거의 들어오지 않는 극단 각도
+
+권장 수량:
+
+- 최소 `128장`
+- 권장 `150~300장`
+- 실제 Pi 업로드/카메라 프레임 기반 `calib_images.zip` 사용
+
+## Pi 검증 포인트
+
+새 HEF를 배포한 뒤에는 같은 업로드 영상 기준으로 아래를 반드시 비교합니다.
+
+- `/tmp/<jobId>.meta.json.raw`
+- `/tmp/<jobId>.meta.json`
+- `/api/analyze/<jobId>`
+
+라벨별로 봐야 할 값:
+
+- total detections
+- frames covered
+- avg confidence
+
+우선순위 라벨:
+
+- `person`
+- `player_ready`
+- `player_not_ready`
+- `golf_ball`
+- `club_head`
+- `club`
+- `club_handle`
+
+`person / player_ready / golf_ball`이 함께 살아나는지가 다음 판정 기준입니다.
+
 ## 환경변수
 
 - `.env.example`를 참고해 로컬 `.env`를 생성하세요.

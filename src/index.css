@@ -48,6 +48,7 @@
     width: 100%;
     min-height: 100vh;
     max-width: 100%;
+    overflow-y: auto;
     overflow-x: hidden;
     background:
       radial-gradient(circle at 20% -10%, hsl(199 89% 48% / 0.14), transparent 28rem),
@@ -57,11 +58,13 @@
     font-family: var(--font-sans);
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
-    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: auto;
   }
 
   #root {
     width: 100%;
+    min-height: 100%;
     max-width: 100%;
     overflow-x: hidden;
   }

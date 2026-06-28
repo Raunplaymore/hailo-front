@@ -33,17 +33,12 @@ export function CameraSettings({
   return (
     <Card>
       <CardHeader className="gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-muted-foreground">라즈베리파이 카메라</p>
-            <CardTitle className="text-lg">카메라 연결 설정</CardTitle>
-            <CardDescription>
-              주소/토큰을 저장해 빠르게 프리뷰·캡처를 시작하세요.
-            </CardDescription>
-          </div>
-          <span className="text-[11px] text-muted-foreground">
-            env: VITE_CAMERA_BASE_URL / VITE_CAMERA_API_BASE / VITE_CAMERA_AUTH_TOKEN
-          </span>
+        <div>
+          <p className="text-xs text-muted-foreground">라즈베리파이 카메라</p>
+          <CardTitle className="text-lg">카메라 연결 설정</CardTitle>
+          <CardDescription>
+            주소를 저장해 빠르게 프리뷰·캡처를 시작하세요.
+          </CardDescription>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -60,10 +55,6 @@ export function CameraSettings({
             핫스팟 연결 시 IP를 직접 입력하고 저장해 두세요.
           </p>
         </label>
-
-        <p className="text-xs text-muted-foreground">
-          파일명 자동 생성: <span className="font-semibold">golf_YYYYMMDD_HHmmss_mmm_type.ext</span>
-        </p>
 
         <label className="flex items-center gap-2">
           <input

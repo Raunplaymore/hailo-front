@@ -6,6 +6,7 @@ import { MetricsTable } from "./components/analysis/MetricsTable";
 import { AnalysisPlayer } from "./components/analysis/AnalysisPlayer";
 import { CoachSummary } from "./components/analysis/CoachSummary";
 import { KeyMetrics } from "./components/analysis/KeyMetrics";
+import { AnalysisProgressCard } from "./components/analysis/AnalysisProgressCard";
 import { Button } from "./components/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
 import { useUpload } from "./hooks/useUpload";
@@ -1461,6 +1462,16 @@ function App() {
       {activeTab === "analysis" && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
+            {analysisTarget && (
+              <AnalysisProgressCard
+                jobId={analysisTarget.jobId ?? analysisTarget.id}
+                status={jobStatus}
+                isLoading={isAnalysisLoading}
+                analysisVersion={analysis?.analysisVersion}
+                error={analysisError || selectedShot?.errorMessage || null}
+                progress={analysis?.progress ?? analysisTarget.analysis?.progress ?? null}
+              />
+            )}
             {isAnalysisLoading && <p className="text-sm text-muted-foreground">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-destructive">{analysisError}</p>}
             {jobStatus === "failed" && !analysis && selectedShot?.errorMessage && (

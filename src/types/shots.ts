@@ -85,6 +85,15 @@ export type PendingMetric = {
   status: "coming-soon";
 };
 
+export type AnalysisProgress = {
+  stage: string;
+  stageLabel?: string | null;
+  message?: string | null;
+  analysisPath?: "infer" | "opencv" | "pending" | "unknown" | string;
+  metaPath?: string | null;
+  detail?: Record<string, unknown> | null;
+};
+
 export type AnalysisResult = {
   jobId: string;
   status: JobStatus;
@@ -98,6 +107,7 @@ export type AnalysisResult = {
   summary?: string | null;
   coachSummary?: string[];
   confidence?: number | null;
+  progress?: AnalysisProgress | null;
 };
 
 export type Shot = {

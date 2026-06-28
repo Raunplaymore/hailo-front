@@ -225,6 +225,10 @@ const StepIcon = ({ state }: { state: ProgressStep["state"] }) => {
 export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
   const steps = buildSteps(props);
   const stageMessage = getStageMessage(props);
+  const detailEntries = Object.entries(props.progress?.detail || {}).filter(([, value]) => {
+    if (value === null || value === undefined || value === "") return false;
+    return true;
+  });
 
   return (
     <Card>
@@ -237,6 +241,16 @@ export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
           <p className="text-sm font-medium text-foreground">{stageMessage}</p>
           {props.jobId ? (
             <p className="mt-1 break-all text-xs text-muted-foreground">Job ID: {props.jobId}</p>
+          ) : null}
+          {detailEntries.length > 0 ? (
+            <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+              {detailEntries.map(([key, value]) => (
+                <div key={key} className="rounded-lg border border-border/70 bg-background/40 px-2 py-2">
+                  <dt className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{key}</dt>
+                  <dd className="mt-1 break-all text-xs text-foreground">{String(value)}</dd>
+                </div>
+              ))}
+            </dl>
           ) : null}
         </div>
 

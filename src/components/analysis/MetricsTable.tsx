@@ -117,13 +117,13 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="space-y-1">
+          <div className="min-w-0 space-y-1">
             <CardTitle className="text-lg">분석 상태</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
+            <CardDescription className="break-words text-xs text-muted-foreground">
               {analysis?.jobId ? `Job ID: ${analysis.jobId}` : "선택된 샷의 상태를 표시합니다."}
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <StatusBadge status={currentStatus} />
             {onOpenVideo && (
               <Button type="button" onClick={onOpenVideo} variant="outline" size="sm" fullWidth={false}>

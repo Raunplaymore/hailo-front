@@ -37,7 +37,7 @@ export function UploadCard({ isUploading, message, activeFilename, onUpload }: U
       <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle className="text-lg">스윙 업로드 & 분석</CardTitle>
-          <CardDescription>
+          <CardDescription className="break-words">
             스윙 영상을 선택해 업로드하면 자동으로 분석이 시작됩니다.
           </CardDescription>
         </CardHeader>
@@ -105,10 +105,12 @@ export function UploadCard({ isUploading, message, activeFilename, onUpload }: U
       <Card>
         <CardHeader>
           <CardTitle className="text-base">업로드 상태</CardTitle>
-          <CardDescription>서버 응답 및 Job 상태를 표시합니다.</CardDescription>
+          <CardDescription className="break-words">
+            서버 응답 및 Job 상태를 표시합니다.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="min-h-[48px] rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
+          <div className="min-h-[48px] break-words rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
             {message || "메시지가 여기에 표시됩니다."}
           </div>
         </CardContent>

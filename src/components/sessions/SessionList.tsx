@@ -53,10 +53,12 @@ export function SessionList({
 }: SessionListProps) {
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between pb-3">
-        <div>
+      <CardHeader className="flex-row items-center justify-between gap-3 pb-3">
+        <div className="min-w-0">
           <CardTitle className="text-lg">{title}</CardTitle>
-          <CardDescription>카메라에서 기록한 스윙 세션 목록입니다.</CardDescription>
+          <CardDescription className="break-words">
+            카메라에서 기록한 스윙 세션 목록입니다.
+          </CardDescription>
         </div>
         <Button
           type="button"
@@ -64,7 +66,7 @@ export function SessionList({
           variant="outline"
           size="sm"
           fullWidth={false}
-          className="rounded-lg"
+          className="shrink-0 rounded-lg"
           disabled={isLoading}
         >
           {isLoading ? "새로고침 중..." : "새로고침"}

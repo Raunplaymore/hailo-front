@@ -68,10 +68,12 @@ export function ShotList({
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between pb-3">
-        <div>
+      <CardHeader className="flex-row items-center justify-between gap-3 pb-3">
+        <div className="min-w-0">
           <CardTitle className="text-lg">{title}</CardTitle>
-          <CardDescription>업로드된 MP4/MOV 파일과 분석 상태를 확인하세요.</CardDescription>
+          <CardDescription className="break-words">
+            업로드된 MP4/MOV 파일과 분석 상태를 확인하세요.
+          </CardDescription>
         </div>
         <Button
           type="button"
@@ -79,7 +81,7 @@ export function ShotList({
           variant="outline"
           size="sm"
           fullWidth={false}
-          className="rounded-lg"
+          className="shrink-0 rounded-lg"
           disabled={isLoading}
         >
           {isLoading ? "새로고침 중..." : "새로고침"}

@@ -41,7 +41,6 @@ type FieldConnectionPanelProps = {
   streamClients: number;
   previewPreset: PreviewPreset;
   sessionState: SessionState;
-  aiConfigNote?: string | null;
   onRefresh: () => void;
   onOpenSettings: () => void;
   onStartPreview: () => void;
@@ -100,7 +99,6 @@ export function FieldConnectionPanel({
   streamClients,
   previewPreset,
   sessionState,
-  aiConfigNote,
   onRefresh,
   onOpenSettings,
   onStartPreview,
@@ -116,7 +114,6 @@ export function FieldConnectionPanel({
   const apiTone: Tone = !hasBaseUrl ? "muted" : statusError ? "danger" : apiOnline ? "good" : "warn";
   const cameraTone: Tone = !apiOnline ? "muted" : cameraReady ? "good" : "danger";
   const previewTone: Tone = isPreviewOn || isStreaming ? "info" : "muted";
-  const aiTone: Tone = !hasBaseUrl ? "muted" : aiConfigNote ? "warn" : "good";
   const primaryAction = isPreviewOn ? (
     <Button
       type="button"
@@ -228,17 +225,6 @@ export function FieldConnectionPanel({
             tone={sessionTone}
           />
         </dl>
-
-        <div className="rounded-xl border border-border bg-muted/30 p-3 text-xs leading-5 text-muted-foreground">
-          <div className="flex items-center justify-between gap-2">
-            <span>AI 설정</span>
-            <StatusPill
-              label={aiConfigNote ? "확인 필요" : hasBaseUrl ? "Golf config" : "대기"}
-              tone={aiTone}
-            />
-          </div>
-          {aiConfigNote && <p className="mt-2 break-words text-amber-100">{aiConfigNote}</p>}
-        </div>
 
         <div className="grid gap-2 sm:grid-cols-3">
           <Button

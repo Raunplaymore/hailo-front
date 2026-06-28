@@ -29,7 +29,6 @@ import {
   getStatus as getCameraStatus,
   getCalibration,
   listCalibrations,
-  setAiConfig,
   startAutoRecord,
   stopAutoRecord,
   stopStream,
@@ -57,7 +56,6 @@ const CAMERA_ENV_BASE =
 const CAMERA_ENV_TOKEN =
   (import.meta.env.VITE_CAMERA_AUTH_TOKEN as string | undefined) ||
   ((import.meta.env as unknown as Record<string, string | undefined>).NEXT_PUBLIC_CAMERA_AUTH_TOKEN ?? "");
-const AI_CONFIG_GOLF = "yolov8s_nms_golf.json";
 const DEFAULT_LENS = "lens_8mm_intrinsics.json";
 const DEFAULT_PREVIEW_RESOLUTION = "640x360";
 const SESSION_FPS = 60;
@@ -208,7 +206,6 @@ function App() {
   const livePollId = useRef(0);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
-  const [aiConfigNote, setAiConfigNote] = useState<string | null>(null);
   const [listMode, setListMode] = useState<"sessions" | "uploads">("sessions");
   const [uploadListTab, setUploadListTab] = useState<"pending" | "done">("pending");
   const { toast } = useToast();
@@ -414,34 +411,6 @@ function App() {
       return { ...prev, width, height, fps: 15 };
     });
   }, [cameraSettings.previewResolution]);
-
-  useEffect(() => {
-    if (!cameraSettings.baseUrl) {
-      setAiConfigNote("카메라 서버 주소를 먼저 입력하세요.");
-      return;
-    }
-    let canceled = false;
-    const run = async () => {
-      try {
-        const res = await setAiConfig(
-          cameraSettings.baseUrl,
-          AI_CONFIG_GOLF,
-          cameraSettings.token || undefined
-        );
-        if (canceled) return;
-        setAiConfigNote(
-          res.needsRestart ? "현재 세션/AI 스트림이 동작 중이면 다음 시작부터 적용됩니다." : null
-        );
-      } catch (err) {
-        if (canceled) return;
-        setAiConfigNote(err instanceof Error ? err.message : "AI 설정을 변경하지 못했습니다.");
-      }
-    };
-    run();
-    return () => {
-      canceled = true;
-    };
-  }, [cameraSettings.baseUrl, cameraSettings.token]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1386,7 +1355,6 @@ function App() {
                 streamClients={streamClients}
                 previewPreset={previewParams}
                 sessionState={sessionState}
-                aiConfigNote={aiConfigNote}
                 onRefresh={handleCheckStatus}
                 onOpenSettings={() => setActiveTab("settings")}
                 onStartPreview={handleStartPreview}
@@ -1560,7 +1528,6 @@ function App() {
           <CameraSettings
             value={cameraSettings}
             history={baseHistory}
-            aiConfigNote={aiConfigNote}
             onChange={(next) => setCameraSettings(next)}
             onSelectHistory={(url) => setCameraSettings((prev) => ({ ...prev, baseUrl: url }))}
             onClearHistory={() => setBaseHistory([])}

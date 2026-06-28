@@ -18,7 +18,6 @@ export type CameraSettingsValue = {
 type CameraSettingsProps = {
   value: CameraSettingsValue;
   history: string[];
-  aiConfigNote?: string | null;
   onChange: (next: CameraSettingsValue) => void;
   onSelectHistory: (url: string) => void;
   onClearHistory: () => void;
@@ -27,7 +26,6 @@ type CameraSettingsProps = {
 export function CameraSettings({
   value,
   history,
-  aiConfigNote,
   onChange,
   onSelectHistory,
   onClearHistory,
@@ -89,17 +87,6 @@ export function CameraSettings({
           </select>
           <p className="text-xs text-muted-foreground">프리뷰는 15fps 고정입니다.</p>
         </label>
-
-        <div className="space-y-1">
-          <span className="text-sm font-medium text-foreground">AI 라벨 구성</span>
-          <div className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
-            yolov8s_nms_golf.json (고정)
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {aiConfigNote ||
-              "현재 웹은 골프용 설정만 사용합니다. 필요 시 카메라 서버에서 변경하세요."}
-          </p>
-        </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">

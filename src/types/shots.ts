@@ -36,6 +36,10 @@ export type AnalysisMetricDetail = {
   comment?: string | null;
 };
 
+export type GenericMetricPayload = AnalysisMetricDetail & Record<string, unknown>;
+
+export type MetricGroup = Record<string, GenericMetricPayload | null | undefined>;
+
 export type ShaftPlaneMetrics = AnalysisMetricDetail & {
   angleDeg?: number | null;
   addressAngleDeg?: number | null;
@@ -78,6 +82,9 @@ export type AnalysisMetrics = {
   backswing?: BackswingMetrics;
   readiness?: ReadinessMetrics;
   trackingQuality?: TrackingQualityMetrics;
+  body?: MetricGroup;
+  club?: MetricGroup;
+  fusion?: MetricGroup;
 };
 
 export type PendingMetric = {
@@ -93,6 +100,9 @@ export type AnalysisProgress = {
   message?: string | null;
   analysisPath?: "infer" | "opencv" | "pending" | "unknown" | string;
   metaPath?: string | null;
+  bodyPath?: string | null;
+  clubPath?: string | null;
+  fusionPath?: string | null;
   detail?: Record<string, unknown> | null;
 };
 

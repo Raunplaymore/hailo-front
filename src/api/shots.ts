@@ -6,7 +6,9 @@ import {
   BallMetrics,
   BackswingMetrics,
   EventTimingMetrics,
+  GenericMetricPayload,
   JobStatus,
+  MetricGroup,
   PendingMetric,
   ReadinessMetrics,
   Shot,
@@ -375,6 +377,25 @@ const normalizeTrackingQuality = (value: any): TrackingQualityMetrics | undefine
   };
 };
 
+const normalizeGenericMetricPayload = (value: any): GenericMetricPayload | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const base = normalizeMetricDetail(value) ?? {};
+  return {
+    ...value,
+    ...base,
+  };
+};
+
+const normalizeMetricGroup = (value: any): MetricGroup | undefined => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value)
+    .map(([key, item]) => [key, normalizeGenericMetricPayload(item)] as const)
+    .filter(([, item]) => item);
+
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries);
+};
+
 const deriveEventTiming = (
   metrics: any,
   events: Partial<Record<SwingEventKey, SwingEventTiming>>
@@ -421,6 +442,10 @@ const normalizeAnalysis = (
     metricsBlock?.tracking_quality ??
     raw?.trackingQuality ??
     raw?.tracking_quality;
+  const bodyMetricsRaw = metricsBlock?.body ?? metricsBlock?.bodyMetrics ?? raw?.body ?? raw?.bodyMetrics;
+  const clubMetricsRaw = metricsBlock?.club ?? metricsBlock?.clubMetrics ?? raw?.club ?? raw?.clubMetrics;
+  const fusionMetricsRaw =
+    metricsBlock?.fusion ?? metricsBlock?.fusionMetrics ?? raw?.fusion ?? raw?.fusionMetrics;
   const formatScore = (value: number | null | undefined) =>
     value == null || Number.isNaN(value) ? null : `${Math.round(value * 100)}%`;
   const toText = (value: any): string | null => {
@@ -464,6 +489,9 @@ const normalizeAnalysis = (
           analysisPath:
             typeof rawProgress.analysisPath === "string" ? rawProgress.analysisPath : "unknown",
           metaPath: typeof rawProgress.metaPath === "string" ? rawProgress.metaPath : null,
+          bodyPath: typeof rawProgress.bodyPath === "string" ? rawProgress.bodyPath : null,
+          clubPath: typeof rawProgress.clubPath === "string" ? rawProgress.clubPath : null,
+          fusionPath: typeof rawProgress.fusionPath === "string" ? rawProgress.fusionPath : null,
           detail:
             rawProgress.detail && typeof rawProgress.detail === "object"
               ? rawProgress.detail
@@ -497,6 +525,9 @@ const normalizeAnalysis = (
       backswing: normalizeBackswing(backswingRaw),
       readiness: normalizeReadiness(readinessRaw),
       trackingQuality: normalizeTrackingQuality(trackingQualityRaw),
+      body: normalizeMetricGroup(bodyMetricsRaw),
+      club: normalizeMetricGroup(clubMetricsRaw),
+      fusion: normalizeMetricGroup(fusionMetricsRaw),
     },
     pending: [...PENDING_METRICS],
     createdAt: raw?.createdAt ?? raw?.created_at,

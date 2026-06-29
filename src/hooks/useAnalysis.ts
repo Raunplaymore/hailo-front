@@ -17,7 +17,14 @@ const isInferStyleAnalysis = (analysis: AnalysisResult | null | undefined) => {
   if (version.includes("service7") || version.includes("hailo-coach") || version.includes("infer")) {
     return true;
   }
-  return Boolean(analysis.metrics?.shaftPlane || analysis.metrics?.trackingQuality || analysis.metrics?.backswing);
+  return Boolean(
+    analysis.metrics?.shaftPlane ||
+      analysis.metrics?.trackingQuality ||
+      analysis.metrics?.backswing ||
+      analysis.metrics?.body ||
+      analysis.metrics?.club ||
+      analysis.metrics?.fusion
+  );
 };
 
 export function useAnalysis(selected: Shot | null): UseAnalysisResult {

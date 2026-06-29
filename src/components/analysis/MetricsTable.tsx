@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { AnalysisResult, JobStatus, SwingEventKey } from "../../types/shots";
+import { AnalysisResult, GenericMetricPayload, JobStatus, MetricGroup, SwingEventKey } from "../../types/shots";
 
 type MetricsTableProps = {
   analysis?: AnalysisResult | null;
@@ -111,6 +111,9 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   const backswing = analysis?.metrics.backswing;
   const readiness = analysis?.metrics.readiness;
   const trackingQuality = analysis?.metrics.trackingQuality;
+  const bodyMetrics = toMetricEntries(analysis?.metrics.body);
+  const clubMetrics = toMetricEntries(analysis?.metrics.club);
+  const fusionMetrics = toMetricEntries(analysis?.metrics.fusion);
   const pending = analysis?.pending ?? PENDING_FALLBACK;
 
   return (
@@ -200,6 +203,30 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
           )}
         </section>
 
+        {bodyMetrics.length > 0 && (
+          <MetricGroupSection
+            title="Body Metrics"
+            description="pose 기반 전신 분석 결과"
+            metrics={bodyMetrics}
+          />
+        )}
+
+        {clubMetrics.length > 0 && (
+          <MetricGroupSection
+            title="Club Metrics"
+            description="클럽 추적 기반 세부 지표"
+            metrics={clubMetrics}
+          />
+        )}
+
+        {fusionMetrics.length > 0 && (
+          <MetricGroupSection
+            title="Fusion Metrics"
+            description="body/club 융합 분석 결과"
+            metrics={fusionMetrics}
+          />
+        )}
+
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">확장 예정 지표</p>
@@ -251,5 +278,63 @@ function StatusBadge({ status }: { status: JobStatus }) {
     >
       {STATUS_LABELS[status]}
     </span>
+  );
+}
+
+function toMetricEntries(group?: MetricGroup) {
+  if (!group) return [];
+  return Object.entries(group).filter(([, value]) => value && typeof value === "object") as Array<
+    [string, GenericMetricPayload]
+  >;
+}
+
+function formatGroupMetricValue(metric: GenericMetricPayload) {
+  if (metric.label) {
+    const strength = metric.confidence ?? metric.score;
+    return strength == null ? metric.label : `${metric.label} (${Math.round(strength * 100)}%)`;
+  }
+  if (typeof metric.score === "number") return `${Math.round(metric.score * 100)}%`;
+  if (typeof metric.confidence === "number") return `${Math.round(metric.confidence * 100)}%`;
+  return "-";
+}
+
+function formatMetricKey(key: string) {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function MetricGroupSection({
+  title,
+  description,
+  metrics,
+}: {
+  title: string;
+  description: string;
+  metrics: Array<[string, GenericMetricPayload]>;
+}) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <span className="text-xs text-muted-foreground">{description}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {metrics.map(([key, value]) => (
+          <MetricCard key={key} label={formatMetricKey(key)} value={formatGroupMetricValue(value)} />
+        ))}
+      </div>
+      <div className="space-y-1">
+        {metrics
+          .filter(([, value]) => value.comment)
+          .map(([key, value]) => (
+            <div key={`${key}-comment`} className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+              <p className="text-xs font-semibold text-foreground">{formatMetricKey(key)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{value.comment}</p>
+            </div>
+          ))}
+      </div>
+    </section>
   );
 }

@@ -68,12 +68,37 @@ const buildSteps = ({
   const stage = progress?.stage || "";
 
   if (stage) {
-    const inferPath = progress?.analysisPath === "infer";
+    const groupedPath =
+      stage.includes("pose") ||
+      stage.includes("club") ||
+      stage.includes("fusion") ||
+      Boolean(progress?.bodyPath || progress?.clubPath || progress?.fusionPath);
+    const inferPath = progress?.analysisPath === "infer" && !groupedPath;
     const stageSet = new Set<string>();
     if (hasJob) stageSet.add("upload_received");
     const addUntil = (items: string[]) => items.forEach((item) => stageSet.add(item));
 
-    if (inferPath) {
+    if (groupedPath) {
+      if (["video_ready", "pose_running", "pose_ready", "club_running", "club_ready", "fusion_running", "fusion_succeeded"].includes(stage)) {
+        addUntil(["video_ready"]);
+      }
+      if (["pose_running", "pose_ready", "club_running", "club_ready", "fusion_running", "fusion_succeeded"].includes(stage)) {
+        addUntil(["pose_running"]);
+      }
+      if (["pose_ready", "club_running", "club_ready", "fusion_running", "fusion_succeeded"].includes(stage)) {
+        addUntil(["pose_ready"]);
+      }
+      if (["club_running", "club_ready", "fusion_running", "fusion_succeeded"].includes(stage)) {
+        addUntil(["club_running"]);
+      }
+      if (["club_ready", "fusion_running", "fusion_succeeded"].includes(stage)) {
+        addUntil(["club_ready"]);
+      }
+      if (["fusion_running", "fusion_succeeded"].includes(stage)) {
+        addUntil(["fusion_running"]);
+      }
+      if (stage === "fusion_succeeded") addUntil(["fusion_succeeded"]);
+    } else if (inferPath) {
       if (["meta_generation_requested", "meta_ready", "infer_submitting", "infer_pending", "infer_running", "infer_succeeded"].includes(stage)) {
         addUntil(["meta_generation_requested"]);
       }
@@ -108,6 +133,54 @@ const buildSteps = ({
       }
       if (stage === "opencv_succeeded") addUntil(["opencv_succeeded"]);
     }
+
+    const groupedSteps: ProgressStep[] = [
+      {
+        key: "upload",
+        title: "업로드 완료",
+        description: "파일이 서버에 등록되었습니다.",
+        state: hasJob ? "done" : "pending",
+      },
+      {
+        key: "pose",
+        title: "몸 분석",
+        description: "pose 기반 body track을 생성합니다.",
+        state:
+          failed && groupedPath && ["video_ready", "pose_running", "pose_ready"].includes(stage)
+            ? "failed"
+            : stageSet.has("pose_ready")
+              ? "done"
+              : stageSet.has("pose_running")
+                ? "active"
+                : "pending",
+      },
+      {
+        key: "club",
+        title: "클럽 분석",
+        description: "Hailo club track을 생성합니다.",
+        state:
+          failed && groupedPath && ["club_running", "club_ready"].includes(stage)
+            ? "failed"
+            : stageSet.has("club_ready")
+              ? "done"
+              : stageSet.has("club_running")
+                ? "active"
+                : "pending",
+      },
+      {
+        key: "fusion",
+        title: "융합 분석",
+        description: "body/club 데이터를 결합해 이벤트와 지표를 계산합니다.",
+        state:
+          failed && groupedPath
+            ? "failed"
+            : stageSet.has("fusion_succeeded")
+              ? "done"
+              : stageSet.has("fusion_running")
+                ? "active"
+                : "pending",
+      },
+    ];
 
     const inferSteps: ProgressStep[] = [
       {
@@ -184,6 +257,7 @@ const buildSteps = ({
       },
     ];
 
+    if (groupedPath) return groupedSteps;
     return inferPath ? inferSteps : opencvSteps;
   }
 

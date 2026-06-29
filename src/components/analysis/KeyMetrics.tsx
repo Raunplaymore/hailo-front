@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AnalysisResult, JobStatus } from "@/types/shots";
+import { AnalysisResult, GenericMetricPayload, JobStatus, MetricGroup } from "@/types/shots";
 
 type KeyMetricsProps = {
   analysis?: AnalysisResult | null;
@@ -16,11 +16,17 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
   const currentStatus: JobStatus = analysis?.status ?? status ?? "idle";
   const isRunning = currentStatus === "queued" || currentStatus === "running";
   const fallback = isRunning ? "분석 중" : "데이터 부족";
+  const fusionPrimary = pickPrimaryMetric(analysis?.metrics.fusion);
+  const bodyPrimary = pickPrimaryMetric(analysis?.metrics.body);
 
   const tempoRatio = analysis?.metrics.tempo?.ratio ?? fallback;
   const shaftPlane = formatMetricLabel(analysis?.metrics.shaftPlane) ?? analysis?.metrics.swingPlane ?? fallback;
   const backswing = formatMetricLabel(analysis?.metrics.backswing) ?? fallback;
-  const impactStability = analysis?.metrics.impactStability ?? fallback;
+  const impactStability =
+    analysis?.metrics.impactStability ??
+    formatMetricLabel(fusionPrimary) ??
+    formatMetricLabel(bodyPrimary) ??
+    fallback;
 
   return (
     <Card>
@@ -43,6 +49,13 @@ function formatMetricLabel(metric?: { label?: string | null; confidence?: number
   const confidence = metric.confidence ?? metric.score;
   if (confidence == null) return metric.label;
   return `${metric.label} (${Math.round(confidence * 100)}%)`;
+}
+
+function pickPrimaryMetric(group?: MetricGroup): GenericMetricPayload | undefined {
+  if (!group) return undefined;
+  return Object.values(group).find((item) => item && typeof item === "object" && item.label) as
+    | GenericMetricPayload
+    | undefined;
 }
 
 type MetricCardProps = {

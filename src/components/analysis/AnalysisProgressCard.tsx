@@ -21,6 +21,30 @@ type ProgressStep = {
   state: "pending" | "active" | "done" | "failed";
 };
 
+const DETAIL_LABELS: Record<string, string> = {
+  bodyPipeline: "Body Pipeline",
+  clubPipeline: "Club Pipeline",
+  fusionPipeline: "Fusion Pipeline",
+  reason: "Failure Reason",
+  source: "Source",
+  metaPath: "Meta Path",
+  bodyPath: "Body Path",
+  clubPath: "Club Path",
+  fusionPath: "Fusion Path",
+  bodyReason: "Body Reason",
+  bodyStatus: "Body Status",
+  bodySkipped: "Body Skipped",
+  generatedMetaPath: "Generated Meta Path",
+  responseBodySnippet: "Response Snippet",
+  bodyResponseSnippet: "Body Response Snippet",
+  submitStatus: "Submit Status",
+  visibilityStatus: "Visibility Status",
+  visibilityAttempts: "Visibility Attempts",
+  converted: "Converted",
+  conversion: "Conversion",
+  warning: "Warning",
+};
+
 const getStageMessage = ({
   status,
   isLoading,
@@ -79,6 +103,15 @@ const buildSteps = ({
     const addUntil = (items: string[]) => items.forEach((item) => stageSet.add(item));
 
     if (groupedPath) {
+      if (progress?.bodyPath) {
+        addUntil(["video_ready", "pose_running", "pose_ready"]);
+      }
+      if (progress?.clubPath) {
+        addUntil(["club_running", "club_ready"]);
+      }
+      if (progress?.fusionPath) {
+        addUntil(["fusion_running", "fusion_succeeded"]);
+      }
       if (["video_ready", "pose_running", "pose_ready", "club_running", "club_ready", "fusion_running", "fusion_succeeded"].includes(stage)) {
         addUntil(["video_ready"]);
       }
@@ -145,40 +178,58 @@ const buildSteps = ({
         key: "pose",
         title: "몸 분석",
         description: "pose 기반 body track을 생성합니다.",
-        state:
-          failed && groupedPath && ["video_ready", "pose_running", "pose_ready"].includes(stage)
-            ? "failed"
-            : stageSet.has("pose_ready")
-              ? "done"
-              : stageSet.has("pose_running")
-                ? "active"
-                : "pending",
+        state: (() => {
+          const failedStep =
+            failed && groupedPath
+              ? !progress?.bodyPath
+                ? "pose"
+                : !progress?.clubPath
+                  ? "club"
+                  : "fusion"
+              : null;
+          if (failedStep === "pose") return "failed";
+          if (stageSet.has("pose_ready")) return "done";
+          if (stageSet.has("pose_running")) return "active";
+          return "pending";
+        })(),
       },
       {
         key: "club",
         title: "클럽 분석",
         description: "Hailo club track을 생성합니다.",
-        state:
-          failed && groupedPath && ["club_running", "club_ready"].includes(stage)
-            ? "failed"
-            : stageSet.has("club_ready")
-              ? "done"
-              : stageSet.has("club_running")
-                ? "active"
-                : "pending",
+        state: (() => {
+          const failedStep =
+            failed && groupedPath
+              ? !progress?.bodyPath
+                ? "pose"
+                : !progress?.clubPath
+                  ? "club"
+                  : "fusion"
+              : null;
+          if (failedStep === "club") return "failed";
+          if (stageSet.has("club_ready")) return "done";
+          if (stageSet.has("club_running")) return "active";
+          return "pending";
+        })(),
       },
       {
         key: "fusion",
         title: "융합 분석",
         description: "body/club 데이터를 결합해 이벤트와 지표를 계산합니다.",
-        state:
-          failed && groupedPath
-            ? "failed"
-            : stageSet.has("fusion_succeeded")
-              ? "done"
-              : stageSet.has("fusion_running")
-                ? "active"
-                : "pending",
+        state: (() => {
+          const failedStep =
+            failed && groupedPath
+              ? !progress?.bodyPath
+                ? "pose"
+                : !progress?.clubPath
+                  ? "club"
+                  : "fusion"
+              : null;
+          if (failedStep === "fusion") return "failed";
+          if (stageSet.has("fusion_succeeded")) return "done";
+          if (stageSet.has("fusion_running")) return "active";
+          return "pending";
+        })(),
       },
     ];
 
@@ -299,10 +350,12 @@ const StepIcon = ({ state }: { state: ProgressStep["state"] }) => {
 export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
   const steps = buildSteps(props);
   const stageMessage = getStageMessage(props);
-  const detailEntries = Object.entries(props.progress?.detail || {}).filter(([, value]) => {
-    if (value === null || value === undefined || value === "") return false;
-    return true;
-  });
+  const detailEntries = [
+    ...(props.progress?.bodyPath ? [["bodyPath", props.progress.bodyPath] as const] : []),
+    ...(props.progress?.clubPath ? [["clubPath", props.progress.clubPath] as const] : []),
+    ...(props.progress?.fusionPath ? [["fusionPath", props.progress.fusionPath] as const] : []),
+    ...Object.entries(props.progress?.detail || {}),
+  ].filter(([, value]) => value !== null && value !== undefined && value !== "");
 
   return (
     <Card>
@@ -320,7 +373,9 @@ export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
             <dl className="mt-3 grid gap-2 sm:grid-cols-2">
               {detailEntries.map(([key, value]) => (
                 <div key={key} className="rounded-lg border border-border/70 bg-background/40 px-2 py-2">
-                  <dt className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{key}</dt>
+                  <dt className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                    {DETAIL_LABELS[key] || key}
+                  </dt>
                   <dd className="mt-1 break-all text-xs text-foreground">{String(value)}</dd>
                 </div>
               ))}

@@ -40,6 +40,17 @@ export type DebugMetaResponse = {
   cached?: boolean;
 };
 
+export type InferDebugAnalysisResponse = {
+  ok?: boolean;
+  jobId?: string;
+  status?: string;
+  analysis?: {
+    events?: Record<string, unknown> | null;
+    metrics?: Record<string, unknown> | null;
+    debug?: Record<string, unknown> | null;
+  } | null;
+};
+
 const withBaseUrl = (url: string) => {
   if (/^https?:\/\//i.test(url)) return url;
   return `${API_BASE}${url}`;
@@ -71,4 +82,8 @@ export async function generateInferDebugMeta(jobId: string) {
     `/api/debug/infer/${encodeURIComponent(jobId)}/debug-meta`,
     new Blob(["{}"], { type: "application/json" })
   );
+}
+
+export async function fetchInferDebugAnalysis(jobId: string) {
+  return client.get<InferDebugAnalysisResponse>(`/api/analyze/${encodeURIComponent(jobId)}`);
 }

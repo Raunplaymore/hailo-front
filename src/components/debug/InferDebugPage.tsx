@@ -1,8 +1,11 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Filter, RefreshCw, Search } from "lucide-react";
 import {
+  DebugDetection,
+  fetchInferDebugAnalysis,
   fetchInferDebugFrames,
   generateInferDebugMeta,
+  InferDebugAnalysisResponse,
   InferDebugFramesResponse,
 } from "../../api/debug";
 import { Button } from "../Button";
@@ -22,6 +25,16 @@ const LABEL_COLORS: Record<string, string> = {
 const labelColor = (label: string) => LABEL_COLORS[label] ?? "#f8fafc";
 
 const formatMs = (value: number) => `${Math.round(value)}ms`;
+
+type Point = { x: number; y: number };
+type EndpointTrackPoint = Point & { frame: number; timeMs: number; confidence: number };
+type OverlayOptions = {
+  boxes: boolean;
+  labels: boolean;
+  endpoints: boolean;
+  trajectory: boolean;
+  events: boolean;
+};
 
 function getInitialJobId() {
   if (typeof window === "undefined") return "";
@@ -47,6 +60,112 @@ function frameBoxStyle(
   };
 }
 
+function normalizeBox(
+  bbox: [number, number, number, number],
+  meta: InferDebugFramesResponse["meta"]
+): [number, number, number, number] {
+  let [x, y, width, height] = bbox;
+  if ((x > 1 || y > 1 || width > 1 || height > 1) && meta.width && meta.height) {
+    x /= meta.width;
+    width /= meta.width;
+    y /= meta.height;
+    height /= meta.height;
+  }
+  return [x, y, width, height];
+}
+
+function boxCenter(det: DebugDetection, meta: InferDebugFramesResponse["meta"]): Point {
+  const [x, y, width, height] = normalizeBox(det.bbox, meta);
+  return { x: x + width / 2, y: y + height / 2 };
+}
+
+function clubBoxEndpoints(det: DebugDetection, meta: InferDebugFramesResponse["meta"]): [Point, Point] {
+  const [x, y, width, height] = normalizeBox(det.bbox, meta);
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+  if (width >= height) {
+    return [
+      { x, y: centerY },
+      { x: x + width, y: centerY },
+    ];
+  }
+  return [
+    { x: centerX, y },
+    { x: centerX, y: y + height },
+  ];
+}
+
+function endpointTrackScore(points: EndpointTrackPoint[]) {
+  if (points.length < 2) return 0;
+  let travel = 0;
+  for (let idx = 1; idx < points.length; idx += 1) {
+    travel += Math.hypot(points[idx].x - points[idx - 1].x, points[idx].y - points[idx - 1].y);
+  }
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  return travel + Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+}
+
+function buildClubEndpointTrack(
+  frames: InferDebugFramesResponse["frames"],
+  meta: InferDebugFramesResponse["meta"],
+  threshold: number
+): EndpointTrackPoint[] {
+  const candidates: [EndpointTrackPoint[], EndpointTrackPoint[]] = [[], []];
+  frames.forEach((frame) => {
+    const club = frame.detections
+      .filter((det) => det.label === "club" && det.confidence >= threshold)
+      .sort((a, b) => b.confidence - a.confidence)[0];
+    if (!club) return;
+    const endpoints = clubBoxEndpoints(club, meta);
+    endpoints.forEach((point, idx) => {
+      candidates[idx].push({
+        ...point,
+        frame: frame.frame,
+        timeMs: frame.timeMs,
+        confidence: club.confidence,
+      });
+    });
+  });
+  return endpointTrackScore(candidates[0]) >= endpointTrackScore(candidates[1])
+    ? candidates[0]
+    : candidates[1];
+}
+
+function pathFromPoints(points: Point[]) {
+  return points
+    .map((point, idx) => `${idx === 0 ? "M" : "L"} ${(point.x * 100).toFixed(2)} ${(point.y * 100).toFixed(2)}`)
+    .join(" ");
+}
+
+function extractEvents(analysis: InferDebugAnalysisResponse | null) {
+  const events = analysis?.analysis?.events ?? {};
+  const valueFor = (name: "address" | "top" | "impact" | "finish") => {
+    const direct = events[`${name}Ms`];
+    const nested = events[name];
+    if (typeof direct === "number") return direct;
+    if (nested && typeof nested === "object" && "timeMs" in nested && typeof nested.timeMs === "number") {
+      return nested.timeMs;
+    }
+    return null;
+  };
+  return {
+    address: valueFor("address"),
+    top: valueFor("top"),
+    impact: valueFor("impact"),
+    finish: valueFor("finish"),
+  };
+}
+
+function nearestEventLabel(events: ReturnType<typeof extractEvents>, timeMs: number, toleranceMs: number) {
+  const matches = Object.entries(events)
+    .filter(([, value]) => typeof value === "number")
+    .map(([label, value]) => ({ label, delta: Math.abs(timeMs - Number(value)) }))
+    .filter((item) => item.delta <= toleranceMs)
+    .sort((a, b) => a.delta - b.delta);
+  return matches[0]?.label ?? null;
+}
+
 export function InferDebugPage() {
   const [jobId, setJobId] = useState(getInitialJobId);
   const [limit, setLimit] = useState(24);
@@ -54,7 +173,15 @@ export function InferDebugPage() {
   const [threshold, setThreshold] = useState(0.25);
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
   const [showAllLabels, setShowAllLabels] = useState(true);
+  const [overlayOptions, setOverlayOptions] = useState<OverlayOptions>({
+    boxes: true,
+    labels: true,
+    endpoints: true,
+    trajectory: true,
+    events: true,
+  });
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
+  const [analysis, setAnalysis] = useState<InferDebugAnalysisResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingDebug, setIsGeneratingDebug] = useState(false);
@@ -80,6 +207,22 @@ export function InferDebugPage() {
     return { frames, detections, handleFrames, headFrames };
   }, [data]);
 
+  const endpointTrack = useMemo(() => {
+    if (!data) return [];
+    return buildClubEndpointTrack(data.frames, data.meta, threshold);
+  }, [data, threshold]);
+
+  const events = useMemo(() => extractEvents(analysis), [analysis]);
+
+  const eventToleranceMs = useMemo(() => {
+    if (!data || data.frames.length < 2) return 40;
+    const deltas = data.frames
+      .slice(1)
+      .map((frame, idx) => Math.abs(frame.timeMs - data.frames[idx].timeMs))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    return Math.max(35, Math.min(90, (deltas[0] ?? 70) * 0.65));
+  }, [data]);
+
   const load = async (force = false) => {
     return loadVariant(variant, force);
   };
@@ -93,8 +236,12 @@ export function InferDebugPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const next = await fetchInferDebugFrames(trimmed, { limit, force, variant: targetVariant });
+      const [next, nextAnalysis] = await Promise.all([
+        fetchInferDebugFrames(trimmed, { limit, force, variant: targetVariant }),
+        fetchInferDebugAnalysis(trimmed).catch(() => null),
+      ]);
       setData(next);
+      setAnalysis(nextAnalysis);
       setVariant(targetVariant);
       const nextLabels = new Set<string>();
       next.frames.forEach((frame) => {
@@ -110,6 +257,7 @@ export function InferDebugPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "debug frame을 불러오지 못했습니다.");
       setData(null);
+      setAnalysis(null);
     } finally {
       setIsLoading(false);
     }
@@ -154,6 +302,10 @@ export function InferDebugPage() {
       if (showAllLabels) return true;
       return selectedLabels.has(det.label);
     });
+
+  const toggleOverlay = (key: keyof OverlayOptions) => {
+    setOverlayOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <main className="min-h-screen bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8">
@@ -239,16 +391,18 @@ export function InferDebugPage() {
                   Detection Summary {data.variant ? `(${data.variant})` : ""}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-4">
+              <CardContent className="grid gap-3 sm:grid-cols-6">
                 {[
                   ["Frames", summary.frames],
                   ["Detections", summary.detections],
                   ["Club Head", summary.headFrames],
                   ["Club Handle", summary.handleFrames],
+                  ["Endpoint Pts", endpointTrack.length],
+                  ["Motion", String(analysis?.analysis?.debug?.motionSource ?? "n/a")],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-md border border-border bg-muted/40 p-3">
                     <div className="text-xs text-muted-foreground">{label}</div>
-                    <div className="mt-1 text-2xl font-semibold">{value}</div>
+                    <div className="mt-1 truncate text-2xl font-semibold">{value}</div>
                   </div>
                 ))}
               </CardContent>
@@ -299,6 +453,31 @@ export function InferDebugPage() {
                     </button>
                   ))}
                 </div>
+                <div className="border-t border-border pt-3">
+                  <div className="mb-2 text-xs font-medium text-muted-foreground">Overlay Layers</div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ["boxes", "bbox"],
+                      ["labels", "labels"],
+                      ["endpoints", "keys"],
+                      ["trajectory", "path"],
+                      ["events", "events"],
+                    ].map(([key, label]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleOverlay(key as keyof OverlayOptions)}
+                        className={`rounded-md border px-2 py-1 text-xs ${
+                          overlayOptions[key as keyof OverlayOptions]
+                            ? "border-cyan-300 bg-cyan-300 text-slate-950"
+                            : "border-border"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </section>
@@ -308,15 +487,93 @@ export function InferDebugPage() {
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {data.frames.map((frame) => {
               const detections = visibleDetections(frame);
+              const eventLabel = nearestEventLabel(events, frame.timeMs, eventToleranceMs);
+              const currentEndpoint = endpointTrack.find((point) => point.frame === frame.frame);
+              const trajectoryPath = pathFromPoints(endpointTrack);
+              const clubHeadPoints = detections
+                .filter((det) => det.label === "club_head")
+                .map((det) => boxCenter(det, data.meta));
               return (
                 <article key={`${frame.index}-${frame.timeMs}`} className="overflow-hidden rounded-lg border border-border bg-card">
                   <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs text-muted-foreground">
                     <span>frame {frame.frame}</span>
-                    <span>{formatMs(frame.timeMs)}</span>
+                    <span className="inline-flex items-center gap-2">
+                      {eventLabel && overlayOptions.events && (
+                        <span className="rounded-full bg-cyan-300 px-2 py-0.5 font-semibold text-slate-950">
+                          {eventLabel}
+                        </span>
+                      )}
+                      {formatMs(frame.timeMs)}
+                    </span>
                   </div>
                   <div className="relative bg-black">
                     <img className="block w-full" src={frame.imageUrl} alt={`frame ${frame.frame}`} loading="lazy" />
-                    {detections.map((det, idx) => {
+                    <svg
+                      className="pointer-events-none absolute inset-0 h-full w-full"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      {overlayOptions.trajectory && trajectoryPath && (
+                        <>
+                          <path
+                            d={trajectoryPath}
+                            fill="none"
+                            stroke="rgba(34, 211, 238, 0.32)"
+                            strokeDasharray="1.6 1.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="0.7"
+                          />
+                          {endpointTrack.map((point) => (
+                            <circle
+                              key={`${point.frame}-${point.timeMs}`}
+                              cx={point.x * 100}
+                              cy={point.y * 100}
+                              r={point.frame === frame.frame ? 1.35 : 0.55}
+                              fill={point.frame === frame.frame ? "#22d3ee" : "rgba(34, 211, 238, 0.5)"}
+                              stroke={point.frame === frame.frame ? "#0f172a" : "none"}
+                              strokeWidth="0.35"
+                            />
+                          ))}
+                        </>
+                      )}
+                      {overlayOptions.endpoints && currentEndpoint && (
+                        <circle
+                          cx={currentEndpoint.x * 100}
+                          cy={currentEndpoint.y * 100}
+                          r="2.0"
+                          fill="#22d3ee"
+                          stroke="#020617"
+                          strokeWidth="0.45"
+                        />
+                      )}
+                      {overlayOptions.endpoints &&
+                        clubHeadPoints.map((point, idx) => (
+                          <circle
+                            key={`head-${idx}`}
+                            cx={point.x * 100}
+                            cy={point.y * 100}
+                            r="1.65"
+                            fill="#22c55e"
+                            stroke="#020617"
+                            strokeWidth="0.4"
+                          />
+                        ))}
+                      {overlayOptions.events && eventLabel && (
+                        <rect
+                          x="1.5"
+                          y="1.5"
+                          width="97"
+                          height="97"
+                          fill="none"
+                          stroke="#22d3ee"
+                          strokeDasharray="2 1.4"
+                          strokeWidth="0.8"
+                        />
+                      )}
+                    </svg>
+                    {overlayOptions.boxes && detections.map((det, idx) => {
                       const color = labelColor(det.label);
                       return (
                         <div
@@ -324,12 +581,14 @@ export function InferDebugPage() {
                           className="pointer-events-none absolute border-2"
                           style={{ ...frameBoxStyle(det.bbox, data.meta), borderColor: color }}
                         >
-                          <span
-                            className="absolute left-0 top-0 max-w-full -translate-y-full truncate px-1 py-0.5 text-[10px] font-semibold text-black"
-                            style={{ backgroundColor: color }}
-                          >
-                            {det.label} {det.confidence.toFixed(2)}
-                          </span>
+                          {overlayOptions.labels && (
+                            <span
+                              className="absolute left-0 top-0 max-w-full -translate-y-full truncate px-1 py-0.5 text-[10px] font-semibold text-black"
+                              style={{ backgroundColor: color }}
+                            >
+                              {det.label} {det.confidence.toFixed(2)}
+                            </span>
+                          )}
                         </div>
                       );
                     })}

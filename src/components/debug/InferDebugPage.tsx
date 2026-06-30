@@ -1,6 +1,10 @@
 import { FormEvent, useMemo, useState } from "react";
 import { Filter, RefreshCw, Search } from "lucide-react";
-import { fetchInferDebugFrames, InferDebugFramesResponse } from "../../api/debug";
+import {
+  fetchInferDebugFrames,
+  generateInferDebugMeta,
+  InferDebugFramesResponse,
+} from "../../api/debug";
 import { Button } from "../Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
@@ -46,12 +50,14 @@ function frameBoxStyle(
 export function InferDebugPage() {
   const [jobId, setJobId] = useState(getInitialJobId);
   const [limit, setLimit] = useState(24);
+  const [variant, setVariant] = useState<"main" | "debug">("main");
   const [threshold, setThreshold] = useState(0.25);
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
   const [showAllLabels, setShowAllLabels] = useState(true);
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingDebug, setIsGeneratingDebug] = useState(false);
 
   const labels = useMemo(() => {
     const found = new Set<string>();
@@ -75,6 +81,10 @@ export function InferDebugPage() {
   }, [data]);
 
   const load = async (force = false) => {
+    return loadVariant(variant, force);
+  };
+
+  const loadVariant = async (targetVariant: "main" | "debug", force = false) => {
     const trimmed = jobId.trim();
     if (!trimmed) {
       setError("jobId를 입력하세요.");
@@ -83,8 +93,9 @@ export function InferDebugPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const next = await fetchInferDebugFrames(trimmed, { limit, force });
+      const next = await fetchInferDebugFrames(trimmed, { limit, force, variant: targetVariant });
       setData(next);
+      setVariant(targetVariant);
       const nextLabels = new Set<string>();
       next.frames.forEach((frame) => {
         frame.detections.forEach((det) => nextLabels.add(det.label));
@@ -101,6 +112,24 @@ export function InferDebugPage() {
       setData(null);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateDebugMeta = async () => {
+    const trimmed = jobId.trim();
+    if (!trimmed) {
+      setError("jobId를 입력하세요.");
+      return;
+    }
+    setIsGeneratingDebug(true);
+    setError(null);
+    try {
+      await generateInferDebugMeta(trimmed);
+      await loadVariant("debug", true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "debug meta를 생성하지 못했습니다.");
+    } finally {
+      setIsGeneratingDebug(false);
     }
   };
 
@@ -138,7 +167,7 @@ export function InferDebugPage() {
               Service7 Frame Overlay
             </h1>
           </div>
-          <form className="grid gap-2 sm:grid-cols-[minmax(18rem,1fr)_6rem_auto_auto]" onSubmit={handleSubmit}>
+          <form className="grid gap-2 sm:grid-cols-[minmax(18rem,1fr)_6rem_7rem_auto_auto]" onSubmit={handleSubmit}>
             <Input
               value={jobId}
               onChange={(event) => setJobId(event.target.value)}
@@ -153,6 +182,15 @@ export function InferDebugPage() {
               onChange={(event) => setLimit(Number(event.target.value))}
               aria-label="sample limit"
             />
+            <select
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              value={variant}
+              onChange={(event) => setVariant(event.target.value === "debug" ? "debug" : "main")}
+              aria-label="meta variant"
+            >
+              <option value="main">main</option>
+              <option value="debug">debug</option>
+            </select>
             <Button fullWidth={false} className="px-4 py-2 text-sm" type="submit" isLoading={isLoading}>
               <span className="inline-flex items-center gap-2">
                 <Search className="h-4 w-4" />
@@ -172,6 +210,18 @@ export function InferDebugPage() {
                 Refresh
               </span>
             </Button>
+            <Button
+              fullWidth={false}
+              variant="outline"
+              className="px-4 py-2 text-sm sm:col-start-4"
+              type="button"
+              disabled={isLoading || isGeneratingDebug}
+              isLoading={isGeneratingDebug}
+              loadingText="Generating..."
+              onClick={handleGenerateDebugMeta}
+            >
+              Debug Meta
+            </Button>
           </form>
         </header>
 
@@ -185,7 +235,9 @@ export function InferDebugPage() {
           <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <Card className="rounded-lg">
               <CardHeader>
-                <CardTitle className="text-base">Detection Summary</CardTitle>
+                <CardTitle className="text-base">
+                  Detection Summary {data.variant ? `(${data.variant})` : ""}
+                </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-4">
                 {[

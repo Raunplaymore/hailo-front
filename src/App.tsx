@@ -46,6 +46,7 @@ import {
 import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus } from "./api/shots";
 import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { InferDebugPage } from "./components/debug/InferDebugPage";
 
 type TabKey = "camera" | "upload" | "list" | "analysis" | "settings";
 
@@ -114,6 +115,13 @@ const mapAutoRecordState = (state: AutoRecordState): SessionState => {
 };
 
 function App() {
+  const isInferDebugPage =
+    typeof window !== "undefined" && window.location.pathname.startsWith("/test/infer-debug");
+  if (isInferDebugPage) return <InferDebugPage />;
+  return <MainApp />;
+}
+
+function MainApp() {
   const {
     shots,
     selected: selectedShot,

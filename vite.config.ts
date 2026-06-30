@@ -40,6 +40,10 @@ export default defineConfig(({ mode }) => {
           target: cameraBase,
           changeOrigin: true,
         },
+        "/debug": {
+          target: backBase,
+          changeOrigin: true,
+        },
         "/api": {
           target: backBase,
           changeOrigin: true,

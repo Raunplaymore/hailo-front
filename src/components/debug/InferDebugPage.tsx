@@ -34,6 +34,7 @@ type OverlayOptions = {
   endpoints: boolean;
   trajectory: boolean;
   events: boolean;
+  pose: boolean;
 };
 
 function getInitialJobId() {
@@ -179,6 +180,7 @@ export function InferDebugPage() {
     endpoints: true,
     trajectory: true,
     events: true,
+    pose: true,
   });
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
   const [analysis, setAnalysis] = useState<InferDebugAnalysisResponse | null>(null);
@@ -205,6 +207,17 @@ export function InferDebugPage() {
       frame.detections.some((det) => det.label === "club_head")
     ).length;
     return { frames, detections, handleFrames, headFrames };
+  }, [data]);
+
+  const poseSummary = useMemo(() => {
+    const frames = data?.frames.filter((frame) => frame.keypoints && Object.keys(frame.keypoints).length > 0).length ?? 0;
+    const wristFrames =
+      data?.frames.filter((frame) => {
+        const left = frame.keypoints?.left_wrist;
+        const right = frame.keypoints?.right_wrist;
+        return Boolean((left && left[2] >= 0.25) || (right && right[2] >= 0.25));
+      }).length ?? 0;
+    return { frames, wristFrames };
   }, [data]);
 
   const endpointTrack = useMemo(() => {
@@ -397,6 +410,8 @@ export function InferDebugPage() {
                   ["Detections", summary.detections],
                   ["Club Head", summary.headFrames],
                   ["Club Handle", summary.handleFrames],
+                  ["Pose", data.body?.poseFrames ?? poseSummary.frames],
+                  ["Wrist", data.body?.wristFrames ?? poseSummary.wristFrames],
                   ["Endpoint Pts", endpointTrack.length],
                   ["Motion", String(analysis?.analysis?.debug?.motionSource ?? "n/a")],
                 ].map(([label, value]) => (
@@ -462,6 +477,7 @@ export function InferDebugPage() {
                       ["endpoints", "keys"],
                       ["trajectory", "path"],
                       ["events", "events"],
+                      ["pose", "pose"],
                     ].map(([key, label]) => (
                       <button
                         key={key}
@@ -493,6 +509,34 @@ export function InferDebugPage() {
               const clubHeadPoints = detections
                 .filter((det) => det.label === "club_head")
                 .map((det) => boxCenter(det, data.meta));
+              const keypoint = (name: string) => {
+                const value = frame.keypoints?.[name];
+                if (!value || value.length < 2 || value[2] < 0.25) return null;
+                return { x: value[0], y: value[1], confidence: value[2] };
+              };
+              const poseSegments: [Point | null, Point | null][] = [
+                [keypoint("left_shoulder"), keypoint("right_shoulder")],
+                [keypoint("left_hip"), keypoint("right_hip")],
+                [keypoint("left_shoulder"), keypoint("left_elbow")],
+                [keypoint("left_elbow"), keypoint("left_wrist")],
+                [keypoint("right_shoulder"), keypoint("right_elbow")],
+                [keypoint("right_elbow"), keypoint("right_wrist")],
+                [keypoint("left_shoulder"), keypoint("left_hip")],
+                [keypoint("right_shoulder"), keypoint("right_hip")],
+              ];
+              const posePoints = [
+                "nose",
+                "left_shoulder",
+                "right_shoulder",
+                "left_elbow",
+                "right_elbow",
+                "left_wrist",
+                "right_wrist",
+                "left_hip",
+                "right_hip",
+              ]
+                .map((name) => ({ name, point: keypoint(name) }))
+                .filter((item): item is { name: string; point: Point & { confidence: number } } => Boolean(item.point));
               return (
                 <article key={`${frame.index}-${frame.timeMs}`} className="overflow-hidden rounded-lg border border-border bg-card">
                   <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs text-muted-foreground">
@@ -572,6 +616,33 @@ export function InferDebugPage() {
                           strokeWidth="0.8"
                         />
                       )}
+                      {overlayOptions.pose &&
+                        poseSegments.map(([from, to], idx) =>
+                          from && to ? (
+                            <line
+                              key={`pose-line-${idx}`}
+                              x1={from.x * 100}
+                              y1={from.y * 100}
+                              x2={to.x * 100}
+                              y2={to.y * 100}
+                              stroke="rgba(250, 204, 21, 0.72)"
+                              strokeLinecap="round"
+                              strokeWidth="0.7"
+                            />
+                          ) : null
+                        )}
+                      {overlayOptions.pose &&
+                        posePoints.map(({ name, point }) => (
+                          <circle
+                            key={`pose-${name}`}
+                            cx={point.x * 100}
+                            cy={point.y * 100}
+                            r={name.endsWith("wrist") ? 1.5 : 0.95}
+                            fill={name.endsWith("wrist") ? "#facc15" : "#fde68a"}
+                            stroke="#020617"
+                            strokeWidth="0.35"
+                          />
+                        ))}
                     </svg>
                     {overlayOptions.boxes && detections.map((det, idx) => {
                       const color = labelColor(det.label);

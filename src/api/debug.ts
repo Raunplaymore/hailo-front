@@ -7,12 +7,15 @@ export type DebugDetection = {
   bbox: [number, number, number, number];
 };
 
+export type DebugKeypoint = [number, number, number];
+
 export type DebugFrame = {
   index: number;
   frame: number;
   timeMs: number;
   imageUrl: string;
   detections: DebugDetection[];
+  keypoints?: Record<string, DebugKeypoint> | null;
 };
 
 export type InferDebugFramesResponse = {
@@ -27,6 +30,13 @@ export type InferDebugFramesResponse = {
     height: number | null;
     durationMs: number | null;
     frames: number;
+  };
+  body?: {
+    bodyPath: string | null;
+    analysisVersion: string | null;
+    poseAvailable: boolean | null;
+    poseFrames: number | null;
+    wristFrames: number | null;
   };
   labelCounts: Record<string, number>;
   frames: DebugFrame[];

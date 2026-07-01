@@ -30,6 +30,7 @@ app.use("/api/camera", createProxyMiddleware(createProxyOptions(cameraTarget, "/
 app.use("/api/session", createProxyMiddleware(createProxyOptions(cameraTarget, "/api/session")));
 app.use("/api", createProxyMiddleware(createProxyOptions(backTarget, "/api")));
 app.use("/uploads", createProxyMiddleware(createProxyOptions(backTarget, "/uploads")));
+app.use("/debug", createProxyMiddleware(createProxyOptions(backTarget, "/debug")));
 
 app.use(express.static(distDir, { extensions: ["html"] }));
 app.get("*", (_req, res) => {

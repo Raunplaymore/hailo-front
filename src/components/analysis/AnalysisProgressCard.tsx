@@ -1,6 +1,9 @@
-import { CheckCircle2, Circle, LoaderCircle, XCircle } from "lucide-react";
+import { useState } from "react";
+import { Check, CheckCircle2, Circle, Copy, LoaderCircle, XCircle } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 import type { AnalysisProgress, JobStatus } from "@/types/shots";
@@ -347,6 +350,63 @@ const StepIcon = ({ state }: { state: ProgressStep["state"] }) => {
   return <Circle className="size-4 text-muted-foreground" aria-hidden="true" />;
 };
 
+const copyText = async (value: string) => {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error("Clipboard copy failed");
+  }
+};
+
+const JobIdLine = ({ jobId }: { jobId: string }) => {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await copyText(jobId);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+      toast({ title: "Job ID 복사됨", description: jobId });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "복사 실패",
+        description: "브라우저에서 클립보드 접근을 허용하지 않았습니다.",
+      });
+    }
+  };
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span className="break-all">Job ID: {jobId}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        fullWidth={false}
+        className="h-7 gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:text-foreground"
+        onClick={handleCopy}
+        aria-label="Job ID 복사"
+      >
+        {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+        {copied ? "복사됨" : "복사"}
+      </Button>
+    </div>
+  );
+};
+
 export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
   const steps = buildSteps(props);
   const stageMessage = getStageMessage(props);
@@ -366,9 +426,7 @@ export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
       <CardContent className="space-y-4">
         <div className="rounded-xl border border-border bg-muted/35 px-3 py-3">
           <p className="text-sm font-medium text-foreground">{stageMessage}</p>
-          {props.jobId ? (
-            <p className="mt-1 break-all text-xs text-muted-foreground">Job ID: {props.jobId}</p>
-          ) : null}
+          {props.jobId ? <JobIdLine jobId={props.jobId} /> : null}
           {detailEntries.length > 0 ? (
             <dl className="mt-3 grid gap-2 sm:grid-cols-2">
               {detailEntries.map(([key, value]) => (

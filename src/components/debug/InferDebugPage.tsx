@@ -33,6 +33,7 @@ type OverlayOptions = {
   labels: boolean;
   endpoints: boolean;
   trajectory: boolean;
+  smoothGuide: boolean;
   events: boolean;
   pose: boolean;
 };
@@ -139,6 +140,48 @@ function pathFromPoints(points: Point[]) {
     .join(" ");
 }
 
+function displayGuidePoints(points: Point[]) {
+  return points.map((point, idx) => {
+    if (idx === 0 || idx === points.length - 1) return point;
+    const prev = points[idx - 1];
+    const next = points[idx + 1];
+    return {
+      x: point.x * 0.5 + (prev.x + next.x) * 0.25,
+      y: point.y * 0.5 + (prev.y + next.y) * 0.25,
+    };
+  });
+}
+
+function smoothPathFromPoints(points: Point[]) {
+  const guide = displayGuidePoints(points);
+  if (guide.length < 3) return pathFromPoints(guide);
+  const coord = (point: Point) => ({
+    x: point.x * 100,
+    y: point.y * 100,
+  });
+  const first = coord(guide[0]);
+  const segments = [`M ${first.x.toFixed(2)} ${first.y.toFixed(2)}`];
+  for (let idx = 0; idx < guide.length - 1; idx += 1) {
+    const p0 = coord(guide[Math.max(0, idx - 1)]);
+    const p1 = coord(guide[idx]);
+    const p2 = coord(guide[idx + 1]);
+    const p3 = coord(guide[Math.min(guide.length - 1, idx + 2)]);
+    const curve = 0.82;
+    const c1 = {
+      x: p1.x + ((p2.x - p0.x) * curve) / 6,
+      y: p1.y + ((p2.y - p0.y) * curve) / 6,
+    };
+    const c2 = {
+      x: p2.x - ((p3.x - p1.x) * curve) / 6,
+      y: p2.y - ((p3.y - p1.y) * curve) / 6,
+    };
+    segments.push(
+      `C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)}, ${c2.x.toFixed(2)} ${c2.y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
+    );
+  }
+  return segments.join(" ");
+}
+
 function extractEvents(analysis: InferDebugAnalysisResponse | null) {
   const events = analysis?.analysis?.events ?? {};
   const valueFor = (name: "address" | "top" | "impact" | "finish") => {
@@ -179,6 +222,7 @@ export function InferDebugPage() {
     labels: true,
     endpoints: true,
     trajectory: true,
+    smoothGuide: true,
     events: true,
     pose: true,
   });
@@ -476,6 +520,7 @@ export function InferDebugPage() {
                       ["labels", "labels"],
                       ["endpoints", "keys"],
                       ["trajectory", "path"],
+                      ["smoothGuide", "guide"],
                       ["events", "events"],
                       ["pose", "pose"],
                     ].map(([key, label]) => (
@@ -506,6 +551,7 @@ export function InferDebugPage() {
               const eventLabel = nearestEventLabel(events, frame.timeMs, eventToleranceMs);
               const currentEndpoint = endpointTrack.find((point) => point.frame === frame.frame);
               const trajectoryPath = pathFromPoints(endpointTrack);
+              const smoothTrajectoryPath = smoothPathFromPoints(endpointTrack);
               const clubHeadPoints = detections
                 .filter((det) => det.label === "club_head")
                 .map((det) => boxCenter(det, data.meta));
@@ -558,6 +604,34 @@ export function InferDebugPage() {
                       preserveAspectRatio="none"
                       aria-hidden="true"
                     >
+                      {overlayOptions.smoothGuide && smoothTrajectoryPath && (
+                        <g>
+                          <path
+                            d={smoothTrajectoryPath}
+                            fill="none"
+                            stroke="rgba(8, 47, 73, 0.42)"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2.25"
+                          />
+                          <path
+                            d={smoothTrajectoryPath}
+                            fill="none"
+                            stroke="rgba(103, 232, 249, 0.82)"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="0.95"
+                          />
+                          <path
+                            d={smoothTrajectoryPath}
+                            fill="none"
+                            stroke="rgba(236, 254, 255, 0.5)"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="0.24"
+                          />
+                        </g>
+                      )}
                       {overlayOptions.trajectory && trajectoryPath && (
                         <>
                           <path

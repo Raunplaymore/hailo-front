@@ -1573,7 +1573,7 @@ function MainApp() {
                 </p>
               </CardContent>
             </Card>
-            <CoachSummary comments={analysis?.coachSummary ?? []} />
+            <CoachSummary comments={analysis?.coachSummary ?? []} findings={analysis?.coachFindings ?? []} />
           </div>
         </div>
       )}

@@ -6,9 +6,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import type { CoachFinding } from "@/types/shots";
 
 type CoachSummaryProps = {
   comments?: string[];
+  findings?: CoachFinding[];
 };
 
 type ParsedComment = {
@@ -46,8 +48,32 @@ function parseComment(comment: string): ParsedComment {
   return { priority, main: beforeDrill, drill, checkpoint };
 }
 
-export function CoachSummary({ comments }: CoachSummaryProps) {
-  const list = comments ?? [];
+function commentFromFinding(finding: CoachFinding): ParsedComment {
+  const main = [finding.evidence, finding.interpretation, finding.action]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    priority: finding.priority ?? null,
+    main: main || finding.key || "코칭 항목",
+    drill: finding.drill ?? null,
+    checkpoint: finding.checkpoint ?? finding.caution ?? null,
+  };
+}
+
+export function CoachSummary({ comments, findings }: CoachSummaryProps) {
+  const structured = findings?.length
+    ? findings.map((finding) => ({
+        key: finding.key ?? undefined,
+        parsed: commentFromFinding(finding),
+        caution: finding.caution ?? null,
+      }))
+    : [];
+  const fallback = structured.length > 0 ? [] : (comments ?? []).map((comment) => ({
+    key: undefined,
+    parsed: parseComment(comment),
+    caution: null,
+  }));
+  const list = structured.length > 0 ? structured : fallback;
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -59,10 +85,9 @@ export function CoachSummary({ comments }: CoachSummaryProps) {
           <p className="text-sm text-muted-foreground">코멘트가 없습니다.</p>
         ) : (
           <ol className="space-y-3">
-            {list.map((comment, idx) => {
-              const parsed = parseComment(comment);
+            {list.map(({ key, parsed, caution }, idx) => {
               return (
-                <li key={`${idx}-${comment}`} className="rounded-2xl border bg-card/70 p-3 shadow-sm">
+                <li key={`${idx}-${key ?? parsed.main}`} className="rounded-2xl border bg-card/70 p-3 shadow-sm">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-muted-foreground">#{idx + 1}</span>
                     {parsed.priority ? (
@@ -88,6 +113,9 @@ export function CoachSummary({ comments }: CoachSummaryProps) {
                       <p className="text-xs font-semibold text-muted-foreground">체크 포인트</p>
                       <p className="mt-1 text-sm leading-6 text-foreground">{parsed.checkpoint}</p>
                     </div>
+                  ) : null}
+                  {caution && caution !== parsed.checkpoint ? (
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{caution}</p>
                   ) : null}
                 </li>
               );

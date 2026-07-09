@@ -118,8 +118,23 @@ export type AnalysisResult = {
   errorMessage?: string;
   summary?: string | null;
   coachSummary?: string[];
+  coachFindings?: CoachFinding[];
   confidence?: number | null;
   progress?: AnalysisProgress | null;
+};
+
+export type CoachFinding = {
+  key?: string | null;
+  category?: string | null;
+  severity?: string | null;
+  confidence?: number | null;
+  priority?: string | null;
+  evidence?: string | null;
+  interpretation?: string | null;
+  action?: string | null;
+  drill?: string | null;
+  checkpoint?: string | null;
+  caution?: string | null;
 };
 
 export type Shot = {

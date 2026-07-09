@@ -5,6 +5,7 @@ import {
   AnalysisResult,
   BallMetrics,
   BackswingMetrics,
+  CoachFinding,
   EventTimingMetrics,
   GenericMetricPayload,
   JobStatus,
@@ -414,6 +415,26 @@ const deriveEventTiming = (
   return Object.keys(derived).length > 0 ? derived : undefined;
 };
 
+const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefined => {
+  if (!Array.isArray(rawFindings)) return undefined;
+  const findings = rawFindings
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => ({
+      key: typeof item.key === "string" ? item.key : null,
+      category: typeof item.category === "string" ? item.category : null,
+      severity: typeof item.severity === "string" ? item.severity : null,
+      confidence: toOptionalNumber(item.confidence),
+      priority: typeof item.priority === "string" ? item.priority : null,
+      evidence: typeof item.evidence === "string" ? item.evidence : null,
+      interpretation: typeof item.interpretation === "string" ? item.interpretation : null,
+      action: typeof item.action === "string" ? item.action : null,
+      drill: typeof item.drill === "string" ? item.drill : null,
+      checkpoint: typeof item.checkpoint === "string" ? item.checkpoint : null,
+      caution: typeof item.caution === "string" ? item.caution : null,
+    }));
+  return findings.length > 0 ? findings : undefined;
+};
+
 const normalizeAnalysis = (
   raw: any,
   jobId: string,
@@ -477,6 +498,9 @@ const normalizeAnalysis = (
     (Array.isArray(raw?.coach_comments) && raw.coach_comments) ||
     (Array.isArray(raw?.coachComments) && raw.coachComments) ||
     undefined;
+  const coachFindings = normalizeCoachFindings(
+    raw?.coachFindings ?? raw?.coach_findings ?? raw?.debug?.coachFindings ?? raw?.debug?.coach_findings
+  );
   const confidence = toOptionalNumber(raw?.confidence ?? metricsBlock?.confidence);
   const rawProgress = raw?.progress ?? metricsBlock?.progress;
   const progress: AnalysisProgress | null =
@@ -535,6 +559,7 @@ const normalizeAnalysis = (
     errorMessage: raw?.errorMessage ?? raw?.error,
     summary,
     coachSummary: coachSummary?.map((item: any) => String(item)),
+    coachFindings,
     confidence,
     progress,
   };

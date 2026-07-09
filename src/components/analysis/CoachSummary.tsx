@@ -20,6 +20,14 @@ type ParsedComment = {
   checkpoint: string | null;
 };
 
+type CoachSummaryItem = {
+  key?: string;
+  parsed: ParsedComment;
+  caution: string | null;
+  confidence: number | null;
+  severity: string | null;
+};
+
 const PRIORITY_CLASSES: Record<string, string> = {
   "1순위 패턴": "border-amber-200 bg-amber-50 text-amber-900",
   "2순위 패턴": "border-orange-200 bg-orange-50 text-orange-900",
@@ -27,6 +35,20 @@ const PRIORITY_CLASSES: Record<string, string> = {
   "촬영 품질": "border-slate-200 bg-slate-50 text-slate-700",
   "범위 제한": "border-slate-200 bg-slate-50 text-slate-700",
   "유지": "border-emerald-200 bg-emerald-50 text-emerald-900",
+};
+
+const SEVERITY_LABELS: Record<string, string> = {
+  critical: "긴급",
+  high: "중요",
+  medium: "확인",
+  info: "참고",
+};
+
+const SEVERITY_CLASSES: Record<string, string> = {
+  critical: "border-red-200 bg-red-50 text-red-900",
+  high: "border-amber-200 bg-amber-50 text-amber-900",
+  medium: "border-sky-200 bg-sky-50 text-sky-900",
+  info: "border-slate-200 bg-slate-50 text-slate-700",
 };
 
 function splitFirst(value: string, marker: string): [string, string | null] {
@@ -60,18 +82,42 @@ function commentFromFinding(finding: CoachFinding): ParsedComment {
   };
 }
 
+function confidenceLabel(confidence: number | null): string | null {
+  if (confidence === null || Number.isNaN(confidence)) return null;
+  return `신뢰도 ${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}%`;
+}
+
+function confidenceClass(confidence: number | null): string {
+  if (confidence === null) return "border-slate-200 bg-slate-50 text-slate-700";
+  if (confidence < 0.35) return "border-slate-200 bg-slate-50 text-slate-700";
+  if (confidence < 0.6) return "border-yellow-200 bg-yellow-50 text-yellow-900";
+  return "border-emerald-200 bg-emerald-50 text-emerald-900";
+}
+
+function lowConfidenceNotice(confidence: number | null, caution: string | null): string | null {
+  if (caution) return null;
+  if (confidence !== null && confidence < 0.35) {
+    return "트래킹 신뢰도가 낮아 확정 진단보다 참고 신호로 해석하세요.";
+  }
+  return null;
+}
+
 export function CoachSummary({ comments, findings }: CoachSummaryProps) {
-  const structured = findings?.length
+  const structured: CoachSummaryItem[] = findings?.length
     ? findings.map((finding) => ({
         key: finding.key ?? undefined,
         parsed: commentFromFinding(finding),
         caution: finding.caution ?? null,
+        confidence: typeof finding.confidence === "number" ? finding.confidence : null,
+        severity: finding.severity ?? null,
       }))
     : [];
-  const fallback = structured.length > 0 ? [] : (comments ?? []).map((comment) => ({
+  const fallback: CoachSummaryItem[] = structured.length > 0 ? [] : (comments ?? []).map((comment) => ({
     key: undefined,
     parsed: parseComment(comment),
     caution: null,
+    confidence: null,
+    severity: null,
   }));
   const list = structured.length > 0 ? structured : fallback;
   return (
@@ -85,11 +131,24 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
           <p className="text-sm text-muted-foreground">코멘트가 없습니다.</p>
         ) : (
           <ol className="space-y-3">
-            {list.map(({ key, parsed, caution }, idx) => {
+            {list.map(({ key, parsed, caution, confidence, severity }, idx) => {
+              const confidenceText = confidenceLabel(confidence);
+              const severityText = severity ? SEVERITY_LABELS[severity] ?? severity : null;
+              const notice = lowConfidenceNotice(confidence, caution);
               return (
                 <li key={`${idx}-${key ?? parsed.main}`} className="rounded-2xl border bg-card/70 p-3 shadow-sm">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-muted-foreground">#{idx + 1}</span>
+                    {severityText ? (
+                      <span
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                          severity ? SEVERITY_CLASSES[severity] : undefined,
+                        )}
+                      >
+                        {severityText}
+                      </span>
+                    ) : null}
                     {parsed.priority ? (
                       <span
                         className={cn(
@@ -98,6 +157,16 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
                         )}
                       >
                         {parsed.priority}
+                      </span>
+                    ) : null}
+                    {confidenceText ? (
+                      <span
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                          confidenceClass(confidence),
+                        )}
+                      >
+                        {confidenceText}
                       </span>
                     ) : null}
                   </div>
@@ -116,6 +185,9 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
                   ) : null}
                   {caution && caution !== parsed.checkpoint ? (
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">{caution}</p>
+                  ) : null}
+                  {notice ? (
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{notice}</p>
                   ) : null}
                 </li>
               );

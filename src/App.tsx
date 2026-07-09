@@ -217,6 +217,8 @@ function MainApp() {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [listMode, setListMode] = useState<"sessions" | "uploads">("sessions");
   const [uploadListTab, setUploadListTab] = useState<"pending" | "done">("pending");
+  const [showCameraSettingsLayer, setShowCameraSettingsLayer] = useState(false);
+  const [showLookupLayer, setShowLookupLayer] = useState(false);
   const { toast } = useToast();
   const streamClients = cameraStatus?.streamClients ?? 0;
   const isStreaming = cameraStatus?.streaming === true;
@@ -225,7 +227,6 @@ function MainApp() {
     () => [
       { key: "camera", label: "카메라" },
       { key: "upload", label: "업로드" },
-      { key: "list", label: "영상 목록" },
       { key: "analysis", label: "분석" },
     ],
     []
@@ -307,7 +308,8 @@ function MainApp() {
       await refreshShots();
       if (selectedShot?.id === shot.id) {
         selectShot(null);
-        setActiveTab("list");
+        setActiveTab("camera");
+        setShowLookupLayer(true);
         setOpenShotIds(new Set());
       }
     } catch (err) {
@@ -1297,7 +1299,7 @@ function MainApp() {
     sessionState === "finishLocked";
 
   useEffect(() => {
-    if (activeTab !== "list") return;
+    if (activeTab !== "list" && !showLookupLayer) return;
     const hasInProgress = shots.some((shot) => {
       const status = (shot.analysis?.status ?? shot.status) as string | undefined;
       return status === "queued" || status === "running";
@@ -1307,18 +1309,52 @@ function MainApp() {
       refreshShots();
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [activeTab, shots, refreshShots]);
+  }, [activeTab, showLookupLayer, shots, refreshShots]);
 
   return (
     <Shell
       tabs={tabs}
       active={activeTab}
       onChange={setActiveTab}
-      onSettingsClick={() => setActiveTab("settings")}
+      onSettingsClick={() => setShowCameraSettingsLayer(true)}
     >
       {activeTab === "camera" && (
-        <section className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <section className="space-y-4" aria-label="카메라 촬영 화면">
+          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-card/70 p-3 shadow-xl shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-emerald-200">Camera workflow</p>
+              <h2 className="text-lg font-semibold text-foreground">화면과 조작부</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                촬영 중에는 라이브 화면과 세션 조작만 우선 노출합니다.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 px-4"
+                fullWidth={false}
+                onClick={() => setShowCameraSettingsLayer(true)}
+              >
+                설정부
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 px-4"
+                fullWidth={false}
+                onClick={() => {
+                  setShowLookupLayer(true);
+                  refreshSessions();
+                  refreshShots();
+                }}
+              >
+                조회부
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
             <div id="camera-preview" className="min-w-0">
               <CameraPreview
                 embedded
@@ -1365,7 +1401,7 @@ function MainApp() {
                 previewPreset={previewParams}
                 sessionState={sessionState}
                 onRefresh={handleCheckStatus}
-                onOpenSettings={() => setActiveTab("settings")}
+                onOpenSettings={() => setShowCameraSettingsLayer(true)}
                 onStartPreview={handleStartPreview}
                 onStopPreview={() => handleStopPreview()}
               />
@@ -1572,6 +1608,181 @@ function MainApp() {
             }}
             onSubmit={() => setActiveTab("upload")}
           />
+        </div>
+      )}
+
+      {showCameraSettingsLayer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-3 py-4 sm:px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="camera-settings-layer-title"
+        >
+          <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl shadow-black/50">
+            <div className="flex flex-col gap-3 border-b border-border bg-card/90 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-emerald-200">Settings layer</p>
+                <h2 id="camera-settings-layer-title" className="text-xl font-semibold text-foreground">
+                  설정부
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  연결, 프리뷰, 클럽/렌즈 값을 촬영 전에 조정합니다.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 px-4"
+                fullWidth={false}
+                onClick={() => setShowCameraSettingsLayer(false)}
+              >
+                닫기
+              </Button>
+            </div>
+            <div className="grid gap-4 overflow-y-auto p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="space-y-4">
+                <CameraSettings
+                  value={cameraSettings}
+                  history={baseHistory}
+                  onChange={(next) => setCameraSettings(next)}
+                  onSelectHistory={(url) => setCameraSettings((prev) => ({ ...prev, baseUrl: url }))}
+                  onClearHistory={() => setBaseHistory([])}
+                />
+                <SettingsForm
+                  value={settings}
+                  lensOptions={lensOptions}
+                  lensError={lensError}
+                  onChange={(next) => {
+                    const nextLens = next.lens;
+                    const prevLens = settings.lens;
+                    setSettings(next);
+                    if (nextLens && nextLens !== prevLens) {
+                      applyLensCalibration(nextLens);
+                    }
+                  }}
+                  onSubmit={() => {
+                    setShowCameraSettingsLayer(false);
+                    setActiveTab("upload");
+                  }}
+                />
+              </div>
+              <CameraStatusPanel
+                status={cameraStatus}
+                onRefresh={handleCheckStatus}
+                isLoading={isStatusLoading}
+                error={statusError}
+                lastCheckedAt={lastStatusCheckedAt}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLookupLayer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-3 py-4 sm:px-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="camera-lookup-layer-title"
+        >
+          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl shadow-black/50">
+            <div className="flex flex-col gap-3 border-b border-border bg-card/90 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-emerald-200">Lookup layer</p>
+                <h2 id="camera-lookup-layer-title" className="text-xl font-semibold text-foreground">
+                  조회부
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  촬영 세션과 업로드 영상을 확인하고 분석 화면으로 이동합니다.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11 px-4"
+                fullWidth={false}
+                onClick={() => setShowLookupLayer(false)}
+              >
+                닫기
+              </Button>
+            </div>
+            <div className="overflow-y-auto p-4">
+              <Tabs
+                value={listMode}
+                onValueChange={(val) => setListMode(val as "sessions" | "uploads")}
+              >
+                <TabsList className="mb-3">
+                  <TabsTrigger value="sessions">세션</TabsTrigger>
+                  <TabsTrigger value="uploads">업로드</TabsTrigger>
+                </TabsList>
+                <TabsContent value="sessions">
+                  <SessionList
+                    sessions={sessions}
+                    isLoading={isSessionsLoading}
+                    error={sessionsError}
+                    onRefresh={refreshSessions}
+                    onSelect={(session) => {
+                      setSelectedSession(session);
+                      selectShot(null);
+                      setShowLookupLayer(false);
+                      setActiveTab("analysis");
+                    }}
+                    onDelete={handleDeleteSession}
+                    deletingId={deletingSessionId}
+                  />
+                </TabsContent>
+                <TabsContent value="uploads">
+                  <Tabs
+                    value={uploadListTab}
+                    onValueChange={(val) => setUploadListTab(val as "pending" | "done")}
+                  >
+                    <TabsList className="mb-3">
+                      <TabsTrigger value="pending">분석 전</TabsTrigger>
+                      <TabsTrigger value="done">분석 후</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="pending">
+                      <ShotList
+                        title="분석 전 파일(영상)"
+                        emptyMessage="분석 대기 중인 영상이 없습니다."
+                        shots={pendingShots}
+                        isLoading={shotsLoading}
+                        error={shotsError || analyzeError}
+                        onRefresh={refreshShots}
+                        onSelect={toggleOpen}
+                        onAnalyze={(shot) => handleAnalyzeShot(shot)}
+                        onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
+                        onRetake={handleRetake}
+                        onDelete={(shot) => handleDelete(shot)}
+                        deletingId={deletingId}
+                        analyzingId={analyzingId}
+                        openIds={openShotIds}
+                      />
+                    </TabsContent>
+                    <TabsContent value="done">
+                      <ShotList
+                        title="분석 완료 파일"
+                        emptyMessage="분석 완료된 파일이 없습니다."
+                        shots={analyzedShots}
+                        isLoading={shotsLoading}
+                        error={shotsError || analyzeError}
+                        onRefresh={refreshShots}
+                        onSelect={toggleOpen}
+                        onTitleClick={(shot) => {
+                          selectShot(shot);
+                          setSelectedSession(null);
+                          setShowLookupLayer(false);
+                          setActiveTab("analysis");
+                        }}
+                        onDelete={(shot) => handleDelete(shot)}
+                        deletingId={deletingId}
+                        openIds={openShotIds}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1504,7 +1504,7 @@ function MainApp() {
       )}
 
       {activeTab === "analysis" && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
           <div className="space-y-2">
             {analysisTarget && (
               <AnalysisProgressCard
@@ -1546,35 +1546,40 @@ function MainApp() {
               </div>
             )}
             {analysisTarget && <KeyMetrics analysis={analysis} status={jobStatus} />}
-            <MetricsTable
-              analysis={analysis}
-              status={jobStatus}
-              onOpenVideo={analysisTarget ? () => setShowVideoModal(true) : undefined}
-            />
           </div>
-          <div className="space-y-2">
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
+            <div className="space-y-2">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">코칭 요약</CardTitle>
+                  <CardDescription>먼저 볼 결론만 짧게 표시합니다.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {analysis?.summary
+                      ? analysis.summary
+                      : jobStatus === "queued" || jobStatus === "running"
+                      ? "분석 중입니다. 잠시만 기다려 주세요."
+                      : "데이터가 부족합니다."}
+                  </p>
+                </CardContent>
+              </Card>
+              <CoachSummary comments={analysis?.coachSummary ?? []} findings={analysis?.coachFindings ?? []} />
+            </div>
+
             <AnalysisPlayer
               videoUrl={selectedVideoUrl}
               events={analysis?.events}
               isModalOpen={showVideoModal}
             />
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">코칭 요약</CardTitle>
-                <CardDescription>분석 결과 기반 짧은 요약입니다.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {analysis?.summary
-                    ? analysis.summary
-                    : jobStatus === "queued" || jobStatus === "running"
-                    ? "분석 중입니다. 잠시만 기다려 주세요."
-                    : "데이터가 부족합니다."}
-                </p>
-              </CardContent>
-            </Card>
-            <CoachSummary comments={analysis?.coachSummary ?? []} findings={analysis?.coachFindings ?? []} />
           </div>
+
+          <MetricsTable
+            analysis={analysis}
+            status={jobStatus}
+            onOpenVideo={analysisTarget ? () => setShowVideoModal(true) : undefined}
+          />
         </div>
       )}
 

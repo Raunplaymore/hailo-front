@@ -108,6 +108,98 @@ function compactText(value: string, maxLength = 96): string {
   return `${normalized.slice(0, maxLength - 1).trim()}…`;
 }
 
+function CoachSummaryList({
+  items,
+  startIndex = 0,
+}: {
+  items: CoachSummaryItem[];
+  startIndex?: number;
+}) {
+  return (
+    <ol className="space-y-3">
+      {items.map(({ key, parsed, caution, confidence, severity }, idx) => {
+        const itemIndex = startIndex + idx;
+        const confidenceText = confidenceLabel(confidence);
+        const severityText = severity ? SEVERITY_LABELS[severity] ?? severity : null;
+        const notice = lowConfidenceNotice(confidence, caution);
+        const hasDetails = parsed.drill || parsed.checkpoint || caution || notice;
+        return (
+          <li key={`${itemIndex}-${key ?? parsed.main}`}>
+            <details
+              className="group rounded-2xl border bg-card/70 shadow-sm transition-colors open:bg-card"
+              open={itemIndex === 0}
+            >
+              <summary className="flex min-h-12 cursor-pointer list-none flex-col gap-2 px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">#{itemIndex + 1}</span>
+                  {severityText ? (
+                    <span
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        severity ? SEVERITY_CLASSES[severity] : undefined,
+                      )}
+                    >
+                      {severityText}
+                    </span>
+                  ) : null}
+                  {parsed.priority ? (
+                    <span
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        PRIORITY_CLASSES[parsed.priority] ?? "border-primary/20 bg-primary/10 text-primary",
+                      )}
+                    >
+                      {parsed.priority}
+                    </span>
+                  ) : null}
+                  {confidenceText ? (
+                    <span
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        confidenceClass(confidence),
+                      )}
+                    >
+                      {confidenceText}
+                    </span>
+                  ) : null}
+                  {hasDetails ? (
+                    <span className="ml-auto rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                      <span className="group-open:hidden">펼치기</span>
+                      <span className="hidden group-open:inline">접기</span>
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-sm leading-6 text-foreground">{compactText(parsed.main)}</p>
+              </summary>
+              <div className="border-t px-3 pb-3 pt-2">
+                <p className="text-sm leading-6 text-foreground">{parsed.main}</p>
+                {parsed.drill ? (
+                  <div className="mt-2 rounded-xl bg-muted/60 px-3 py-2">
+                    <p className="text-xs font-semibold text-muted-foreground">드릴</p>
+                    <p className="mt-1 text-sm leading-6 text-foreground">{parsed.drill}</p>
+                  </div>
+                ) : null}
+                {parsed.checkpoint ? (
+                  <div className="mt-2 rounded-xl border border-dashed px-3 py-2">
+                    <p className="text-xs font-semibold text-muted-foreground">체크 포인트</p>
+                    <p className="mt-1 text-sm leading-6 text-foreground">{parsed.checkpoint}</p>
+                  </div>
+                ) : null}
+                {caution && caution !== parsed.checkpoint ? (
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">{caution}</p>
+                ) : null}
+                {notice ? (
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">{notice}</p>
+                ) : null}
+              </div>
+            </details>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function CoachSummary({ comments, findings }: CoachSummaryProps) {
   const structured: CoachSummaryItem[] = findings?.length
     ? findings.map((finding) => ({
@@ -126,6 +218,8 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
     severity: null,
   }));
   const list = structured.length > 0 ? structured : fallback;
+  const primaryItems = list.slice(0, 3);
+  const extraItems = list.slice(3);
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -136,86 +230,23 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
         {list.length === 0 ? (
           <p className="text-sm text-muted-foreground">코멘트가 없습니다.</p>
         ) : (
-          <ol className="space-y-3">
-            {list.map(({ key, parsed, caution, confidence, severity }, idx) => {
-              const confidenceText = confidenceLabel(confidence);
-              const severityText = severity ? SEVERITY_LABELS[severity] ?? severity : null;
-              const notice = lowConfidenceNotice(confidence, caution);
-              const hasDetails = parsed.drill || parsed.checkpoint || caution || notice;
-              return (
-                <li key={`${idx}-${key ?? parsed.main}`}>
-                  <details
-                    className="group rounded-2xl border bg-card/70 shadow-sm transition-colors open:bg-card"
-                    open={idx === 0}
-                  >
-                    <summary className="flex min-h-12 cursor-pointer list-none flex-col gap-2 px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground">#{idx + 1}</span>
-                        {severityText ? (
-                          <span
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                              severity ? SEVERITY_CLASSES[severity] : undefined,
-                            )}
-                          >
-                            {severityText}
-                          </span>
-                        ) : null}
-                        {parsed.priority ? (
-                          <span
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                              PRIORITY_CLASSES[parsed.priority] ?? "border-primary/20 bg-primary/10 text-primary",
-                            )}
-                          >
-                            {parsed.priority}
-                          </span>
-                        ) : null}
-                        {confidenceText ? (
-                          <span
-                            className={cn(
-                              "rounded-full border px-2.5 py-1 text-xs font-semibold",
-                              confidenceClass(confidence),
-                            )}
-                          >
-                            {confidenceText}
-                          </span>
-                        ) : null}
-                        {hasDetails ? (
-                          <span className="ml-auto rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
-                            <span className="group-open:hidden">펼치기</span>
-                            <span className="hidden group-open:inline">접기</span>
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="text-sm leading-6 text-foreground">{compactText(parsed.main)}</p>
-                    </summary>
-                    <div className="border-t px-3 pb-3 pt-2">
-                      <p className="text-sm leading-6 text-foreground">{parsed.main}</p>
-                      {parsed.drill ? (
-                        <div className="mt-2 rounded-xl bg-muted/60 px-3 py-2">
-                          <p className="text-xs font-semibold text-muted-foreground">드릴</p>
-                          <p className="mt-1 text-sm leading-6 text-foreground">{parsed.drill}</p>
-                        </div>
-                      ) : null}
-                      {parsed.checkpoint ? (
-                        <div className="mt-2 rounded-xl border border-dashed px-3 py-2">
-                          <p className="text-xs font-semibold text-muted-foreground">체크 포인트</p>
-                          <p className="mt-1 text-sm leading-6 text-foreground">{parsed.checkpoint}</p>
-                        </div>
-                      ) : null}
-                      {caution && caution !== parsed.checkpoint ? (
-                        <p className="mt-2 text-xs leading-5 text-muted-foreground">{caution}</p>
-                      ) : null}
-                      {notice ? (
-                        <p className="mt-2 text-xs leading-5 text-muted-foreground">{notice}</p>
-                      ) : null}
-                    </div>
-                  </details>
-                </li>
-              );
-            })}
-          </ol>
+          <div className="space-y-3">
+            <CoachSummaryList items={primaryItems} />
+            {extraItems.length > 0 ? (
+              <details className="group rounded-2xl border border-dashed bg-muted/20">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+                  <span className="text-sm font-semibold text-foreground">추가 코멘트 {extraItems.length}개</span>
+                  <span className="rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                    <span className="group-open:hidden">펼치기</span>
+                    <span className="hidden group-open:inline">접기</span>
+                  </span>
+                </summary>
+                <div className="border-t px-3 pb-3 pt-3">
+                  <CoachSummaryList items={extraItems} startIndex={3} />
+                </div>
+              </details>
+            ) : null}
+          </div>
         )}
       </CardContent>
     </Card>

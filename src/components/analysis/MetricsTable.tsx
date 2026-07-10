@@ -124,9 +124,11 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 space-y-1">
-            <CardTitle className="text-lg">분석 상태</CardTitle>
+            <CardTitle className="text-lg">상세 지표</CardTitle>
             <CardDescription className="break-words text-xs text-muted-foreground">
-              {analysis?.jobId ? `Job ID: ${analysis.jobId}` : "선택된 샷의 상태를 표시합니다."}
+              {analysis?.jobId
+                ? `필요한 항목만 펼쳐서 확인합니다. Job ID: ${analysis.jobId}`
+                : "필요한 항목만 펼쳐서 확인합니다."}
             </CardDescription>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -148,7 +150,6 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
             tempo?.downswingMs != null ? `DS ${formatMs(tempo.downswingMs)}` : null,
             tempo?.backswingMs != null ? `BS ${formatMs(tempo.backswingMs)}` : null,
           ]) || "분석 대기"}
-          defaultOpen
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <MetricCard label="비율" value={tempo?.ratio ?? "-"} />
@@ -189,7 +190,6 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
             `Backswing ${formatMetricLabel(backswing)}`,
             `Tracking ${formatMetricLabel(trackingQuality)}`,
           ])}
-          defaultOpen
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <MetricCard label="Shaft Plane" value={formatMetricLabel(shaftPlane)} />

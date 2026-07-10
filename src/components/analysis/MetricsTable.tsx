@@ -55,6 +55,9 @@ const formatMetricLabel = (metric?: { label?: string | null; confidence?: number
   return value == null ? metric.label : `${metric.label} (${formatPercent(value)})`;
 };
 
+const compactDetail = (parts: Array<string | number | null | undefined>) =>
+  parts.filter((part) => part !== null && part !== undefined && part !== "-").join(" · ");
+
 export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProps) {
   const currentStatus: JobStatus = analysis?.status ?? status ?? "idle";
 
@@ -137,53 +140,57 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Tempo</p>
-            <span className="text-xs text-muted-foreground">백스윙 : 다운스윙</span>
-          </div>
+      <CardContent className="space-y-2">
+        <CollapsibleMetricSection
+          title="Tempo"
+          summary={compactDetail([
+            tempo?.ratio ? `${tempo.ratio}:1` : null,
+            tempo?.downswingMs != null ? `DS ${formatMs(tempo.downswingMs)}` : null,
+            tempo?.backswingMs != null ? `BS ${formatMs(tempo.backswingMs)}` : null,
+          ]) || "분석 대기"}
+          defaultOpen
+        >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <MetricCard label="비율" value={tempo?.ratio ?? "-"} />
             <MetricCard label="다운스윙 시간" value={formatMs(tempo?.downswingMs)} />
             <MetricCard label="백스윙 시간" value={formatMs(tempo?.backswingMs)} />
           </div>
-        </section>
+        </CollapsibleMetricSection>
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Event Timing (상대 시점)</p>
-          </div>
+        <CollapsibleMetricSection
+          title="Event Timing"
+          summary={compactDetail([
+            eventTiming?.impact != null ? `Impact ${formatMs(eventTiming.impact)}` : null,
+            eventTiming?.top != null ? `Top ${formatMs(eventTiming.top)}` : null,
+          ]) || "이벤트 없음"}
+        >
           <div className="grid grid-cols-2 gap-2">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => (
               <MetricCard key={key} label={EVENT_LABELS[key]} value={formatMs(eventTiming?.[key])} />
             ))}
           </div>
-        </section>
+        </CollapsibleMetricSection>
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Ball (근사)</p>
-            <span className="text-xs text-muted-foreground">단일 카메라 기준</span>
-          </div>
+        <CollapsibleMetricSection
+          title="Ball"
+          summary={compactDetail([ball?.launchDirection, ball?.speedRelative, formatAngle(ball?.launchAngle)]) || "공 추적 없음"}
+        >
           <div className="grid grid-cols-3 gap-2">
-            <MetricCard
-              label="Launch Direction"
-              value={ball?.launchDirection ? ball.launchDirection : "-"}
-            />
+            <MetricCard label="Launch Direction" value={ball?.launchDirection ? ball.launchDirection : "-"} />
             <MetricCard label="Launch Angle" value={formatAngle(ball?.launchAngle)} />
-            <MetricCard
-              label="Speed Relative"
-              value={ball?.speedRelative ? ball.speedRelative : "-"}
-            />
+            <MetricCard label="Speed Relative" value={ball?.speedRelative ? ball.speedRelative : "-"} />
           </div>
-        </section>
+        </CollapsibleMetricSection>
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">Service7 전신/클럽 진단</p>
-            <span className="text-xs text-muted-foreground">2D 추적 기준</span>
-          </div>
+        <CollapsibleMetricSection
+          title="Service7 전신/클럽 진단"
+          summary={compactDetail([
+            `Shaft ${formatMetricLabel(shaftPlane)}`,
+            `Backswing ${formatMetricLabel(backswing)}`,
+            `Tracking ${formatMetricLabel(trackingQuality)}`,
+          ])}
+          defaultOpen
+        >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <MetricCard label="Shaft Plane" value={formatMetricLabel(shaftPlane)} />
             <MetricCard label="Shaft Angle" value={formatAngle(shaftPlane?.angleDeg)} />
@@ -193,7 +200,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
             <MetricCard label="Overall Confidence" value={formatPercent(analysis?.confidence)} />
           </div>
           {trackingQuality && (
-            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
               <MetricCard label="Club Head Frames" value={trackingQuality.clubHeadFrames ?? "-"} />
               <MetricCard label="Handle Frames" value={trackingQuality.clubHandleFrames ?? "-"} />
               <MetricCard label="Club Frames" value={trackingQuality.clubFrames ?? "-"} />
@@ -201,43 +208,27 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
               <MetricCard label="Person Frames" value={trackingQuality.personFrames ?? "-"} />
             </div>
           )}
-        </section>
+        </CollapsibleMetricSection>
 
         {bodyMetrics.length > 0 && (
-          <MetricGroupSection
-            title="Body Metrics"
-            description="pose 기반 전신 분석 결과"
-            metrics={bodyMetrics}
-          />
+          <MetricGroupSection title="Body Metrics" description="pose 기반 전신 분석 결과" metrics={bodyMetrics} />
         )}
 
         {clubMetrics.length > 0 && (
-          <MetricGroupSection
-            title="Club Metrics"
-            description="클럽 추적 기반 세부 지표"
-            metrics={clubMetrics}
-          />
+          <MetricGroupSection title="Club Metrics" description="클럽 추적 기반 세부 지표" metrics={clubMetrics} />
         )}
 
         {fusionMetrics.length > 0 && (
-          <MetricGroupSection
-            title="Fusion Metrics"
-            description="body/club 융합 분석 결과"
-            metrics={fusionMetrics}
-          />
+          <MetricGroupSection title="Fusion Metrics" description="body/club 융합 분석 결과" metrics={fusionMetrics} />
         )}
 
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">확장 예정 지표</p>
-            <span className="text-xs text-muted-foreground">추가 센서/포즈 모델 필요</span>
-          </div>
+        <CollapsibleMetricSection
+          title="확장 예정 지표"
+          summary={`${pending.length}개 준비 중`}
+        >
           <div className="space-y-1">
             {pending.map((p) => (
-              <div
-                key={p.key}
-                className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2"
-              >
+              <div key={p.key} className="flex items-center justify-between rounded-lg border border-dashed border-border px-3 py-2">
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold text-foreground">{p.label}</span>
                   <span className="text-xs text-muted-foreground">{p.description}</span>
@@ -248,7 +239,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
               </div>
             ))}
           </div>
-        </section>
+        </CollapsibleMetricSection>
       </CardContent>
     </Card>
   );
@@ -305,6 +296,34 @@ function formatMetricKey(key: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function CollapsibleMetricSection({
+  title,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  summary: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group rounded-xl border border-border bg-muted/20" open={defaultOpen}>
+      <summary className="flex min-h-12 cursor-pointer list-none items-center gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="truncate text-xs text-muted-foreground">{summary}</p>
+        </div>
+        <span className="rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+          <span className="group-open:hidden">펼치기</span>
+          <span className="hidden group-open:inline">접기</span>
+        </span>
+      </summary>
+      <div className="border-t px-3 pb-3 pt-2">{children}</div>
+    </details>
+  );
+}
+
 function MetricGroupSection({
   title,
   description,
@@ -314,12 +333,11 @@ function MetricGroupSection({
   description: string;
   metrics: Array<[string, GenericMetricPayload]>;
 }) {
+  const summary = compactDetail(
+    metrics.slice(0, 3).map(([key, value]) => `${formatMetricKey(key)} ${formatGroupMetricValue(value)}`)
+  );
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </div>
+    <CollapsibleMetricSection title={title} summary={summary || description}>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {metrics.map(([key, value]) => (
           <MetricCard key={key} label={formatMetricKey(key)} value={formatGroupMetricValue(value)} />
@@ -335,6 +353,6 @@ function MetricGroupSection({
             </div>
           ))}
       </div>
-    </section>
+    </CollapsibleMetricSection>
   );
 }

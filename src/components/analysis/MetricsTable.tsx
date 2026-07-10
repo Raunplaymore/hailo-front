@@ -284,6 +284,24 @@ function formatGroupMetricValue(metric: GenericMetricPayload) {
     const strength = metric.confidence ?? metric.score;
     return strength == null ? metric.label : `${metric.label} (${Math.round(strength * 100)}%)`;
   }
+  if (typeof metric.ratio === "number" || typeof metric.ratio === "string") {
+    const ratio = typeof metric.ratio === "number" ? `${metric.ratio}:1` : metric.ratio;
+    const downswing = typeof metric.downswingMs === "number" ? `DS ${formatMs(metric.downswingMs)}` : null;
+    const backswing = typeof metric.backswingMs === "number" ? `BS ${formatMs(metric.backswingMs)}` : null;
+    return compactDetail([ratio, downswing, backswing]) || ratio;
+  }
+  if (Array.isArray(metric.evidence) && metric.evidence.length > 0) {
+    const strength = metric.confidence ?? metric.score;
+    const prefix = strength == null ? "" : `${Math.round(strength * 100)}% · `;
+    return `${prefix}${metric.evidence.slice(0, 3).join(", ")}`;
+  }
+  if (typeof metric.sampleCount === "number") {
+    const strength = metric.confidence ?? metric.score;
+    return compactDetail([
+      `${metric.sampleCount} samples`,
+      strength == null ? null : `${Math.round(strength * 100)}%`,
+    ]);
+  }
   if (typeof metric.score === "number") return `${Math.round(metric.score * 100)}%`;
   if (typeof metric.confidence === "number") return `${Math.round(metric.confidence * 100)}%`;
   return "-";

@@ -435,7 +435,7 @@ const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefine
   return findings.length > 0 ? findings : undefined;
 };
 
-const normalizeAnalysis = (
+export const normalizeAnalysis = (
   raw: any,
   jobId: string,
   status: JobStatus = "succeeded"

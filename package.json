@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "check:analysis": "node scripts/check-analysis-normalization.mjs",
     "preview": "vite preview",
     "start": "node server.js"
   },

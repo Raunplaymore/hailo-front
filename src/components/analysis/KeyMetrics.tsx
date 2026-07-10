@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { AnalysisResult, GenericMetricPayload, JobStatus, MetricGroup } from "@/types/shots";
 
 type KeyMetricsProps = {
@@ -22,6 +23,7 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
   const tempoRatio = analysis?.metrics.tempo?.ratio ?? fallback;
   const shaftPlane = formatMetricLabel(analysis?.metrics.shaftPlane) ?? analysis?.metrics.swingPlane ?? fallback;
   const backswing = formatMetricLabel(analysis?.metrics.backswing) ?? fallback;
+  const quality = analysis ? analysisQuality(analysis) : null;
   const impactStability =
     analysis?.metrics.impactStability ??
     formatMetricLabel(fusionPrimary) ??
@@ -31,17 +33,60 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">핵심 지표</CardTitle>
-        <CardDescription>분석 결과에서 핵심 지표를 요약합니다.</CardDescription>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-lg">핵심 지표</CardTitle>
+            <CardDescription>분석 결과에서 핵심 지표를 요약합니다.</CardDescription>
+          </div>
+          {quality ? (
+            <span className={cn("rounded-full border px-2.5 py-1 text-xs font-semibold", quality.className)}>
+              {quality.label}
+            </span>
+          ) : null}
+        </div>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <MetricCard label="Shaft Plane" value={shaftPlane} />
-        <MetricCard label="Tempo" value={tempoRatio} />
-        <MetricCard label="Backswing" value={backswing} />
-        <MetricCard label="Impact Stability" value={impactStability} />
+      <CardContent className="space-y-2">
+        {quality ? (
+          <p className="rounded-xl border border-border bg-muted/35 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            {quality.message}
+          </p>
+        ) : null}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <MetricCard label="Shaft Plane" value={shaftPlane} />
+          <MetricCard label="Tempo" value={tempoRatio} />
+          <MetricCard label="Backswing" value={backswing} />
+          <MetricCard label="Impact Stability" value={impactStability} />
+        </div>
       </CardContent>
     </Card>
   );
+}
+
+function analysisQuality(analysis: AnalysisResult) {
+  const overall = typeof analysis.confidence === "number" ? analysis.confidence : null;
+  const tracking = analysis.metrics.trackingQuality?.score ?? analysis.metrics.trackingQuality?.confidence ?? null;
+  const score = Math.min(overall ?? 1, tracking ?? 1);
+  const percentText = overall == null ? "" : ` 전체 신뢰도 ${Math.round(overall * 100)}%.`;
+
+  if (score < 0.25) {
+    return {
+      label: "참고용 분석",
+      className: "border-slate-200 bg-slate-50 text-slate-800",
+      message: `트래킹 품질이 낮아 코칭은 우선순위 참고용으로 보세요.${percentText} 촬영 구도와 클럽 검출 품질을 먼저 확인하는 것이 좋습니다.`,
+    };
+  }
+  if (score < 0.5) {
+    return {
+      label: "참고 가능",
+      className: "border-yellow-200 bg-yellow-50 text-yellow-900",
+      message: `일부 지표는 사용할 수 있지만 세부 진단은 흔들릴 수 있습니다.${percentText} 코멘트는 반복 촬영에서 같은 패턴이 나오는지 확인하세요.`,
+    };
+  }
+  return {
+    label: "신뢰 가능",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    message: `추적 품질이 비교적 안정적입니다.${percentText} 코칭 우선순위와 드릴을 기준으로 반복 확인해도 됩니다.`,
+  };
 }
 
 function formatMetricLabel(metric?: { label?: string | null; confidence?: number | null; score?: number | null }) {

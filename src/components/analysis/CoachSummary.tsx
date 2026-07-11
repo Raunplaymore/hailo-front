@@ -112,25 +112,35 @@ function compactText(value: string, maxLength = 96): string {
 function CoachSummaryList({
   items,
   startIndex = 0,
+  compact = false,
 }: {
   items: CoachSummaryItem[];
   startIndex?: number;
+  compact?: boolean;
 }) {
   return (
-    <ol className="space-y-3">
+    <ol className={cn(compact ? "space-y-2" : "space-y-3")}>
       {items.map(({ key, parsed, caution, theory, confidence, severity }, idx) => {
         const itemIndex = startIndex + idx;
         const confidenceText = confidenceLabel(confidence);
         const severityText = severity ? SEVERITY_LABELS[severity] ?? severity : null;
         const notice = lowConfidenceNotice(confidence, caution);
         const hasDetails = parsed.drill || parsed.checkpoint || caution || notice;
+        const summaryText = compact ? compactText(parsed.main, 72) : compactText(parsed.main);
         return (
           <li key={`${itemIndex}-${key ?? parsed.main}`}>
             <details
-              className="group rounded-2xl border bg-card/70 shadow-sm transition-colors open:bg-card"
-              open={itemIndex === 0}
+              className={cn(
+                "group rounded-2xl border bg-card/70 shadow-sm transition-colors open:bg-card",
+                compact && "rounded-xl shadow-none",
+              )}
             >
-              <summary className="flex min-h-12 cursor-pointer list-none flex-col gap-2 px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+              <summary
+                className={cn(
+                  "flex cursor-pointer list-none flex-col gap-2 px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden",
+                  compact ? "min-h-10 py-2" : "min-h-12 py-3",
+                )}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-semibold text-muted-foreground">#{itemIndex + 1}</span>
                   {severityText ? (
@@ -170,7 +180,7 @@ function CoachSummaryList({
                     </span>
                   ) : null}
                 </div>
-                <p className="text-sm leading-6 text-foreground">{compactText(parsed.main)}</p>
+                <p className={cn("text-sm text-foreground", compact ? "leading-5" : "leading-6")}>{summaryText}</p>
               </summary>
               <div className="border-t px-3 pb-3 pt-2">
                 <p className="text-sm leading-6 text-foreground">{parsed.main}</p>
@@ -227,31 +237,31 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
     severity: null,
   }));
   const list = structured.length > 0 ? structured : fallback;
-  const primaryItems = list.slice(0, 3);
-  const extraItems = list.slice(3);
+  const primaryItem = list.slice(0, 1);
+  const extraItems = list.slice(1);
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">코치 코멘트</CardTitle>
-        <CardDescription>핵심 항목은 요약으로 접고, 필요한 드릴과 체크 포인트만 펼쳐서 봅니다.</CardDescription>
+        <CardDescription>가장 중요한 1개만 먼저 보고, 나머지는 압축 리스트에서 펼칩니다.</CardDescription>
       </CardHeader>
       <CardContent>
         {list.length === 0 ? (
           <p className="text-sm text-muted-foreground">코멘트가 없습니다.</p>
         ) : (
           <div className="space-y-3">
-            <CoachSummaryList items={primaryItems} />
+            <CoachSummaryList items={primaryItem} />
             {extraItems.length > 0 ? (
               <details className="group rounded-2xl border border-dashed bg-muted/20">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-                  <span className="text-sm font-semibold text-foreground">추가 코멘트 {extraItems.length}개</span>
+                  <span className="text-sm font-semibold text-foreground">나머지 코멘트 {extraItems.length}개</span>
                   <span className="rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
                     <span className="group-open:hidden">펼치기</span>
                     <span className="hidden group-open:inline">접기</span>
                   </span>
                 </summary>
                 <div className="border-t px-3 pb-3 pt-3">
-                  <CoachSummaryList items={extraItems} startIndex={3} />
+                  <CoachSummaryList items={extraItems} startIndex={1} compact />
                 </div>
               </details>
             ) : null}

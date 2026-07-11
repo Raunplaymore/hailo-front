@@ -427,44 +427,55 @@ export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
         <div className="rounded-xl border border-border bg-muted/35 px-3 py-3">
           <p className="text-sm font-medium text-foreground">{stageMessage}</p>
           {props.jobId ? <JobIdLine jobId={props.jobId} /> : null}
-          {detailEntries.length > 0 ? (
-            <dl className="mt-3 grid gap-2 sm:grid-cols-2">
-              {detailEntries.map(([key, value]) => (
-                <div key={key} className="rounded-lg border border-border/70 bg-background/40 px-2 py-2">
-                  <dt className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
-                    {DETAIL_LABELS[key] || key}
-                  </dt>
-                  <dd className="mt-1 break-all text-xs text-foreground">{String(value)}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
         </div>
 
-        <ol className="space-y-2">
-          {steps.map((step) => (
-            <li
-              key={step.key}
-              className={cn(
-                "rounded-xl border px-3 py-3",
-                step.state === "done" && "border-emerald-400/25 bg-emerald-400/8",
-                step.state === "active" && "border-sky-400/25 bg-sky-400/8",
-                step.state === "failed" && "border-red-400/25 bg-red-400/8",
-                step.state === "pending" && "border-border bg-muted/20"
-              )}
-            >
-              <div className="flex items-start gap-3">
-                <div className="pt-0.5">
-                  <StepIcon state={step.state} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">{step.title}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{step.description}</p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ol>
+        <details className="group rounded-xl border border-border bg-background/50">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+            <span className="text-sm font-semibold text-foreground">단계 로그와 상세 경로</span>
+            <span className="rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              <span className="group-open:hidden">펼치기</span>
+              <span className="hidden group-open:inline">접기</span>
+            </span>
+          </summary>
+          <div className="space-y-3 border-t px-3 py-3">
+            <ol className="space-y-2">
+              {steps.map((step) => (
+                <li
+                  key={step.key}
+                  className={cn(
+                    "rounded-xl border px-3 py-3",
+                    step.state === "done" && "border-emerald-400/25 bg-emerald-400/8",
+                    step.state === "active" && "border-sky-400/25 bg-sky-400/8",
+                    step.state === "failed" && "border-red-400/25 bg-red-400/8",
+                    step.state === "pending" && "border-border bg-muted/20",
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="pt-0.5">
+                      <StepIcon state={step.state} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{step.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{step.description}</p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {detailEntries.length > 0 ? (
+              <dl className="grid gap-2 sm:grid-cols-2">
+                {detailEntries.map(([key, value]) => (
+                  <div key={key} className="rounded-lg border border-border/70 bg-muted/20 px-2 py-2">
+                    <dt className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+                      {DETAIL_LABELS[key] || key}
+                    </dt>
+                    <dd className="mt-1 break-all text-xs text-foreground">{String(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </div>
+        </details>
       </CardContent>
     </Card>
   );

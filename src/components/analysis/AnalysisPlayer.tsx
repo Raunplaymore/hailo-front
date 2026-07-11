@@ -52,23 +52,22 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+      <CardHeader className="p-4 pb-2">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs text-muted-foreground">원본 영상</p>
             <CardTitle className="text-lg">분석 영상</CardTitle>
-            <CardDescription>DTL 단일 카메라 기준 영상입니다.</CardDescription>
+            <CardDescription className="text-xs">DTL 단일 카메라 기준</CardDescription>
           </div>
           <span className="text-xs text-muted-foreground">DTL 기준</span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-2 p-4 pt-0">
         {videoUrl ? (
           <video
             ref={videoRef}
             key={videoUrl}
             className={cn(
-              "w-full max-h-[600px] rounded-xl border border-border bg-black object-contain transition",
+              "w-full max-h-[36vh] rounded-xl border border-border bg-black object-contain transition md:max-h-[44vh] xl:max-h-[52vh]",
               isModalOpen ? "pointer-events-none opacity-0" : "opacity-100"
             )}
             controls
@@ -85,8 +84,8 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
         )}
 
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">스윙 이벤트 타임라인</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인</p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
               const event = events?.[key];
               const disabled = !event;
@@ -97,14 +96,14 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
                   onClick={() => handleSeek(key)}
                   disabled={disabled}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
+                    "min-w-[104px] rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
                     disabled
                       ? "cursor-not-allowed border-border bg-muted/60 text-muted-foreground"
                       : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"
                   )}
                 >
                   <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}</span>
-                  <span className="text-base">
+                  <span className="text-sm">
                     {event ? `${Math.round(event.timeMs)} ms` : "-"}
                   </span>
                 </button>

@@ -1506,16 +1506,6 @@ function MainApp() {
       {activeTab === "analysis" && (
         <div className="space-y-4">
           <div className="space-y-2">
-            {analysisTarget && (
-              <AnalysisProgressCard
-                jobId={analysisTarget.jobId ?? analysisTarget.id}
-                status={jobStatus}
-                isLoading={isAnalysisLoading}
-                analysisVersion={analysis?.analysisVersion}
-                error={analysisError || selectedShot?.errorMessage || null}
-                progress={analysis?.progress ?? analysisTarget.analysis?.progress ?? null}
-              />
-            )}
             {isAnalysisLoading && <p className="text-sm text-muted-foreground">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-destructive">{analysisError}</p>}
             {jobStatus === "failed" && !analysis && selectedShot?.errorMessage && (
@@ -1545,41 +1535,70 @@ function MainApp() {
                 </div>
               </div>
             )}
-            {analysisTarget && <KeyMetrics analysis={analysis} status={jobStatus} />}
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-            <div className="space-y-2">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">코칭 요약</CardTitle>
-                  <CardDescription>먼저 볼 결론만 짧게 표시합니다.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {analysis?.summary
-                      ? analysis.summary
-                      : jobStatus === "queued" || jobStatus === "running"
-                      ? "분석 중입니다. 잠시만 기다려 주세요."
-                      : "데이터가 부족합니다."}
-                  </p>
-                </CardContent>
-              </Card>
-              <CoachSummary comments={analysis?.coachSummary ?? []} findings={analysis?.coachFindings ?? []} />
+          {(analysisTarget || analysis) && (
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
+              {analysisTarget && (
+                <AnalysisProgressCard
+                  jobId={analysisTarget.jobId ?? analysisTarget.id}
+                  status={jobStatus}
+                  isLoading={isAnalysisLoading}
+                  analysisVersion={analysis?.analysisVersion}
+                  error={analysisError || selectedShot?.errorMessage || null}
+                  progress={analysis?.progress ?? analysisTarget.analysis?.progress ?? null}
+                  compact
+                />
+              )}
+              <KeyMetrics analysis={analysis} status={jobStatus} />
+            </div>
+          )}
+
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
+            <div className="space-y-3">
+              <CoachSummary
+                summary={
+                  analysis?.summary
+                    ? analysis.summary
+                    : jobStatus === "queued" || jobStatus === "running"
+                    ? "분석 중입니다. 잠시만 기다려 주세요."
+                    : "데이터가 부족합니다."
+                }
+                comments={analysis?.coachSummary ?? []}
+                findings={analysis?.coachFindings ?? []}
+              />
+
+              <details className="group rounded-2xl border border-border bg-card shadow-sm">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">상세 지표 / 디버그</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      템포, 이벤트 타이밍, 트래킹 품질 등 세부 항목은 필요할 때만 펼칩니다.
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                    <span className="group-open:hidden">펼치기</span>
+                    <span className="hidden group-open:inline">접기</span>
+                  </span>
+                </summary>
+                <div className="border-t border-border p-2 sm:p-3">
+                  <MetricsTable
+                    analysis={analysis}
+                    status={jobStatus}
+                    onOpenVideo={analysisTarget ? () => setShowVideoModal(true) : undefined}
+                  />
+                </div>
+              </details>
             </div>
 
-            <AnalysisPlayer
-              videoUrl={selectedVideoUrl}
-              events={analysis?.events}
-              isModalOpen={showVideoModal}
-            />
+            <div className="order-first xl:order-none xl:sticky xl:top-4">
+              <AnalysisPlayer
+                videoUrl={selectedVideoUrl}
+                events={analysis?.events}
+                isModalOpen={showVideoModal}
+              />
+            </div>
           </div>
-
-          <MetricsTable
-            analysis={analysis}
-            status={jobStatus}
-            onOpenVideo={analysisTarget ? () => setShowVideoModal(true) : undefined}
-          />
         </div>
       )}
 

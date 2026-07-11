@@ -10,6 +10,18 @@ cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
 npm run coach:new-runtime-verification -- --job-id <job-id> --shot-id <shot-id> --tester <name>
 ```
 
+The generator refuses to overwrite an existing verification file. Add `--force`
+only when replacing an intentionally discarded record.
+
+Do not reuse a job id for a new acceptance run. A repeated job id should fail
+without `--force`; this keeps runtime evidence append-only by default.
+
+After filling the generated record, validate it with:
+
+```bash
+npm run coach:check-runtime-verification -- docs/runtime-verifications/<date>-<job-id>.md
+```
+
 ## Sample
 
 - Date:
@@ -73,9 +85,14 @@ Required checks:
 - `coachFindings` is an object array.
 - First finding has `key`, `priority`, `confidence`, `evidence`, `action`,
   `drill`, `checkpoint`, `caution`, and `theory`.
+- At most one displayed finding uses `priority: "1순위 패턴"`.
+- If `pattern_stuck_inside_release` appears, the action tells the player to
+  bring the grip/clubhead through the space in front of the right thigh rather
+  than sending the club farther inside.
 - Low-confidence/caution finding appears as reference guidance, not absolute
   diagnosis.
-- No slice/hook/face claim is made without ball tracking.
+- No slice, hook, push, pull, or face-angle claim is made without ball tracking
+  and launch-direction evidence.
 
 ## UI Evidence
 
@@ -84,6 +101,8 @@ Required checks:
 - `판정 근거` expands and matches `theory`:
 - `드릴` expands and matches `drill`:
 - `체크 포인트` expands and matches `checkpoint`:
+- `바로 할 일` shows the first finding's correction, drill, and checkpoint when
+  those fields are present:
 - Detailed metrics remain available but not overwhelming:
 
 ## Coaching Review

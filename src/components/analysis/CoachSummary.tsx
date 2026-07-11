@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { CoachFinding } from "@/types/shots";
 
 type CoachSummaryProps = {
+  summary?: string | null;
   comments?: string[];
   findings?: CoachFinding[];
 };
@@ -23,6 +24,7 @@ type ParsedComment = {
 type CoachSummaryItem = {
   key?: string;
   parsed: ParsedComment;
+  action: string | null;
   caution: string | null;
   theory: string | null;
   confidence: number | null;
@@ -72,12 +74,12 @@ function parseComment(comment: string): ParsedComment {
 }
 
 function commentFromFinding(finding: CoachFinding): ParsedComment {
-  const main = [finding.evidence, finding.interpretation, finding.action]
+  const main = [finding.evidence, finding.interpretation]
     .filter(Boolean)
     .join(" ");
   return {
     priority: finding.priority ?? null,
-    main: main || finding.key || "코칭 항목",
+    main: main || finding.action || finding.key || "코칭 항목",
     drill: finding.drill ?? null,
     checkpoint: finding.checkpoint ?? finding.caution ?? null,
   };
@@ -124,12 +126,12 @@ function CoachSummaryList({
 }) {
   return (
     <ol className={cn(compact ? "space-y-2" : "space-y-3")}>
-      {items.map(({ key, parsed, caution, theory, confidence, severity }, idx) => {
+      {items.map(({ key, parsed, action, caution, theory, confidence, severity }, idx) => {
         const itemIndex = startIndex + idx;
         const confidenceText = confidenceLabel(confidence);
         const severityText = severity ? SEVERITY_LABELS[severity] ?? severity : null;
         const notice = lowConfidenceNotice(confidence, caution);
-        const hasDetails = parsed.drill || parsed.checkpoint || caution || notice;
+        const hasDetails = action || parsed.drill || parsed.checkpoint || caution || notice;
         const summaryText = compact ? compactText(parsed.main, 72) : compactText(parsed.main);
         const referenceSignal = isReferenceSignal(confidence, caution);
         return (
@@ -194,6 +196,12 @@ function CoachSummaryList({
               </summary>
               <div className="border-t px-3 pb-3 pt-2">
                 <p className="text-sm leading-6 text-foreground">{parsed.main}</p>
+                {action ? (
+                  <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                    <p className="text-xs font-semibold text-emerald-900">수정 방향</p>
+                    <p className="mt-1 text-sm leading-6 text-emerald-950">{action}</p>
+                  </div>
+                ) : null}
                 {theory ? (
                   <div className="mt-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
                     <p className="text-xs font-semibold text-muted-foreground">판정 근거</p>
@@ -227,11 +235,65 @@ function CoachSummaryList({
   );
 }
 
-export function CoachSummary({ comments, findings }: CoachSummaryProps) {
+function PrimaryPracticePlan({ item }: { item: CoachSummaryItem }) {
+  const steps = [
+    { label: "수정", value: item.action },
+    { label: "드릴", value: item.parsed.drill },
+    { label: "체크", value: item.parsed.checkpoint },
+  ].filter((step): step is { label: string; value: string } => Boolean(step.value));
+
+  if (steps.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-emerald-900">바로 할 일</p>
+        {item.parsed.priority ? (
+          <span className="rounded-full border border-emerald-200 bg-white/70 px-2.5 py-1 text-[11px] font-semibold text-emerald-900">
+            {item.parsed.priority}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 grid gap-2 lg:grid-cols-3">
+        {steps.map((step, index) => (
+          <div key={step.label} className="rounded-xl border border-emerald-200 bg-white/70 px-3 py-2">
+            <p className="text-[11px] font-semibold text-emerald-800">
+              {index + 1}. {step.label}
+            </p>
+            <p className="mt-1 text-sm leading-5 text-emerald-950">{step.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PrimaryEvidenceDetails({ item }: { item: CoachSummaryItem }) {
+  return (
+    <details className="group rounded-2xl border border-border bg-muted/20">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">판정 근거 보기</p>
+          <p className="truncate text-xs text-muted-foreground">{compactText(item.parsed.main, 80)}</p>
+        </div>
+        <span className="shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+          <span className="group-open:hidden">펼치기</span>
+          <span className="hidden group-open:inline">접기</span>
+        </span>
+      </summary>
+      <div className="border-t px-3 pb-3 pt-3">
+        <CoachSummaryList items={[item]} compact />
+      </div>
+    </details>
+  );
+}
+
+export function CoachSummary({ summary, comments, findings }: CoachSummaryProps) {
   const structured: CoachSummaryItem[] = findings?.length
     ? findings.map((finding) => ({
         key: finding.key ?? undefined,
         parsed: commentFromFinding(finding),
+        action: finding.action ?? null,
         caution: finding.caution ?? null,
         theory: finding.theory ?? null,
         confidence: typeof finding.confidence === "number" ? finding.confidence : null,
@@ -241,6 +303,7 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
   const fallback: CoachSummaryItem[] = structured.length > 0 ? [] : (comments ?? []).map((comment) => ({
     key: undefined,
     parsed: parseComment(comment),
+    action: null,
     caution: null,
     theory: null,
     confidence: null,
@@ -251,16 +314,22 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
   const extraItems = list.slice(1);
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg">코치 코멘트</CardTitle>
-        <CardDescription>가장 중요한 1개만 먼저 보고, 나머지는 압축 리스트에서 펼칩니다.</CardDescription>
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-lg">코치 액션</CardTitle>
+        <CardDescription>요약과 가장 중요한 수정 포인트를 먼저 표시합니다.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0">
         {list.length === 0 ? (
-          <p className="text-sm text-muted-foreground">코멘트가 없습니다.</p>
+          <p className="text-sm text-muted-foreground">{summary || "코멘트가 없습니다."}</p>
         ) : (
           <div className="space-y-3">
-            <CoachSummaryList items={primaryItem} />
+            {summary ? (
+              <p className="rounded-xl border border-border bg-muted/35 px-3 py-2 text-sm leading-6 text-muted-foreground">
+                {summary}
+              </p>
+            ) : null}
+            {primaryItem[0] ? <PrimaryPracticePlan item={primaryItem[0]} /> : null}
+            {primaryItem[0] ? <PrimaryEvidenceDetails item={primaryItem[0]} /> : null}
             {extraItems.length > 0 ? (
               <details className="group rounded-2xl border border-dashed bg-muted/20">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">

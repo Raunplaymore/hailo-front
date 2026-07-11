@@ -15,6 +15,7 @@ type AnalysisProgressCardProps = {
   analysisVersion?: string | null;
   error?: string | null;
   progress?: AnalysisProgress | null;
+  compact?: boolean;
 };
 
 type ProgressStep = {
@@ -419,12 +420,15 @@ export function AnalysisProgressCard(props: AnalysisProgressCardProps) {
 
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className={cn("pb-2", props.compact && "sr-only")}>
         <CardTitle className="text-lg">분석 진행 상태</CardTitle>
         <CardDescription>업로드 이후 현재 어느 단계인지 표시합니다.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="rounded-xl border border-border bg-muted/35 px-3 py-3">
+      <CardContent className={cn("space-y-4", props.compact && "space-y-2 p-3")}>
+        <div className={cn("rounded-xl border border-border bg-muted/35 px-3 py-3", props.compact && "py-2")}>
+          {props.compact ? (
+            <p className="text-xs font-semibold text-muted-foreground">분석 진행 상태</p>
+          ) : null}
           <p className="text-sm font-medium text-foreground">{stageMessage}</p>
           {props.jobId ? <JobIdLine jobId={props.jobId} /> : null}
         </div>

@@ -2,11 +2,32 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile("src/components/analysis/CoachSummary.tsx", "utf8");
+const appSource = await readFile("src/App.tsx", "utf8");
+const playerSource = await readFile("src/components/analysis/AnalysisPlayer.tsx", "utf8");
 
 assert.match(source, /function isReferenceSignal\(/, "CoachSummary must centralize reference-signal logic.");
 assert.match(source, /Boolean\(caution\)/, "Reference badge must be shown when a finding has caution text.");
 assert.match(source, /confidence\s*!==\s*null\s*&&\s*confidence\s*<\s*0\.35/, "Reference badge must be shown for low-confidence findings.");
 assert.match(source, />\s*참고용\s*</, "CoachSummary must render the visible reference badge label.");
 assert.match(source, /referenceSignal\s*\?/, "CoachSummary must conditionally render the reference badge.");
+assert.match(source, /function PrimaryPracticePlan\(/, "CoachSummary must render a compact practice plan for the primary finding.");
+assert.match(source, /바로 할 일/, "CoachSummary must label the primary actionable practice plan.");
+assert.match(source, /function PrimaryEvidenceDetails\(/, "CoachSummary must collapse primary evidence separately from the action plan.");
+assert.match(source, /판정 근거 보기/, "CoachSummary must hide detailed evidence behind a compact disclosure.");
+assert.match(source, /finding\.action/, "Structured coach finding action must be preserved separately from evidence text.");
+assert.match(source, /수정 방향/, "CoachSummary must show the correction direction separately in expanded details.");
+assert.match(source, /summary\?: string \| null/, "CoachSummary must accept the analysis summary to avoid a duplicate summary card.");
+assert.match(source, /코치 액션/, "CoachSummary should focus the compact panel on actionable coaching.");
+
+assert.match(appSource, /상세 지표 \/ 디버그/, "Analysis screen must group detailed metrics under a compact disclosure.");
+assert.match(appSource, /<details className="group rounded-2xl border border-border bg-card shadow-sm">/, "Detailed metrics must be collapsed by default.");
+assert.match(appSource, /compact\s*\n\s*\/>/, "Analysis progress should use compact mode on the analysis screen.");
+assert.doesNotMatch(appSource, /<CardTitle className="text-lg">코칭 요약<\/CardTitle>/, "Analysis summary must not render as a separate duplicate card.");
+assert.match(appSource, /xl:sticky xl:top-4/, "Analysis video should remain sticky on wide screens to reduce scrolling.");
+assert.match(appSource, /order-first xl:order-none/, "Analysis video should appear before long details on mobile layouts.");
+assert.match(playerSource, /max-h-\[36vh\]/, "Analysis video height must be compact on default layouts.");
+assert.match(playerSource, /md:max-h-\[44vh\]/, "Analysis video height must stay compact on medium layouts.");
+assert.match(playerSource, /xl:max-h-\[52vh\]/, "Analysis video height must stay viewport-limited on wide layouts.");
+assert.match(playerSource, /overflow-x-auto/, "Analysis timeline should scroll horizontally instead of extending vertical height.");
 
 console.log("coach summary UI check passed");

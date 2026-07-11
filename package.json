@@ -11,6 +11,7 @@
     "check:coach-release": "node scripts/check-coach-release.mjs",
     "coach:release-summary": "node scripts/coach-release-summary.mjs",
     "coach:new-runtime-verification": "node scripts/new-coach-runtime-verification.mjs",
+    "coach:check-runtime-verification": "node scripts/check-coach-runtime-verification.mjs",
     "preview": "vite preview",
     "start": "node server.js"
   },

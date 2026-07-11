@@ -94,6 +94,20 @@ try {
         caution: "트래킹 품질이 낮아 반복 촬영에서 같은 패턴인지 확인하세요.",
         theory: "전환-릴리스 패턴: 빠른 전환, 낮은 샤프트, 임팩트 불안정의 조합을 우선 교정합니다.",
       },
+      {
+        key: "pattern_stuck_inside_release",
+        category: "pattern",
+        severity: "high",
+        confidence: 0.55,
+        priority: "1순위 패턴",
+        evidence: "낮은 샤프트, inside-out 경로, 임팩트 불안정이 함께 나타납니다.",
+        interpretation: "클럽이 몸 뒤에 남아 안쪽에서 늦게 들어오면 방향 편차가 커질 수 있습니다.",
+        action: "그립과 클럽헤드가 오른쪽 허벅지 앞 공간을 지나가게 만드세요.",
+        drill: "허리 높이 펌프 드릴",
+        checkpoint: "손과 클럽헤드가 몸 앞 공간에 보이는지 확인",
+        caution: "공/페이스 데이터가 없어 반복 확인용 참고 신호입니다.",
+        theory: "인사이드-스턱 릴리스 패턴: 낮은 샤프트와 inside-out 경로, 임팩트 흔들림이 같이 보일 때 클럽이 몸 뒤에 남는 보상을 봅니다.",
+      },
     ],
     confidence: 0.12,
     progress: {
@@ -121,6 +135,11 @@ try {
   assert.equal(normalized.coachFindings?.[0]?.confidence, 0.36);
   assert.match(normalized.coachFindings?.[0]?.caution ?? "", /트래킹 품질/);
   assert.match(normalized.coachFindings?.[0]?.theory ?? "", /전환-릴리스 패턴/);
+  assert.equal(normalized.coachFindings?.[1]?.key, "pattern_stuck_inside_release");
+  assert.match(normalized.coachFindings?.[1]?.action ?? "", /오른쪽 허벅지 앞 공간/);
+  assert.equal(normalized.coachFindings?.[1]?.drill, "허리 높이 펌프 드릴");
+  assert.match(normalized.coachFindings?.[1]?.checkpoint ?? "", /몸 앞 공간/);
+  assert.match(normalized.coachFindings?.[1]?.theory ?? "", /인사이드-스턱 릴리스 패턴/);
   assert.equal(normalized.progress?.stage, "fusion_succeeded");
 
   console.log("analysis normalization check passed");

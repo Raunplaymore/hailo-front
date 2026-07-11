@@ -36,3 +36,9 @@ for (const [name, cwd] of repos) {
   console.log(commits || "no ahead commits");
   console.log("");
 }
+
+console.log("Push commands after `npm run check:coach-release` passes:\n");
+for (const [name, cwd] of repos) {
+  console.log(`# ${name}`);
+  console.log(`git -C ${cwd} push`);
+}

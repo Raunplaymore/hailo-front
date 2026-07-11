@@ -24,6 +24,9 @@ npm run coach:release-summary
 npm run check:coach-release
 ```
 
+If both commands look correct, push using the commands printed by
+`coach:release-summary`.
+
 The command above runs the repo-specific gates below:
 
 ```bash

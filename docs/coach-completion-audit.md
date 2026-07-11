@@ -55,9 +55,11 @@ The goal is not complete until these are true in the deployed runtime:
 - The user-facing comment is reviewed against the actual debug impact frame and
   judged directionally correct.
 
+Use `docs/coach-runtime-verification-template.md` to record the runtime evidence
+for each accepted sample.
+
 ## Completion Rule
 
 Do not mark the objective complete from local tests alone. Local checks prove the
 implementation and contracts; deployed runtime analysis proves the end-to-end
 product behavior.
-

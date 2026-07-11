@@ -1,14 +1,37 @@
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = resolve(root, "..");
+const repos = {
+  hailoInfer: resolve(workspace, "hailo-infer"),
+  piService: resolve(workspace, "pi_service"),
+  piWeb: root,
+};
+
+const requiredPaths = [
+  resolve(repos.hailoInfer, "app/services/coach_commentary.py"),
+  resolve(repos.hailoInfer, "scripts/check_coach_commentary.py"),
+  resolve(repos.hailoInfer, "scripts/preview_coach_findings.py"),
+  resolve(repos.piService, "server.js"),
+  resolve(repos.piService, "scripts/check-coach-findings-passthrough.mjs"),
+  resolve(repos.piWeb, "scripts/check-analysis-normalization.mjs"),
+  resolve(repos.piWeb, "scripts/check-coach-summary-ui.mjs"),
+];
+
+for (const path of requiredPaths) {
+  if (!existsSync(path)) {
+    console.error(`Missing required coach release path: ${path}`);
+    process.exit(1);
+  }
+}
 
 const commands = [
   {
     name: "hailo-infer py_compile",
-    cwd: resolve(workspace, "hailo-infer"),
+    cwd: repos.hailoInfer,
     command: "python3",
     args: [
       "-m",
@@ -21,14 +44,14 @@ const commands = [
   },
   {
     name: "hailo-infer coach commentary",
-    cwd: resolve(workspace, "hailo-infer"),
+    cwd: repos.hailoInfer,
     command: "python3",
     args: ["scripts/check_coach_commentary.py"],
     env: { PYTHONDONTWRITEBYTECODE: "1" },
   },
   {
     name: "hailo-infer coach preview",
-    cwd: resolve(workspace, "hailo-infer"),
+    cwd: repos.hailoInfer,
     command: "python3",
     args: ["scripts/preview_coach_findings.py", "low_tracking_late_release", "--json"],
     env: { PYTHONDONTWRITEBYTECODE: "1" },
@@ -47,25 +70,25 @@ const commands = [
   },
   {
     name: "pi_service check",
-    cwd: resolve(workspace, "pi_service"),
+    cwd: repos.piService,
     command: "npm",
     args: ["run", "check"],
   },
   {
     name: "pi_web analysis normalization",
-    cwd: root,
+    cwd: repos.piWeb,
     command: "npm",
     args: ["run", "check:analysis"],
   },
   {
     name: "pi_web coach UI",
-    cwd: root,
+    cwd: repos.piWeb,
     command: "npm",
     args: ["run", "check:coach-ui"],
   },
   {
     name: "pi_web build",
-    cwd: root,
+    cwd: repos.piWeb,
     command: "npm",
     args: ["run", "build"],
   },

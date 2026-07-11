@@ -135,6 +135,7 @@ export type CoachFinding = {
   drill?: string | null;
   checkpoint?: string | null;
   caution?: string | null;
+  theory?: string | null;
 };
 
 export type Shot = {

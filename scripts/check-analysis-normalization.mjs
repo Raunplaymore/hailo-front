@@ -92,6 +92,7 @@ try {
         drill: "하프스윙 펌프 드릴 5회 후 실제 스윙 1회",
         checkpoint: "임팩트 직전 손과 클럽헤드가 공 앞에서 같이 지나가는지 확인",
         caution: "트래킹 품질이 낮아 반복 촬영에서 같은 패턴인지 확인하세요.",
+        theory: "전환-릴리스 패턴: 빠른 전환, 낮은 샤프트, 임팩트 불안정의 조합을 우선 교정합니다.",
       },
     ],
     confidence: 0.12,
@@ -117,6 +118,7 @@ try {
   assert.equal(normalized.metrics.fusion?.transitionTiming?.ratio, 2.01);
   assert.equal(normalized.coachFindings?.[0]?.key, "pattern_late_club_release");
   assert.equal(normalized.coachFindings?.[0]?.priority, "1순위 패턴");
+  assert.match(normalized.coachFindings?.[0]?.theory ?? "", /전환-릴리스 패턴/);
   assert.equal(normalized.progress?.stage, "fusion_succeeded");
 
   console.log("analysis normalization check passed");

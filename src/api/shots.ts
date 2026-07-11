@@ -431,6 +431,7 @@ const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefine
       drill: typeof item.drill === "string" ? item.drill : null,
       checkpoint: typeof item.checkpoint === "string" ? item.checkpoint : null,
       caution: typeof item.caution === "string" ? item.caution : null,
+      theory: typeof item.theory === "string" ? item.theory : null,
     }));
   return findings.length > 0 ? findings : undefined;
 };

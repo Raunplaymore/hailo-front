@@ -24,6 +24,7 @@ type CoachSummaryItem = {
   key?: string;
   parsed: ParsedComment;
   caution: string | null;
+  theory: string | null;
   confidence: number | null;
   severity: string | null;
 };
@@ -117,7 +118,7 @@ function CoachSummaryList({
 }) {
   return (
     <ol className="space-y-3">
-      {items.map(({ key, parsed, caution, confidence, severity }, idx) => {
+      {items.map(({ key, parsed, caution, theory, confidence, severity }, idx) => {
         const itemIndex = startIndex + idx;
         const confidenceText = confidenceLabel(confidence);
         const severityText = severity ? SEVERITY_LABELS[severity] ?? severity : null;
@@ -173,6 +174,12 @@ function CoachSummaryList({
               </summary>
               <div className="border-t px-3 pb-3 pt-2">
                 <p className="text-sm leading-6 text-foreground">{parsed.main}</p>
+                {theory ? (
+                  <div className="mt-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
+                    <p className="text-xs font-semibold text-muted-foreground">판정 근거</p>
+                    <p className="mt-1 text-sm leading-6 text-foreground">{theory}</p>
+                  </div>
+                ) : null}
                 {parsed.drill ? (
                   <div className="mt-2 rounded-xl bg-muted/60 px-3 py-2">
                     <p className="text-xs font-semibold text-muted-foreground">드릴</p>
@@ -206,6 +213,7 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
         key: finding.key ?? undefined,
         parsed: commentFromFinding(finding),
         caution: finding.caution ?? null,
+        theory: finding.theory ?? null,
         confidence: typeof finding.confidence === "number" ? finding.confidence : null,
         severity: finding.severity ?? null,
       }))
@@ -214,6 +222,7 @@ export function CoachSummary({ comments, findings }: CoachSummaryProps) {
     key: undefined,
     parsed: parseComment(comment),
     caution: null,
+    theory: null,
     confidence: null,
     severity: null,
   }));

@@ -118,6 +118,8 @@ try {
   assert.equal(normalized.metrics.fusion?.transitionTiming?.ratio, 2.01);
   assert.equal(normalized.coachFindings?.[0]?.key, "pattern_late_club_release");
   assert.equal(normalized.coachFindings?.[0]?.priority, "1순위 패턴");
+  assert.equal(normalized.coachFindings?.[0]?.confidence, 0.36);
+  assert.match(normalized.coachFindings?.[0]?.caution ?? "", /트래킹 품질/);
   assert.match(normalized.coachFindings?.[0]?.theory ?? "", /전환-릴리스 패턴/);
   assert.equal(normalized.progress?.stage, "fusion_succeeded");
 

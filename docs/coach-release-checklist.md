@@ -19,6 +19,13 @@ The coach feature spans three repositories:
 Run these before any push:
 
 ```bash
+cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
+npm run check:coach-release
+```
+
+The command above runs the repo-specific gates below:
+
+```bash
 cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/hailo-infer
 PYTHONPYCACHEPREFIX=/tmp/hailo_pycache python3 -m py_compile app/services/coach_commentary.py scripts/check_coach_commentary.py scripts/preview_coach_findings.py
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/check_coach_commentary.py
@@ -69,4 +76,3 @@ After GitHub Actions completes:
    - no slice/hook/face diagnosis when ball tracking is missing.
 4. Compare the displayed impact timing and confidence with the debug frame view
    before treating the result as accepted.
-

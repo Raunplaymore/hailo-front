@@ -95,6 +95,10 @@ function confidenceClass(confidence: number | null): string {
   return "border-emerald-200 bg-emerald-50 text-emerald-900";
 }
 
+function isReferenceSignal(confidence: number | null, caution: string | null): boolean {
+  return Boolean(caution) || (confidence !== null && confidence < 0.35);
+}
+
 function lowConfidenceNotice(confidence: number | null, caution: string | null): string | null {
   if (caution) return null;
   if (confidence !== null && confidence < 0.35) {
@@ -127,6 +131,7 @@ function CoachSummaryList({
         const notice = lowConfidenceNotice(confidence, caution);
         const hasDetails = parsed.drill || parsed.checkpoint || caution || notice;
         const summaryText = compact ? compactText(parsed.main, 72) : compactText(parsed.main);
+        const referenceSignal = isReferenceSignal(confidence, caution);
         return (
           <li key={`${itemIndex}-${key ?? parsed.main}`}>
             <details
@@ -171,6 +176,11 @@ function CoachSummaryList({
                       )}
                     >
                       {confidenceText}
+                    </span>
+                  ) : null}
+                  {referenceSignal ? (
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                      참고용
                     </span>
                   ) : null}
                   {hasDetails ? (

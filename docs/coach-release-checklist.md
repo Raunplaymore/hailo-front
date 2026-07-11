@@ -20,6 +20,7 @@ Run these before any push:
 
 ```bash
 cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
+npm run coach:release-summary
 npm run check:coach-release
 ```
 

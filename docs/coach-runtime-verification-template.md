@@ -3,6 +3,13 @@
 Copy this template for each post-deploy sample that is used to accept the coach
 commentary release.
 
+Create a sample verification file with:
+
+```bash
+cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
+npm run coach:new-runtime-verification -- --job-id <job-id> --shot-id <shot-id> --tester <name>
+```
+
 ## Sample
 
 - Date:
@@ -87,4 +94,3 @@ Required checks:
 - Is the caution appropriate for the tracking quality?
 - Accept / reject:
 - Follow-up change if rejected:
-

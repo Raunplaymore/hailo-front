@@ -31,6 +31,9 @@ jobs:
       - name: Check coach analysis normalization
         run: npm run check:analysis
 
+      - name: Check coach summary UI
+        run: npm run check:coach-ui
+
       - name: Build frontend
         run: npm run build
 

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "check:analysis": "node scripts/check-analysis-normalization.mjs",
+    "check:coach-ui": "node scripts/check-coach-summary-ui.mjs",
     "preview": "vite preview",
     "start": "node server.js"
   },

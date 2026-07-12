@@ -83,6 +83,7 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
               key={videoUrl}
               className={cn("block w-full max-h-[36vh] object-contain transition md:max-h-[44vh] xl:max-h-[52vh]", isModalOpen ? "pointer-events-none opacity-0" : "opacity-100")}
               controls
+              playsInline
               preload="metadata"
               src={videoUrl}
               aria-hidden={isModalOpen}
@@ -92,6 +93,17 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
               브라우저에서 video 태그를 지원하지 않습니다.
             </video>
             {overlay ? <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={timeMs} layers={layers} /> : null}
+            {overlay ? (
+              <details className="absolute right-2 top-2 z-10">
+                <summary className="cursor-pointer list-none rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs font-semibold text-white backdrop-blur [&::-webkit-details-marker]:hidden">레이어</summary>
+                <div className="mt-1 grid gap-1 rounded-lg border border-white/15 bg-black/80 p-1.5 backdrop-blur">
+                  {([['pose', '자세'], ['hands', '손'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => (
+                    <button key={key} type="button" aria-pressed={layers[key]} onClick={() => setLayers((current) => ({ ...current, [key]: !current[key] }))}
+                      className={cn("min-h-9 rounded-md px-2 text-left text-xs font-semibold", layers[key] ? "bg-primary text-primary-foreground" : "text-white/75")}>{label}</button>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
@@ -99,20 +111,9 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
           </div>
         )}
 
-        {overlay ? (
-          <div className="flex flex-wrap gap-2" aria-label="분석 오버레이">
-            {([['pose', '자세'], ['hands', '손 경로'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => (
-              <button key={key} type="button" aria-pressed={layers[key]} onClick={() => setLayers((current) => ({ ...current, [key]: !current[key] }))}
-                className={cn("min-h-10 rounded-lg border px-3 text-xs font-semibold transition", layers[key] ? "border-primary/40 bg-primary/15 text-primary" : "border-border bg-muted/40 text-muted-foreground")}>
-                {label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인</p>
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
+          <div className="grid grid-cols-2 gap-2 overflow-x-auto">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
               const event = events?.[key];
               const disabled = !event;
@@ -123,7 +124,7 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
                   onClick={() => handleSeek(key)}
                   disabled={disabled}
                   className={cn(
-                    "min-h-16 min-w-0 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition sm:min-w-[104px]",
+                    "min-h-16 min-w-0 w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
                     disabled
                       ? "cursor-not-allowed border-border bg-muted/60 text-muted-foreground"
                       : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"

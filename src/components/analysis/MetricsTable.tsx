@@ -107,6 +107,39 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
     );
   }
 
+  if (analysis?.eventValidation?.status === "withheld") {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg">상세 지표 보류</CardTitle>
+              <CardDescription className="break-words text-xs text-muted-foreground">
+                클럽 추적과 pose 이벤트가 일치하지 않아 이벤트 기반 수치를 표시하지 않습니다.
+              </CardDescription>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusBadge status={currentStatus} />
+              {onOpenVideo && (
+                <Button type="button" onClick={onOpenVideo} variant="outline" size="sm" fullWidth={false}>
+                  영상 크게 보기
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+            <p className="font-semibold">재촬영이 필요합니다</p>
+            <p className="mt-1 text-xs leading-5 text-amber-100/80">
+              {analysis.eventValidation.message ?? "클럽 헤드가 임팩트 전후에 선명하게 보이도록, 스윙 전체를 화면에 담아 다시 촬영해 주세요."}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const tempo = analysis?.metrics.tempo;
   const eventTiming = analysis?.metrics.eventTiming;
   const ball = analysis?.metrics.ball;

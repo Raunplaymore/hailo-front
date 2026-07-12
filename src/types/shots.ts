@@ -114,6 +114,7 @@ export type AnalysisOverlay = {
   poseFrames: OverlayPoseFrame[];
   clubFrames: OverlayClubFrame[];
 };
+export type EventValidation = { status: "usable" | "withheld"; codes?: string[]; message?: string | null };
 
 export type AnalysisResult = {
   jobId: string;
@@ -130,6 +131,7 @@ export type AnalysisResult = {
   coachFindings?: CoachFinding[];
   confidence?: number | null;
   overlay?: AnalysisOverlay | null;
+  eventValidation?: EventValidation | null;
   progress?: AnalysisProgress | null;
 };
 

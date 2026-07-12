@@ -524,6 +524,9 @@ export const normalizeAnalysis = (
   );
   const confidence = toOptionalNumber(raw?.confidence ?? metricsBlock?.confidence);
   const overlay = normalizeOverlay(raw?.overlay ?? metricsBlock?.overlay);
+  const eventValidation = raw?.eventValidation && typeof raw.eventValidation === "object"
+    ? { status: raw.eventValidation.status === "withheld" ? "withheld" : "usable", codes: Array.isArray(raw.eventValidation.codes) ? raw.eventValidation.codes.map(String) : [], message: typeof raw.eventValidation.message === "string" ? raw.eventValidation.message : null }
+    : null;
   const rawProgress = raw?.progress ?? metricsBlock?.progress;
   const progress: AnalysisProgress | null =
     rawProgress && typeof rawProgress === "object"
@@ -584,6 +587,7 @@ export const normalizeAnalysis = (
     coachFindings,
     confidence,
     overlay,
+    eventValidation,
     progress,
   };
 };

@@ -6,6 +6,8 @@ const appSource = await readFile("src/App.tsx", "utf8");
 const playerSource = await readFile("src/components/analysis/AnalysisPlayer.tsx", "utf8");
 const sessionSource = await readFile("src/components/camera/SessionControls.tsx", "utf8");
 const connectionSource = await readFile("src/components/camera/FieldConnectionPanel.tsx", "utf8");
+const shotListSource = await readFile("src/components/shots/ShotList.tsx", "utf8");
+const sessionListSource = await readFile("src/components/sessions/SessionList.tsx", "utf8");
 
 assert.match(source, /function isReferenceSignal\(/, "CoachSummary must centralize reference-signal logic.");
 assert.match(source, /Boolean\(caution\)/, "Reference badge must be shown when a finding has caution text.");
@@ -27,13 +29,19 @@ assert.match(appSource, /compact\s*\n\s*\/>/, "Analysis progress should use comp
 assert.doesNotMatch(appSource, /<CardTitle className="text-lg">코칭 요약<\/CardTitle>/, "Analysis summary must not render as a separate duplicate card.");
 assert.match(appSource, /xl:sticky xl:top-4/, "Analysis video should remain sticky on wide screens to reduce scrolling.");
 assert.match(appSource, /order-first xl:order-none/, "Analysis video should appear before long details on mobile layouts.");
-assert.match(playerSource, /max-h-\[36vh\]/, "Analysis video height must be compact on default layouts.");
-assert.match(playerSource, /md:max-h-\[44vh\]/, "Analysis video height must stay compact on medium layouts.");
+assert.match(playerSource, /max-h-\[46vh\]/, "Analysis video must remain useful on a narrow portrait screen.");
+assert.match(playerSource, /md:max-h-\[50vh\]/, "Analysis video height must stay viewport-limited on medium layouts.");
 assert.match(playerSource, /xl:max-h-\[52vh\]/, "Analysis video height must stay viewport-limited on wide layouts.");
+assert.match(playerSource, /video\.videoWidth \/ video\.videoHeight/, "Overlay bounds must use the source video's intrinsic aspect ratio.");
+assert.match(playerSource, /new ResizeObserver\(syncOverlayBounds\)/, "Overlay bounds must update when the player size changes.");
+assert.match(playerSource, /style=\{overlayBounds\}/, "Overlay must render only inside the object-contain video area.");
 assert.match(playerSource, /grid min-w-0 grid-cols-2 gap-2/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
 assert.doesNotMatch(sessionSource, /overflow-x-auto pb-1 whitespace-nowrap/, "Session progress must wrap instead of overflowing on mobile.");
 assert.match(sessionSource, /grid grid-cols-2 gap-2 sm:flex sm:flex-wrap/, "Session progress must use a two-column mobile layout.");
 assert.match(connectionSource, /flex flex-wrap items-start justify-between gap-3/, "Connection header must wrap its status badge on narrow screens.");
 assert.match(connectionSource, /min-w-0 overflow-hidden rounded-xl border p-3/, "Connection tiles must constrain long status text.");
+assert.match(shotListSource, /block break-all text-xs text-muted-foreground/, "Upload Job IDs must wrap inside a narrow lookup card.");
+assert.match(shotListSource, /\[overflow-wrap:anywhere\]/, "Upload filenames must wrap before expanding the lookup dialog.");
+assert.match(sessionListSource, /block break-all text-xs text-muted-foreground/, "Session Job IDs must wrap inside a narrow lookup card.");
 
 console.log("coach summary UI check passed");

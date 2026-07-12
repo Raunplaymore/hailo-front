@@ -67,8 +67,8 @@ export function ShotList({
   };
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3 pb-3">
+    <Card className="min-w-0 max-w-full">
+      <CardHeader className="flex-col items-stretch gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <CardTitle className="text-lg">{title}</CardTitle>
           <CardDescription className="break-words">
@@ -81,20 +81,20 @@ export function ShotList({
           variant="outline"
           size="sm"
           fullWidth={false}
-          className="shrink-0 rounded-lg"
+          className="self-start rounded-lg sm:shrink-0"
           disabled={isLoading}
         >
           {isLoading ? "새로고침 중..." : "새로고침"}
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
         {shots.length === 0 ? (
           <div className="rounded-xl border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
             {emptyMessage}
           </div>
         ) : (
-          <ul className="m-0 grid list-none gap-3 p-0">
+          <ul className="m-0 grid min-w-0 list-none gap-3 p-0">
             {shots.map((shot) => {
               const displayTitle = formatMediaTitle(shot.filename, shot.originalName);
               const effectiveStatus = (shot.analysis?.status ?? shot.status) as string | undefined;
@@ -109,21 +109,21 @@ export function ShotList({
               return (
                 <li
                   key={shot.id}
-                  className="flex w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
+                  className="flex w-full min-w-0 max-w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
                 >
                   <div className="min-w-0 space-y-1">
                     {onTitleClick ? (
                       <button
                         type="button"
                         onClick={() => onTitleClick(shot)}
-                        className="block w-full text-left text-sm font-semibold leading-5 text-sky-200 hover:underline"
+                        className="block w-full max-w-full break-words text-left text-sm font-semibold leading-5 text-sky-200 [overflow-wrap:anywhere] hover:underline"
                         style={TITLE_CLAMP_STYLE}
                       >
                         {displayTitle}
                       </button>
                     ) : (
                       <span
-                        className="block w-full text-sm font-semibold leading-5"
+                        className="block w-full max-w-full break-words text-sm font-semibold leading-5 [overflow-wrap:anywhere]"
                         style={TITLE_CLAMP_STYLE}
                       >
                         {displayTitle}
@@ -175,7 +175,7 @@ export function ShotList({
                       </p>
                     )}
                     {shot.jobId && (
-                      <span className="text-xs text-muted-foreground">Job ID: {shot.jobId}</span>
+                      <span className="block break-all text-xs text-muted-foreground">Job ID: {shot.jobId}</span>
                     )}
                   </div>
 

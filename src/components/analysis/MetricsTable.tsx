@@ -108,6 +108,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   }
 
   if (analysis?.eventValidation?.status === "withheld") {
+    const bodyMetrics = toMetricEntries(analysis.metrics.body);
     return (
       <Card>
         <CardHeader className="pb-2">
@@ -135,6 +136,15 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
               {analysis.eventValidation.message ?? "클럽 헤드가 임팩트 전후에 선명하게 보이도록, 스윙 전체를 화면에 담아 다시 촬영해 주세요."}
             </p>
           </div>
+          {bodyMetrics.length > 0 ? (
+            <div className="mt-3">
+              <MetricGroupSection
+                title="Body Metrics"
+                description="클럽 이벤트와 무관하게 확보된 pose 기반 전신 데이터"
+                metrics={bodyMetrics}
+              />
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     );

@@ -1319,7 +1319,7 @@ function MainApp() {
       onSettingsClick={() => setShowCameraSettingsLayer(true)}
     >
       {activeTab === "camera" && (
-        <section className="space-y-4" aria-label="카메라 촬영 화면">
+        <section className="min-w-0 space-y-4" aria-label="카메라 촬영 화면">
           <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-card/70 p-3 shadow-xl shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-emerald-200">Camera workflow</p>
@@ -1372,7 +1372,7 @@ function MainApp() {
               />
             </div>
 
-            <aside className="space-y-4">
+            <aside className="min-w-0 space-y-4">
               <SessionControls
                 embedded
                 state={sessionState}
@@ -1504,7 +1504,7 @@ function MainApp() {
       )}
 
       {activeTab === "analysis" && (
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="space-y-2">
             {isAnalysisLoading && <p className="text-sm text-muted-foreground">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-destructive">{analysisError}</p>}
@@ -1554,8 +1554,8 @@ function MainApp() {
             </div>
           )}
 
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
-            <div className="space-y-3">
+          <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
+            <div className="min-w-0 space-y-3">
               <CoachSummary
                 summary={
                   analysis?.summary
@@ -1591,7 +1591,7 @@ function MainApp() {
               </details>
             </div>
 
-            <div className="order-first xl:order-none xl:sticky xl:top-4">
+            <div className="order-first xl:order-none min-w-0 xl:sticky xl:top-4">
               <AnalysisPlayer
                 videoUrl={selectedVideoUrl}
                 events={analysis?.events}

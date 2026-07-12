@@ -192,32 +192,32 @@ function CoachSummaryList({
                     </span>
                   ) : null}
                 </div>
-                <p className={cn("break-words text-sm text-foreground", compact ? "leading-5" : "leading-6")}>{summaryText}</p>
+                <p className={cn("break-words [overflow-wrap:anywhere] text-sm text-foreground", compact ? "leading-5" : "leading-6")}>{summaryText}</p>
               </summary>
               <div className="border-t px-3 pb-3 pt-2">
-                <p className="text-sm leading-6 text-foreground">{parsed.main}</p>
+                <p className="break-words [overflow-wrap:anywhere] text-sm leading-6 text-foreground">{parsed.main}</p>
                 {action ? (
                   <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
                     <p className="text-xs font-semibold text-emerald-900">수정 방향</p>
-                    <p className="mt-1 text-sm leading-6 text-emerald-950">{action}</p>
+                    <p className="mt-1 break-words [overflow-wrap:anywhere] text-sm leading-6 text-emerald-950">{action}</p>
                   </div>
                 ) : null}
                 {theory ? (
                   <div className="mt-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
                     <p className="text-xs font-semibold text-muted-foreground">판정 근거</p>
-                    <p className="mt-1 text-sm leading-6 text-foreground">{theory}</p>
+                    <p className="mt-1 break-words [overflow-wrap:anywhere] text-sm leading-6 text-foreground">{theory}</p>
                   </div>
                 ) : null}
                 {parsed.drill ? (
                   <div className="mt-2 rounded-xl bg-muted/60 px-3 py-2">
                     <p className="text-xs font-semibold text-muted-foreground">드릴</p>
-                    <p className="mt-1 text-sm leading-6 text-foreground">{parsed.drill}</p>
+                    <p className="mt-1 break-words [overflow-wrap:anywhere] text-sm leading-6 text-foreground">{parsed.drill}</p>
                   </div>
                 ) : null}
                 {parsed.checkpoint ? (
                   <div className="mt-2 rounded-xl border border-dashed px-3 py-2">
                     <p className="text-xs font-semibold text-muted-foreground">체크 포인트</p>
-                    <p className="mt-1 text-sm leading-6 text-foreground">{parsed.checkpoint}</p>
+                    <p className="mt-1 break-words [overflow-wrap:anywhere] text-sm leading-6 text-foreground">{parsed.checkpoint}</p>
                   </div>
                 ) : null}
                 {caution && caution !== parsed.checkpoint ? (

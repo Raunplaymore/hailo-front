@@ -74,7 +74,14 @@
   select,
   textarea {
     font: inherit;
+    min-width: 0;
     touch-action: manipulation;
+  }
+
+  img,
+  video,
+  canvas {
+    max-width: 100%;
   }
 
   ::selection {

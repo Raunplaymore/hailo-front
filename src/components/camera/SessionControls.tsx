@@ -169,7 +169,7 @@ export function SessionControls({
           <p className="text-sm font-medium text-foreground">진행 상태</p>
           <span className="text-xs text-muted-foreground">{activeStep + 1} / {stepLabels.length}</span>
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 whitespace-nowrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {stepLabels.map((label, index) => {
             const isActive = index === activeStep;
             const isComplete = index < activeStep;
@@ -178,7 +178,7 @@ export function SessionControls({
               <div
                 key={label}
                 className={cn(
-                  "flex min-h-8 items-center justify-center rounded-full border px-3 text-xs font-semibold transition",
+                  "min-w-0 min-h-9 rounded-full border px-2.5 py-1 text-center text-xs font-semibold leading-4 transition sm:min-w-20",
                   isComplete && "border-emerald-300/30 bg-emerald-400/10 text-emerald-100",
                   isActive && !isFailed && "border-sky-300/30 bg-sky-400/10 text-sky-100",
                   isFailed && "border-red-300/30 bg-red-400/10 text-red-100",
@@ -287,7 +287,7 @@ export function SessionControls({
 
   if (embedded) {
     return (
-      <section className="rounded-2xl border border-white/10 bg-card/90 p-4 shadow-2xl shadow-black/20">
+      <section className="w-full min-w-0 max-w-full rounded-2xl border border-white/10 bg-card/90 p-4 shadow-2xl shadow-black/20">
         {header}
         {content}
       </section>

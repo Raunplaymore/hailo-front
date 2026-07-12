@@ -65,19 +65,19 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
   };
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader className="p-4 pb-2">
         <div className="flex items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <CardTitle className="text-lg">분석 영상</CardTitle>
             <CardDescription className="text-xs">DTL 단일 카메라 기준</CardDescription>
           </div>
-          <span className="text-xs text-muted-foreground">DTL 기준</span>
+          <span className="shrink-0 text-xs text-muted-foreground">DTL 기준</span>
         </div>
       </CardHeader>
       <CardContent className="space-y-2 p-4 pt-0">
         {videoUrl ? (
-          <div className="relative overflow-hidden rounded-xl border border-border bg-black">
+          <div className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-black">
             <video
               ref={videoRef}
               key={videoUrl}
@@ -113,7 +113,7 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
 
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인</p>
-          <div className="grid grid-cols-2 gap-2 overflow-x-auto">
+          <div className="grid min-w-0 grid-cols-2 gap-2">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
               const event = events?.[key];
               const disabled = !event;

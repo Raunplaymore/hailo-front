@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 const source = await readFile("src/components/analysis/CoachSummary.tsx", "utf8");
 const appSource = await readFile("src/App.tsx", "utf8");
 const playerSource = await readFile("src/components/analysis/AnalysisPlayer.tsx", "utf8");
+const sessionSource = await readFile("src/components/camera/SessionControls.tsx", "utf8");
+const connectionSource = await readFile("src/components/camera/FieldConnectionPanel.tsx", "utf8");
 
 assert.match(source, /function isReferenceSignal\(/, "CoachSummary must centralize reference-signal logic.");
 assert.match(source, /Boolean\(caution\)/, "Reference badge must be shown when a finding has caution text.");
@@ -28,6 +30,10 @@ assert.match(appSource, /order-first xl:order-none/, "Analysis video should appe
 assert.match(playerSource, /max-h-\[36vh\]/, "Analysis video height must be compact on default layouts.");
 assert.match(playerSource, /md:max-h-\[44vh\]/, "Analysis video height must stay compact on medium layouts.");
 assert.match(playerSource, /xl:max-h-\[52vh\]/, "Analysis video height must stay viewport-limited on wide layouts.");
-assert.match(playerSource, /overflow-x-auto/, "Analysis timeline should scroll horizontally instead of extending vertical height.");
+assert.match(playerSource, /grid min-w-0 grid-cols-2 gap-2/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
+assert.doesNotMatch(sessionSource, /overflow-x-auto pb-1 whitespace-nowrap/, "Session progress must wrap instead of overflowing on mobile.");
+assert.match(sessionSource, /grid grid-cols-2 gap-2 sm:flex sm:flex-wrap/, "Session progress must use a two-column mobile layout.");
+assert.match(connectionSource, /flex flex-wrap items-start justify-between gap-3/, "Connection header must wrap its status badge on narrow screens.");
+assert.match(connectionSource, /min-w-0 overflow-hidden rounded-xl border p-3/, "Connection tiles must constrain long status text.");
 
 console.log("coach summary UI check passed");

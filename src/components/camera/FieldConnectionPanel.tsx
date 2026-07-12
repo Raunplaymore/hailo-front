@@ -141,7 +141,7 @@ export function FieldConnectionPanel({
   return (
     <Card className="border-white/10 bg-card/80 shadow-2xl shadow-black/20">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
               Phone hotspot controller
@@ -195,7 +195,7 @@ export function FieldConnectionPanel({
           )}
         </div>
 
-        <dl className="grid grid-cols-2 gap-2 text-sm">
+        <dl className="grid min-w-0 grid-cols-2 gap-2 text-sm">
           <StatusTile
             icon={<Radio className="size-4" aria-hidden="true" />}
             label="Pi API"
@@ -259,7 +259,7 @@ function StatusPill({ label, tone, pulse = false }: { label: string; tone: Tone;
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
+        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold",
         TONE_CLASSES[tone]
       )}
     >
@@ -283,13 +283,13 @@ function StatusTile({
   tone: Tone;
 }) {
   return (
-    <div className={cn("rounded-xl border p-3", TONE_CLASSES[tone])}>
+    <div className={cn("min-w-0 overflow-hidden rounded-xl border p-3", TONE_CLASSES[tone])}>
       <dt className="flex items-center gap-1.5 text-xs opacity-80">
         {icon}
         {label}
       </dt>
-      <dd className="mt-1 font-semibold text-current">{value}</dd>
-      <p className="mt-1 text-xs opacity-80">{description}</p>
+      <dd className="mt-1 break-words font-semibold text-current">{value}</dd>
+      <p className="mt-1 break-words text-xs opacity-80">{description}</p>
     </div>
   );
 }

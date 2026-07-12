@@ -192,7 +192,7 @@ function CoachSummaryList({
                     </span>
                   ) : null}
                 </div>
-                <p className={cn("text-sm text-foreground", compact ? "leading-5" : "leading-6")}>{summaryText}</p>
+                <p className={cn("break-words text-sm text-foreground", compact ? "leading-5" : "leading-6")}>{summaryText}</p>
               </summary>
               <div className="border-t px-3 pb-3 pt-2">
                 <p className="text-sm leading-6 text-foreground">{parsed.main}</p>
@@ -245,7 +245,7 @@ function PrimaryPracticePlan({ item }: { item: CoachSummaryItem }) {
   if (steps.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
+    <div className="w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold text-emerald-900">바로 할 일</p>
         {item.parsed.priority ? (
@@ -254,13 +254,13 @@ function PrimaryPracticePlan({ item }: { item: CoachSummaryItem }) {
           </span>
         ) : null}
       </div>
-      <div className="mt-2 grid gap-2 lg:grid-cols-3">
+      <div className="mt-2 grid min-w-0 grid-cols-1 gap-2 lg:grid-cols-3">
         {steps.map((step, index) => (
-          <div key={step.label} className="rounded-xl border border-emerald-200 bg-white/70 px-3 py-2">
+          <div key={step.label} className="min-w-0 max-w-full overflow-hidden rounded-xl border border-emerald-200 bg-white/70 px-3 py-2">
             <p className="text-[11px] font-semibold text-emerald-800">
               {index + 1}. {step.label}
             </p>
-            <p className="mt-1 text-sm leading-5 text-emerald-950">{step.value}</p>
+            <p className="mt-1 max-w-full whitespace-normal break-all text-sm leading-5 text-emerald-950">{step.value}</p>
           </div>
         ))}
       </div>

@@ -176,7 +176,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
           title="Ball"
           summary={compactDetail([ball?.launchDirection, ball?.speedRelative, formatAngle(ball?.launchAngle)]) || "공 추적 없음"}
         >
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
             <MetricCard label="Launch Direction" value={ball?.launchDirection ? ball.launchDirection : "-"} />
             <MetricCard label="Launch Angle" value={formatAngle(ball?.launchAngle)} />
             <MetricCard label="Speed Relative" value={ball?.speedRelative ? ball.speedRelative : "-"} />
@@ -252,9 +252,9 @@ type MetricCardProps = {
 
 function MetricCard({ label, value }: MetricCardProps) {
   return (
-    <div className="rounded-xl border border-border bg-muted/50 px-3 py-2">
+    <div className="min-w-0 rounded-xl border border-border bg-muted/50 px-3 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-base font-semibold text-foreground">{value}</p>
+      <p className="break-words text-base font-semibold text-foreground">{value}</p>
     </div>
   );
 }

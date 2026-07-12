@@ -1595,6 +1595,7 @@ function MainApp() {
               <AnalysisPlayer
                 videoUrl={selectedVideoUrl}
                 events={analysis?.events}
+                overlay={analysis?.overlay}
                 isModalOpen={showVideoModal}
               />
             </div>

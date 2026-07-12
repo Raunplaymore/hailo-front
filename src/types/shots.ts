@@ -106,6 +106,15 @@ export type AnalysisProgress = {
   detail?: Record<string, unknown> | null;
 };
 
+export type OverlayPoint = { x: number; y: number; confidence?: number | null };
+export type OverlayPoseFrame = { timeMs: number; frame?: number; keypoints: Record<string, [number, number, number?]> };
+export type OverlayClubFrame = { timeMs: number; frame?: number; head?: OverlayPoint; handle?: OverlayPoint };
+export type AnalysisOverlay = {
+  coordinateSpace: "normalized";
+  poseFrames: OverlayPoseFrame[];
+  clubFrames: OverlayClubFrame[];
+};
+
 export type AnalysisResult = {
   jobId: string;
   status: JobStatus;
@@ -120,6 +129,7 @@ export type AnalysisResult = {
   coachSummary?: string[];
   coachFindings?: CoachFinding[];
   confidence?: number | null;
+  overlay?: AnalysisOverlay | null;
   progress?: AnalysisProgress | null;
 };
 

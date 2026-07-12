@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   Card,
@@ -8,11 +8,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { AnalysisResult, SwingEventKey } from "../../types/shots";
+import { AnalysisOverlay, AnalysisResult, SwingEventKey } from "../../types/shots";
 
 type AnalysisPlayerProps = {
   videoUrl?: string;
   events?: AnalysisResult["events"];
+  overlay?: AnalysisOverlay | null;
   isModalOpen?: boolean;
 };
 
@@ -23,8 +24,20 @@ const EVENT_LABELS: Record<SwingEventKey, string> = {
   finish: "Finish",
 };
 
-export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayerProps) {
+const SKELETON_LINKS = [
+  ["left_shoulder", "right_shoulder"], ["left_shoulder", "left_elbow"], ["left_elbow", "left_wrist"],
+  ["right_shoulder", "right_elbow"], ["right_elbow", "right_wrist"], ["left_shoulder", "left_hip"],
+  ["right_shoulder", "right_hip"], ["left_hip", "right_hip"], ["left_hip", "left_knee"],
+  ["left_knee", "left_ankle"], ["right_hip", "right_knee"], ["right_knee", "right_ankle"],
+] as const;
+
+export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: AnalysisPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [timeMs, setTimeMs] = useState(0);
+  const [layers, setLayers] = useState({ pose: true, hands: true, club: true, events: true });
+  const activePose = useMemo(() => nearestAt(overlay?.poseFrames ?? [], timeMs), [overlay, timeMs]);
+  const visiblePose = useMemo(() => (overlay?.poseFrames ?? []).filter((frame) => frame.timeMs <= timeMs), [overlay, timeMs]);
+  const visibleClub = useMemo(() => (overlay?.clubFrames ?? []).filter((frame) => frame.timeMs <= timeMs), [overlay, timeMs]);
 
   const handleSeek = (key: SwingEventKey) => {
     const timeMs = events?.[key]?.timeMs;
@@ -36,6 +49,7 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
     const seekTo = timeMs / 1000;
     const apply = () => {
       video.currentTime = seekTo;
+      setTimeMs(timeMs);
     };
 
     if (video.readyState < 1) {
@@ -63,29 +77,42 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
       </CardHeader>
       <CardContent className="space-y-2 p-4 pt-0">
         {videoUrl ? (
-          <video
-            ref={videoRef}
-            key={videoUrl}
-            className={cn(
-              "w-full max-h-[36vh] rounded-xl border border-border bg-black object-contain transition md:max-h-[44vh] xl:max-h-[52vh]",
-              isModalOpen ? "pointer-events-none opacity-0" : "opacity-100"
-            )}
-            controls
-            preload="metadata"
-            src={videoUrl}
-            aria-hidden={isModalOpen}
-          >
-            브라우저에서 video 태그를 지원하지 않습니다.
-          </video>
+          <div className="relative overflow-hidden rounded-xl border border-border bg-black">
+            <video
+              ref={videoRef}
+              key={videoUrl}
+              className={cn("block w-full max-h-[36vh] object-contain transition md:max-h-[44vh] xl:max-h-[52vh]", isModalOpen ? "pointer-events-none opacity-0" : "opacity-100")}
+              controls
+              preload="metadata"
+              src={videoUrl}
+              aria-hidden={isModalOpen}
+              onTimeUpdate={(event) => setTimeMs(event.currentTarget.currentTime * 1000)}
+              onLoadedMetadata={(event) => setTimeMs(event.currentTarget.currentTime * 1000)}
+            >
+              브라우저에서 video 태그를 지원하지 않습니다.
+            </video>
+            {overlay ? <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={timeMs} layers={layers} /> : null}
+          </div>
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
             선택된 영상이 없습니다. 업로드 후 분석 탭에서 확인하세요.
           </div>
         )}
 
+        {overlay ? (
+          <div className="flex flex-wrap gap-2" aria-label="분석 오버레이">
+            {([['pose', '자세'], ['hands', '손 경로'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => (
+              <button key={key} type="button" aria-pressed={layers[key]} onClick={() => setLayers((current) => ({ ...current, [key]: !current[key] }))}
+                className={cn("min-h-10 rounded-lg border px-3 text-xs font-semibold transition", layers[key] ? "border-primary/40 bg-primary/15 text-primary" : "border-border bg-muted/40 text-muted-foreground")}>
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인</p>
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
               const event = events?.[key];
               const disabled = !event;
@@ -96,7 +123,7 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
                   onClick={() => handleSeek(key)}
                   disabled={disabled}
                   className={cn(
-                    "min-w-[104px] rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
+                    "min-h-16 min-w-0 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition sm:min-w-[104px]",
                     disabled
                       ? "cursor-not-allowed border-border bg-muted/60 text-muted-foreground"
                       : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"
@@ -114,4 +141,24 @@ export function AnalysisPlayer({ videoUrl, events, isModalOpen }: AnalysisPlayer
       </CardContent>
     </Card>
   );
+}
+
+function nearestAt<T extends { timeMs: number }>(frames: T[], timeMs: number): T | undefined {
+  return frames.reduce<T | undefined>((best, frame) => !best || Math.abs(frame.timeMs - timeMs) < Math.abs(best.timeMs - timeMs) ? frame : best, undefined);
+}
+
+function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { pose?: AnalysisOverlay["poseFrames"][number]; poseFrames: AnalysisOverlay["poseFrames"]; clubFrames: AnalysisOverlay["clubFrames"]; events?: AnalysisResult["events"]; timeMs: number; layers: Record<"pose" | "hands" | "club" | "events", boolean> }) {
+  const hands = pose ? [pose.keypoints.left_wrist, pose.keypoints.right_wrist].filter((point): point is [number, number, number?] => Array.isArray(point)) : [];
+  const latestClub = clubFrames.at(-1);
+  const currentEvent = Object.entries(events ?? {}).find(([, event]) => event && Math.abs(event.timeMs - timeMs) < 80)?.[0];
+  return <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full" aria-label="분석 오버레이">
+    {layers.club && clubFrames.length > 1 ? <polyline points={clubFrames.filter((frame) => frame.head).map((frame) => `${frame.head!.x},${frame.head!.y}`).join(" ")} fill="none" stroke="#38bdf8" strokeWidth="0.007" /> : null}
+    {layers.club && clubFrames.length > 1 ? <polyline points={clubFrames.filter((frame) => frame.handle).map((frame) => `${frame.handle!.x},${frame.handle!.y}`).join(" ")} fill="none" stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" /> : null}
+    {layers.club && latestClub?.head && latestClub.handle ? <line x1={latestClub.head.x} y1={latestClub.head.y} x2={latestClub.handle.x} y2={latestClub.handle.y} stroke="#fbbf24" strokeWidth="0.009" /> : null}
+    {layers.pose && pose ? SKELETON_LINKS.map(([from, to]) => { const a = pose.keypoints[from]; const b = pose.keypoints[to]; return Array.isArray(a) && Array.isArray(b) ? <line key={`${from}-${to}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#34d399" strokeWidth="0.006" /> : null; }) : null}
+    {layers.pose && pose ? Object.entries(pose.keypoints).map(([name, point]) => Array.isArray(point) && (point[2] ?? 1) >= .15 ? <circle key={name} cx={point[0]} cy={point[1]} r="0.009" fill="#ecfdf5" /> : null) : null}
+    {layers.hands && hands.length ? <g>{hands.map((point, index) => <circle key={index} cx={point[0]} cy={point[1]} r="0.015" fill="#fb7185" />)}</g> : null}
+    {layers.hands ? (["left_wrist", "right_wrist"] as const).map((key) => <polyline key={key} points={poseFrames.map((frame) => frame.keypoints[key]).filter(Array.isArray).map((point) => `${point[0]},${point[1]}`).join(" ")} fill="none" stroke="#fb7185" strokeWidth="0.005" opacity="0.85" />) : null}
+    {layers.events && currentEvent ? <text x="0.03" y="0.07" fill="white" fontSize="0.045" fontWeight="700">{EVENT_LABELS[currentEvent as SwingEventKey]}</text> : null}
+  </svg>;
 }

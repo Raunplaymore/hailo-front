@@ -2,6 +2,7 @@ import { ApiError, client, API_BASE } from "./client";
 import {
   AnalysisMetricDetail,
   AnalysisProgress,
+  AnalysisOverlay,
   AnalysisResult,
   BallMetrics,
   BackswingMetrics,
@@ -436,6 +437,25 @@ const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefine
   return findings.length > 0 ? findings : undefined;
 };
 
+const normalizeOverlay = (raw: any): AnalysisOverlay | null => {
+  if (!raw || typeof raw !== "object" || raw.coordinateSpace !== "normalized") return null;
+  const point = (value: any) =>
+    value && typeof value === "object" && Number.isFinite(Number(value.x)) && Number.isFinite(Number(value.y))
+      ? { x: Number(value.x), y: Number(value.y), confidence: toOptionalNumber(value.confidence) }
+      : undefined;
+  const poseFrames = Array.isArray(raw.poseFrames)
+    ? raw.poseFrames
+        .filter((frame: any) => frame && Number.isFinite(Number(frame.timeMs)) && frame.keypoints && typeof frame.keypoints === "object")
+        .map((frame: any) => ({ timeMs: Number(frame.timeMs), frame: toOptionalNumber(frame.frame) ?? undefined, keypoints: frame.keypoints }))
+    : [];
+  const clubFrames = Array.isArray(raw.clubFrames)
+    ? raw.clubFrames
+        .filter((frame: any) => frame && Number.isFinite(Number(frame.timeMs)))
+        .map((frame: any) => ({ timeMs: Number(frame.timeMs), frame: toOptionalNumber(frame.frame) ?? undefined, head: point(frame.head), handle: point(frame.handle) }))
+    : [];
+  return poseFrames.length || clubFrames.length ? { coordinateSpace: "normalized", poseFrames, clubFrames } : null;
+};
+
 export const normalizeAnalysis = (
   raw: any,
   jobId: string,
@@ -503,6 +523,7 @@ export const normalizeAnalysis = (
     raw?.coachFindings ?? raw?.coach_findings ?? raw?.debug?.coachFindings ?? raw?.debug?.coach_findings
   );
   const confidence = toOptionalNumber(raw?.confidence ?? metricsBlock?.confidence);
+  const overlay = normalizeOverlay(raw?.overlay ?? metricsBlock?.overlay);
   const rawProgress = raw?.progress ?? metricsBlock?.progress;
   const progress: AnalysisProgress | null =
     rawProgress && typeof rawProgress === "object"
@@ -562,6 +583,7 @@ export const normalizeAnalysis = (
     coachSummary: coachSummary?.map((item: any) => String(item)),
     coachFindings,
     confidence,
+    overlay,
     progress,
   };
 };

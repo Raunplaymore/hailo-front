@@ -29,6 +29,8 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
     formatMetricLabel(fusionPrimary) ??
     formatMetricLabel(bodyPrimary) ??
     fallback;
+  const validationStatus = analysis?.eventValidation?.status;
+  const eventMetricsUsable = !validationStatus || validationStatus === "usable";
 
   return (
     <Card>
@@ -46,18 +48,18 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        {analysis?.eventValidation?.status === "withheld" ? (
+        {validationStatus && validationStatus !== "usable" ? (
           <div className="rounded-xl border border-amber-300/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-            <p className="font-semibold">스윙 이벤트 판정 보류</p>
-            <p className="mt-1 text-xs leading-5 text-amber-100/80">{analysis.eventValidation.message ?? "클럽 추적과 pose 이벤트가 일치하지 않아 템포·임팩트·경로 코칭을 제공하지 않습니다."}</p>
+            <p className="font-semibold">{validationStatus === "partial" ? "스윙 이벤트 참고값" : "스윙 이벤트 판정 보류"}</p>
+            <p className="mt-1 text-xs leading-5 text-amber-100/80">{analysis?.eventValidation?.message ?? "클럽 추적과 pose 이벤트가 일치하지 않아 템포·임팩트·경로 코칭을 제공하지 않습니다."}</p>
           </div>
         ) : null}
-        {quality && analysis?.eventValidation?.status !== "withheld" ? (
+        {quality && eventMetricsUsable ? (
           <p className="rounded-xl border border-border bg-muted/35 px-3 py-2 text-xs leading-5 text-muted-foreground">
             {quality.message}
           </p>
         ) : null}
-        {analysis?.eventValidation?.status !== "withheld" ? (
+        {eventMetricsUsable ? (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <MetricCard label="Shaft Plane" value={shaftPlane} />
             <MetricCard label="Tempo" value={tempoRatio} />

@@ -7,7 +7,9 @@ import {
   BallMetrics,
   BackswingMetrics,
   CoachFinding,
+  EventEvidenceQuality,
   EventTimingMetrics,
+  EventValidation,
   GenericMetricPayload,
   JobStatus,
   MetricGroup,
@@ -153,7 +155,10 @@ const toOptionalNumber = (value: any): number | null => {
   return Number.isFinite(num) ? num : null;
 };
 
-const normalizeEvents = (events: any): Partial<Record<SwingEventKey, SwingEventTiming>> => {
+const normalizeEvents = (
+  events: any,
+  eventQuality: EventValidation["eventQuality"] = {}
+): Partial<Record<SwingEventKey, SwingEventTiming>> => {
   const keys: SwingEventKey[] = ["address", "top", "impact", "finish"];
   if (!events || typeof events !== "object") return {};
 
@@ -172,7 +177,13 @@ const normalizeEvents = (events: any): Partial<Record<SwingEventKey, SwingEventT
     if (raw == null) return acc;
 
     if (typeof raw === "number") {
-      acc[key] = { timeMs: raw };
+      const quality = eventQuality?.[key];
+      acc[key] = {
+        timeMs: raw,
+        quality: quality?.status,
+        confidence: quality?.confidence,
+        source: quality?.source,
+      };
       return acc;
     }
 
@@ -183,11 +194,51 @@ const normalizeEvents = (events: any): Partial<Record<SwingEventKey, SwingEventT
         timeMs,
         frame: toNumberOrNull(raw.frame ?? raw.frameIndex) ?? undefined,
         label: raw.label ?? key,
+        quality: eventQuality?.[key]?.status,
+        confidence: eventQuality?.[key]?.confidence,
+        source: eventQuality?.[key]?.source,
       };
     }
 
     return acc;
   }, {} as Partial<Record<SwingEventKey, SwingEventTiming>>);
+};
+
+const normalizeEventValidation = (raw: any): EventValidation | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const status: EventValidation["status"] = raw.status === "withheld"
+    ? "withheld"
+    : raw.status === "partial"
+      ? "partial"
+      : "usable";
+  const eventQuality = (["address", "top", "impact", "finish"] as SwingEventKey[]).reduce(
+    (acc, key) => {
+      const value = raw.eventQuality?.[key];
+      if (!value || typeof value !== "object") return acc;
+      const quality: EventEvidenceQuality["status"] = value.status === "confirmed"
+        ? "confirmed"
+        : value.status === "reference"
+          ? "reference"
+          : "withheld";
+      acc[key] = {
+        status: quality,
+        confidence: toOptionalNumber(value.confidence),
+        source: typeof value.source === "string" ? value.source : null,
+      };
+      return acc;
+    },
+    {} as NonNullable<EventValidation["eventQuality"]>
+  );
+  return {
+    status,
+    codes: Array.isArray(raw.codes) ? raw.codes.map(String) : [],
+    warnings: Array.isArray(raw.warnings) ? raw.warnings.map(String) : [],
+    message: typeof raw.message === "string" ? raw.message : null,
+    eventQuality,
+    metricAvailability: raw.metricAvailability && typeof raw.metricAvailability === "object"
+      ? Object.fromEntries(Object.entries(raw.metricAvailability).map(([key, value]) => [key, String(value)]))
+      : {},
+  };
 };
 
 const normalizeTempo = (metrics: any): TempoMetrics | undefined => {
@@ -462,7 +513,8 @@ export const normalizeAnalysis = (
   status: JobStatus = "succeeded"
 ): AnalysisResult => {
   const metricsBlock = raw?.metrics ?? raw;
-  const events = normalizeEvents(raw?.events ?? metricsBlock?.events ?? raw);
+  const eventValidation = normalizeEventValidation(raw?.eventValidation);
+  const events = normalizeEvents(raw?.events ?? metricsBlock?.events ?? raw, eventValidation?.eventQuality);
   const tempo = normalizeTempo(metricsBlock);
   const eventTiming = deriveEventTiming(metricsBlock, events);
   const ball = normalizeBall(metricsBlock);
@@ -524,9 +576,6 @@ export const normalizeAnalysis = (
   );
   const confidence = toOptionalNumber(raw?.confidence ?? metricsBlock?.confidence);
   const overlay = normalizeOverlay(raw?.overlay ?? metricsBlock?.overlay);
-  const eventValidation = raw?.eventValidation && typeof raw.eventValidation === "object"
-    ? { status: raw.eventValidation.status === "withheld" ? "withheld" : "usable", codes: Array.isArray(raw.eventValidation.codes) ? raw.eventValidation.codes.map(String) : [], message: typeof raw.eventValidation.message === "string" ? raw.eventValidation.message : null }
-    : null;
   const rawProgress = raw?.progress ?? metricsBlock?.progress;
   const progress: AnalysisProgress | null =
     rawProgress && typeof rawProgress === "object"

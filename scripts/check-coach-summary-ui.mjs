@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 const source = await readFile("src/components/analysis/CoachSummary.tsx", "utf8");
 const appSource = await readFile("src/App.tsx", "utf8");
 const playerSource = await readFile("src/components/analysis/AnalysisPlayer.tsx", "utf8");
+const keyMetricsSource = await readFile("src/components/analysis/KeyMetrics.tsx", "utf8");
+const metricsTableSource = await readFile("src/components/analysis/MetricsTable.tsx", "utf8");
 const sessionSource = await readFile("src/components/camera/SessionControls.tsx", "utf8");
 const connectionSource = await readFile("src/components/camera/FieldConnectionPanel.tsx", "utf8");
 const shotListSource = await readFile("src/components/shots/ShotList.tsx", "utf8");
@@ -36,6 +38,9 @@ assert.match(playerSource, /video\.videoWidth \/ video\.videoHeight/, "Overlay b
 assert.match(playerSource, /new ResizeObserver\(syncOverlayBounds\)/, "Overlay bounds must update when the player size changes.");
 assert.match(playerSource, /style=\{overlayBounds\}/, "Overlay must render only inside the object-contain video area.");
 assert.match(playerSource, /grid min-w-0 grid-cols-2 gap-2/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
+assert.match(playerSource, /isReference \? " · 참고"/, "Reference-only events must be visibly labeled in the timeline.");
+assert.match(keyMetricsSource, /validationStatus !== "usable"/, "Partial validation must keep event-dependent key metrics hidden.");
+assert.match(metricsTableSource, /analysis\.eventValidation\.status !== "usable"/, "Partial validation must keep event-dependent detail metrics hidden.");
 assert.doesNotMatch(sessionSource, /overflow-x-auto pb-1 whitespace-nowrap/, "Session progress must wrap instead of overflowing on mobile.");
 assert.match(sessionSource, /grid grid-cols-2 gap-2 sm:flex sm:flex-wrap/, "Session progress must use a two-column mobile layout.");
 assert.match(connectionSource, /flex flex-wrap items-start justify-between gap-3/, "Connection header must wrap its status badge on narrow screens.");

@@ -167,6 +167,7 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
               const event = events?.[key];
               const disabled = !event;
+              const isReference = event?.quality === "reference";
               return (
                 <button
                   key={key}
@@ -177,12 +178,14 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
                     "min-h-16 min-w-0 w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
                     disabled
                       ? "cursor-not-allowed border-border bg-muted/60 text-muted-foreground"
-                      : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"
+                      : isReference
+                        ? "border-amber-300/35 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15"
+                        : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"
                   )}
                 >
                   <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}</span>
                   <span className="text-sm">
-                    {event ? `${Math.round(event.timeMs)} ms` : "-"}
+                    {event ? `${Math.round(event.timeMs)} ms${isReference ? " · 참고" : ""}` : "-"}
                   </span>
                 </button>
               );

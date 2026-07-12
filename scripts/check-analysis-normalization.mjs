@@ -142,6 +142,32 @@ try {
   assert.match(normalized.coachFindings?.[1]?.theory ?? "", /인사이드-스턱 릴리스 패턴/);
   assert.equal(normalized.progress?.stage, "fusion_succeeded");
 
+  const partial = normalizeAnalysis({
+    jobId: "partial-reference-events",
+    status: "succeeded",
+    events: { addressMs: 0, topMs: 1835, impactMs: 2369, finishMs: 2569 },
+    metrics: { tempo: { backswingMs: null, downswingMs: null, ratio: null, status: "withheld" } },
+    eventValidation: {
+      status: "partial",
+      codes: ["CLUB_IMPACT_REFERENCE_ONLY"],
+      warnings: ["POSE_EVENT_SOURCE_DIVERGENCE"],
+      eventQuality: {
+        address: { status: "reference", confidence: 0.7, source: "pose_phase_decoder" },
+        top: { status: "reference", confidence: 0.7, source: "pose_phase_decoder" },
+        impact: { status: "reference", confidence: 0.55, source: "pose_club_bracket" },
+        finish: { status: "reference", confidence: 0.7, source: "pose_phase_decoder" },
+      },
+      metricAvailability: { tempo: "withheld", impact: "withheld", path: "withheld" },
+    },
+  }, "partial-reference-events", "succeeded");
+  assert.equal(partial.eventValidation?.status, "partial");
+  assert.deepEqual(partial.eventValidation?.codes, ["CLUB_IMPACT_REFERENCE_ONLY"]);
+  assert.deepEqual(partial.eventValidation?.warnings, ["POSE_EVENT_SOURCE_DIVERGENCE"]);
+  assert.equal(partial.events.impact?.quality, "reference");
+  assert.equal(partial.events.impact?.confidence, 0.55);
+  assert.equal(partial.events.impact?.source, "pose_club_bracket");
+  assert.equal(partial.metrics.tempo, undefined, "withheld tempo must not leak a stale ratio");
+
   console.log("analysis normalization check passed");
 } finally {
   await rm(tempDir, { recursive: true, force: true });

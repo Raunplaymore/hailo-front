@@ -9,6 +9,9 @@ export type SwingEventTiming = {
   timeMs: number;
   frame?: number;
   label?: string;
+  quality?: "confirmed" | "reference" | "withheld";
+  confidence?: number | null;
+  source?: string | null;
 };
 
 export type TempoMetrics = {
@@ -114,7 +117,19 @@ export type AnalysisOverlay = {
   poseFrames: OverlayPoseFrame[];
   clubFrames: OverlayClubFrame[];
 };
-export type EventValidation = { status: "usable" | "withheld"; codes?: string[]; message?: string | null };
+export type EventEvidenceQuality = {
+  status: "confirmed" | "reference" | "withheld";
+  confidence?: number | null;
+  source?: string | null;
+};
+export type EventValidation = {
+  status: "usable" | "partial" | "withheld";
+  codes?: string[];
+  warnings?: string[];
+  message?: string | null;
+  eventQuality?: Partial<Record<SwingEventKey, EventEvidenceQuality>>;
+  metricAvailability?: Record<string, string>;
+};
 
 export type AnalysisResult = {
   jobId: string;

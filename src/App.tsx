@@ -1845,9 +1845,14 @@ function MainApp() {
           className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="analysis-video-dialog-title"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setShowVideoModal(false);
+          }}
         >
           <div className="relative w-full max-w-xl p-4 space-y-3 border shadow-2xl border-border bg-card shadow-black/40 rounded-xl">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="analysis-video-dialog-title" className="text-sm font-semibold">분석 영상 확대</h2>
               <Button
                 type="button"
                 onClick={() => setShowVideoModal(false)}
@@ -1858,15 +1863,11 @@ function MainApp() {
                 닫기
               </Button>
             </div>
-            <video
-              key={analysisTarget.id}
-              className="w-full rounded-lg border border-border max-h-[600px] object-contain"
-              controls
-              preload="metadata"
-              src={selectedVideoUrl}
-            >
-              브라우저에서 video 태그를 지원하지 않습니다.
-            </video>
+            <AnalysisPlayer
+              videoUrl={selectedVideoUrl}
+              events={analysis?.events}
+              overlay={analysis?.overlay}
+            />
           </div>
         </div>
       )}

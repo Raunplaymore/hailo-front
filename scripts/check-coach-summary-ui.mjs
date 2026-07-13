@@ -48,6 +48,9 @@ assert.match(videoPlayerSource, /xl:max-h-\[52vh\]/, "Analysis video height must
 assert.match(playerSource, /video\.videoWidth \/ video\.videoHeight/, "Overlay bounds must use the source video's intrinsic aspect ratio.");
 assert.match(playerSource, /new ResizeObserver\(syncOverlayBounds\)/, "Overlay bounds must update when the player size changes.");
 assert.match(playerSource, /style=\{overlayBounds\}/, "Overlay must render only inside the object-contain video area.");
+assert.match(playerSource, /HAND_TRAIL_DURATION_MS = 800/, "Hand overlay must keep the trail focused on recent movement.");
+assert.match(playerSource, /HAND_TRAIL_MAX_GAP_MS = 120/, "Hand overlay must avoid drawing through tracking gaps.");
+assert.match(playerSource, /strokeLinecap="round"/, "Hand trail segments must render as a smooth fading line.");
 assert.match(playerSource, /grid min-w-0 grid-cols-2 gap-2/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
 assert.match(playerSource, /<AnalysisVideoPlayer/, "Analysis view must use the dedicated video player.");
 assert.doesNotMatch(videoPlayerSource, /\scontrols(?:\s|=|>)/, "Native video controls must not cover the analysis frame.");

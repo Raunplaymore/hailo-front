@@ -27,11 +27,21 @@ assert.match(source, /summary\?: string \| null/, "CoachSummary must accept the 
 assert.match(source, /코치 액션/, "CoachSummary should focus the compact panel on actionable coaching.");
 
 assert.match(appSource, /상세 지표 \/ 디버그/, "Analysis screen must group detailed metrics under a compact disclosure.");
-assert.match(appSource, /<details className="group rounded-2xl border border-border bg-card shadow-sm">/, "Detailed metrics must be collapsed by default.");
+const detailedMetricsDisclosure = appSource.match(
+  /<details className="([^"]+)">[\s\S]{0,600}?상세 지표 \/ 디버그/
+);
+assert.ok(detailedMetricsDisclosure, "Detailed metrics must be collapsed by default.");
+for (const className of ["group", "rounded-2xl", "border", "border-border", "bg-card", "shadow-sm"]) {
+  assert.ok(
+    detailedMetricsDisclosure[1].split(/\s+/).includes(className),
+    `Detailed metrics disclosure must retain the ${className} class.`
+  );
+}
 assert.match(appSource, /compact\s*\n\s*\/>/, "Analysis progress should use compact mode on the analysis screen.");
 assert.doesNotMatch(appSource, /<CardTitle className="text-lg">코칭 요약<\/CardTitle>/, "Analysis summary must not render as a separate duplicate card.");
 assert.match(appSource, /xl:sticky xl:top-4/, "Analysis video should remain sticky on wide screens to reduce scrolling.");
-assert.match(appSource, /order-first xl:order-none/, "Analysis video should appear before long details on mobile layouts.");
+assert.match(appSource, /order-first/, "Analysis video should appear before long details on mobile layouts.");
+assert.match(appSource, /xl:order-none/, "Analysis video should return to its desktop order on wide screens.");
 assert.match(videoPlayerSource, /max-h-\[46vh\]/, "Analysis video must remain useful on a narrow portrait screen.");
 assert.match(videoPlayerSource, /md:max-h-\[50vh\]/, "Analysis video height must stay viewport-limited on medium layouts.");
 assert.match(videoPlayerSource, /xl:max-h-\[52vh\]/, "Analysis video height must stay viewport-limited on wide layouts.");

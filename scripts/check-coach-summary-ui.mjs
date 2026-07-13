@@ -56,6 +56,8 @@ assert.match(playerSource, /<AnalysisVideoPlayer/, "Analysis view must use the d
 assert.doesNotMatch(videoPlayerSource, /\scontrols(?:\s|=|>)/, "Native video controls must not cover the analysis frame.");
 assert.match(videoPlayerSource, /aria-label=\{isPlaying \? "분석 영상 일시정지" : "분석 영상 재생"\}/, "Video surface must expose keyboard playback state.");
 assert.match(videoPlayerSource, /aria-label="영상 재생 위치"/, "Custom player must expose an accessible seek control.");
+assert.match(videoPlayerSource, /border-t border-white\/10 px-3 pb-2 pt-1/, "Seek control must occupy its own full-width row on mobile.");
+assert.match(videoPlayerSource, /className="h-11 w-full cursor-pointer/, "Seek control must use the complete available width.");
 assert.match(videoPlayerSource, /webkitEnterFullscreen/, "Custom player must retain an iOS fullscreen fallback.");
 assert.match(playerSource, /isReference \? " · 참고"/, "Reference-only events must be visibly labeled in the timeline.");
 assert.match(keyMetricsSource, /validationStatus !== "usable"/, "Partial validation must keep event-dependent key metrics hidden.");

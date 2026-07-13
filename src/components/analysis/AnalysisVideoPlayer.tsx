@@ -164,37 +164,43 @@ export function AnalysisVideoPlayer({
         ) : null}
       </div>
 
-      <div className="flex min-h-14 items-center gap-1.5 border-t border-white/10 bg-zinc-950 px-2 py-1.5 sm:gap-2 sm:px-3">
-        <ControlButton
-          label={isPlaying ? "일시정지" : "재생"}
-          disabled={controlsDisabled}
-          onClick={() => void togglePlayback()}
-        >
-          {isPlaying ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
-        </ControlButton>
+      <div className="border-t border-white/10 bg-zinc-950">
+        <div className="flex min-h-14 items-center gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3">
+          <ControlButton
+            label={isPlaying ? "일시정지" : "재생"}
+            disabled={controlsDisabled}
+            onClick={() => void togglePlayback()}
+          >
+            {isPlaying ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
+          </ControlButton>
 
-        <span className="w-[72px] shrink-0 text-center text-[11px] font-medium tabular-nums text-white/75 sm:w-[86px] sm:text-xs">
-          {formatTime(currentSeconds)} / {formatTime(duration)}
-        </span>
+          <span className="w-[72px] shrink-0 text-center text-[11px] font-medium tabular-nums text-white/75 sm:w-[86px] sm:text-xs">
+            {formatTime(currentSeconds)} / {formatTime(duration)}
+          </span>
 
-        <input
-          type="range"
-          min={0}
-          max={duration || 0}
-          step={0.01}
-          value={duration ? currentSeconds : 0}
-          disabled={controlsDisabled || duration <= 0}
-          onChange={(event) => handleSeek(Number(event.currentTarget.value))}
-          aria-label="영상 재생 위치"
-          className="h-11 min-w-0 flex-1 cursor-pointer bg-transparent accent-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
-        />
+          <div className="flex-1" />
 
-        <ControlButton label={isMuted ? "음소거 해제" : "음소거"} disabled={disabled || hasError} onClick={toggleMute}>
-          {isMuted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
-        </ControlButton>
-        <ControlButton label="전체 화면" disabled={disabled || hasError} onClick={() => void enterFullscreen()}>
-          <Maximize2 className="size-4" aria-hidden="true" />
-        </ControlButton>
+          <ControlButton label={isMuted ? "음소거 해제" : "음소거"} disabled={disabled || hasError} onClick={toggleMute}>
+            {isMuted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
+          </ControlButton>
+          <ControlButton label="전체 화면" disabled={disabled || hasError} onClick={() => void enterFullscreen()}>
+            <Maximize2 className="size-4" aria-hidden="true" />
+          </ControlButton>
+        </div>
+
+        <div className="border-t border-white/10 px-3 pb-2 pt-1 sm:px-4">
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={0.01}
+            value={duration ? currentSeconds : 0}
+            disabled={controlsDisabled || duration <= 0}
+            onChange={(event) => handleSeek(Number(event.currentTarget.value))}
+            aria-label="영상 재생 위치"
+            className="h-11 w-full cursor-pointer bg-transparent accent-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+          />
+        </div>
       </div>
     </div>
   );

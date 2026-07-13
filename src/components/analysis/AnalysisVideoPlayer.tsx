@@ -1,5 +1,6 @@
 import {
   Maximize2,
+  Minimize2,
   Pause,
   Play,
   Volume2,
@@ -27,10 +28,6 @@ type AnalysisVideoPlayerProps = {
   onLoadedMetadata?: (video: HTMLVideoElement) => void;
 };
 
-type IOSVideoElement = HTMLVideoElement & {
-  webkitEnterFullscreen?: () => void;
-};
-
 export function AnalysisVideoPlayer({
   src,
   videoRef,
@@ -47,6 +44,7 @@ export function AnalysisVideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [isImmersive, setIsImmersive] = useState(false);
 
   useEffect(() => {
     setDuration(0);
@@ -54,6 +52,14 @@ export function AnalysisVideoPlayer({
     setIsReady(false);
     setHasError(false);
   }, [src]);
+
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setIsImmersive(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!disabled) return;
@@ -96,20 +102,20 @@ export function AnalysisVideoPlayer({
 
   const enterFullscreen = async () => {
     const player = playerRef.current;
-    const video = videoRef.current as IOSVideoElement | null;
-    if (!video) return;
     if (player?.requestFullscreen) {
       await player.requestFullscreen().catch(() => undefined);
       return;
     }
-    video.webkitEnterFullscreen?.();
+    // iOS Safari's video.webkitEnterFullscreen() omits React overlay children.
+    // Keep the whole player in an app-level immersive view instead, so every layer remains visible.
+    setIsImmersive(true);
   };
 
   const currentSeconds = Math.min(duration || Number.POSITIVE_INFINITY, Math.max(0, currentTimeMs / 1000));
   const controlsDisabled = disabled || hasError || !isReady;
 
   return (
-    <div ref={playerRef} className="min-w-0 overflow-hidden rounded-xl border border-border bg-black fullscreen:flex fullscreen:h-screen fullscreen:w-screen fullscreen:flex-col fullscreen:rounded-none fullscreen:border-0">
+    <div ref={playerRef} className={cn("min-w-0 overflow-hidden rounded-xl border border-border bg-black fullscreen:flex fullscreen:h-screen fullscreen:w-screen fullscreen:flex-col fullscreen:rounded-none fullscreen:border-0", isImmersive && "fixed inset-0 z-50 flex h-[100dvh] w-screen flex-col rounded-none border-0") }>
       <div ref={mediaRef} className="relative min-w-0 bg-black fullscreen:flex fullscreen:min-h-0 fullscreen:flex-1 fullscreen:items-center fullscreen:justify-center">
         <video
           ref={videoRef}
@@ -183,8 +189,8 @@ export function AnalysisVideoPlayer({
           <ControlButton label={isMuted ? "음소거 해제" : "음소거"} disabled={disabled || hasError} onClick={toggleMute}>
             {isMuted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
           </ControlButton>
-          <ControlButton label="전체 화면" disabled={disabled || hasError} onClick={() => void enterFullscreen()}>
-            <Maximize2 className="size-4" aria-hidden="true" />
+          <ControlButton label={isImmersive ? "전체 화면 닫기" : "전체 화면"} disabled={disabled || hasError} onClick={() => isImmersive ? setIsImmersive(false) : void enterFullscreen()}>
+            {isImmersive ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}
           </ControlButton>
         </div>
 

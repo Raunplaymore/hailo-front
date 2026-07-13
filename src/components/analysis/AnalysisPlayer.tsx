@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, SwingEventKey } from "../../types/shots";
+import { AnalysisVideoPlayer } from "./AnalysisVideoPlayer";
 
 type AnalysisPlayerProps = {
   videoUrl?: string;
@@ -120,24 +121,15 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
       </CardHeader>
       <CardContent className="space-y-2 p-4 pt-0">
         {videoUrl ? (
-          <div ref={videoFrameRef} className="relative min-w-0 overflow-hidden rounded-xl border border-border bg-black">
-            <video
-              ref={videoRef}
-              key={videoUrl}
-              className={cn("block w-full max-h-[46vh] object-contain transition md:max-h-[50vh] xl:max-h-[52vh]", isModalOpen ? "pointer-events-none opacity-0" : "opacity-100")}
-              controls
-              playsInline
-              preload="metadata"
-              src={videoUrl}
-              aria-hidden={isModalOpen}
-              onTimeUpdate={(event) => setTimeMs(event.currentTarget.currentTime * 1000)}
-              onLoadedMetadata={(event) => {
-                setTimeMs(event.currentTarget.currentTime * 1000);
-                syncOverlayBounds();
-              }}
-            >
-              브라우저에서 video 태그를 지원하지 않습니다.
-            </video>
+          <AnalysisVideoPlayer
+            src={videoUrl}
+            videoRef={videoRef}
+            mediaRef={videoFrameRef}
+            currentTimeMs={timeMs}
+            disabled={isModalOpen}
+            onTimeChange={setTimeMs}
+            onLoadedMetadata={syncOverlayBounds}
+          >
             {overlay && overlayBounds ? (
               <div className="pointer-events-none absolute" style={overlayBounds}>
                 <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={timeMs} layers={layers} />
@@ -154,7 +146,7 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
                 </div>
               </details>
             ) : null}
-          </div>
+          </AnalysisVideoPlayer>
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
             선택된 영상이 없습니다. 업로드 후 분석 탭에서 확인하세요.

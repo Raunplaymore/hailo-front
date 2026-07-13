@@ -13,6 +13,7 @@ import {
   GenericMetricPayload,
   JobStatus,
   MetricGroup,
+  NasArchiveStatus,
   PendingMetric,
   ReadinessMetrics,
   Shot,
@@ -56,6 +57,7 @@ type FilesDetailRes = {
     progress?: any;
     errorCode?: string | null;
     errorMessage?: string | null;
+    nasArchive?: NasArchiveStatus | null;
   }>;
 };
 
@@ -683,6 +685,7 @@ const mapToShot = (item: any): Shot => {
     errorMessage: item?.errorMessage ?? item?.analysis?.errorMessage ?? null,
     club: item?.club,
     analysis,
+    nasArchive: item?.nasArchive ?? item?.nas_archive ?? null,
   } as Shot);
 };
 
@@ -708,7 +711,8 @@ export const fetchShots = async (): Promise<Shot[]> => {
           size: f.size,
           modifiedAt: f.modifiedAt,
           errorCode: f.errorCode,
-            errorMessage: f.errorMessage,
+          errorMessage: f.errorMessage,
+          nasArchive: f.nasArchive,
           })
         )
         .sort((a, b) => toTime(b.modifiedAt ?? b.createdAt) - toTime(a.modifiedAt ?? a.createdAt));
@@ -746,6 +750,14 @@ export const fetchShots = async (): Promise<Shot[]> => {
   }
 
   return [];
+};
+
+export const retryNasArchive = async (jobId: string): Promise<{ scheduled: boolean }> => {
+  const result = await client.post<{ scheduled?: boolean }>(
+    `/api/archive/${encodeURIComponent(jobId)}/retry`,
+    JSON.stringify({}),
+  );
+  return { scheduled: result.scheduled !== false };
 };
 
 export const fetchShot = async (id: string): Promise<Shot> => {

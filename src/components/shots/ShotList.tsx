@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn, formatMediaTitle } from "@/lib/utils";
-import { Eye, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { Cloud, Eye, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { API_BASE } from "../../api/client";
 import { Shot } from "../../types/shots";
 
@@ -24,8 +24,10 @@ type ShotListProps = {
   onForceAnalyze?: (shot: Shot) => void;
   onRetake?: () => void;
   onDelete?: (shot: Shot) => void;
+  onRetryArchive?: (shot: Shot) => void;
   deletingId?: string | null;
   analyzingId?: string | null;
+  retryingArchiveId?: string | null;
   openIds?: Set<string>;
   title?: string;
   emptyMessage?: string;
@@ -42,8 +44,10 @@ export function ShotList({
   onForceAnalyze,
   onRetake,
   onDelete,
+  onRetryArchive,
   deletingId,
   analyzingId,
+  retryingArchiveId,
   openIds,
   title = "업로드된 파일",
   emptyMessage = "아직 등록된 파일이 없습니다.",
@@ -105,6 +109,9 @@ export function ShotList({
               const isAnalyzeAvailable = Boolean(onAnalyze) && !isDone && !isProcessing && !isNotSwing;
               const analyzeButtonLabel = isFailed ? "재시도" : "분석";
               const isOpen = openIds?.has(shot.id);
+              const archive = shot.nasArchive;
+              const archiveLabel = archive ? NAS_ARCHIVE_LABELS[archive.state] : null;
+              const canRetryArchive = archive?.state === "failed" && Boolean(onRetryArchive && shot.jobId);
 
               return (
                 <li
@@ -135,6 +142,15 @@ export function ShotList({
                     </span>
                     {isProcessing && <Badge tone="processing">분석중...</Badge>}
                     {isDone && <Badge tone="success">분석 완료</Badge>}
+                    {archiveLabel && (
+                      <Badge tone={archive.state === "failed" ? "failed" : archive.state === "stored" ? "success" : "processing"}>
+                        <Cloud className="h-3 w-3" aria-hidden="true" />
+                        {archiveLabel}
+                      </Badge>
+                    )}
+                    {archive?.state === "failed" && archive.error && (
+                      <p className="break-words text-xs text-destructive">NAS 보관 실패: {archive.error}</p>
+                    )}
                     {isNotSwing && (
                       <div className="mt-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                         <p className="font-semibold">스윙 영상이 아닌 것 같아요</p>
@@ -211,6 +227,20 @@ export function ShotList({
                         )}
                       </Button>
                     )}
+                    {canRetryArchive && (
+                      <Button
+                        type="button"
+                        onClick={() => onRetryArchive?.(shot)}
+                        variant="outline"
+                        size="sm"
+                        fullWidth={false}
+                        disabled={retryingArchiveId === shot.id}
+                        className="gap-2"
+                      >
+                        <RefreshCw className={cn("h-4 w-4", retryingArchiveId === shot.id && "animate-spin")} />
+                        <span>{retryingArchiveId === shot.id ? "NAS 재시도 중..." : "NAS 재시도"}</span>
+                      </Button>
+                    )}
                     {onDelete && (
                       <Button
                         type="button"
@@ -258,11 +288,22 @@ const TITLE_CLAMP_STYLE: CSSProperties = {
   overflow: "hidden",
 };
 
-function Badge({ tone, children }: { tone: "processing" | "success"; children: React.ReactNode }) {
+const NAS_ARCHIVE_LABELS: Record<NonNullable<Shot["nasArchive"]>["state"], string> = {
+  disabled: "NAS 보관 미설정",
+  pending: "NAS 보관 대기",
+  uploading: "NAS 보관 중",
+  retrying: "NAS 재시도 대기",
+  stored: "NAS 보관 완료",
+  failed: "NAS 보관 실패",
+};
+
+function Badge({ tone, children }: { tone: "processing" | "success" | "failed"; children: React.ReactNode }) {
   const styles =
     tone === "processing"
       ? "bg-sky-400/10 text-sky-100 border border-sky-300/30"
-      : "bg-emerald-400/10 text-emerald-100 border border-emerald-300/30";
+      : tone === "failed"
+        ? "bg-red-400/10 text-red-100 border border-red-300/30"
+        : "bg-emerald-400/10 text-emerald-100 border border-emerald-300/30";
   return (
     <span
       className={cn(

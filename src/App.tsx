@@ -43,7 +43,7 @@ import {
   SessionApiError,
   stopSession,
 } from "./api/sessionApi";
-import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus } from "./api/shots";
+import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus, retryNasArchive } from "./api/shots";
 import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { InferDebugPage } from "./components/debug/InferDebugPage";
@@ -137,6 +137,7 @@ function MainApp() {
   });
   const [activeTab, setActiveTab] = useState<TabKey>("camera");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [retryingArchiveId, setRetryingArchiveId] = useState<string | null>(null);
   const [openShotIds, setOpenShotIds] = useState<Set<string>>(new Set());
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [settings, setSettings] = useState<UploadSettings>({
@@ -316,6 +317,21 @@ function MainApp() {
       console.error(err);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleRetryArchive = async (shot: Shot) => {
+    if (!shot.jobId) return;
+    setRetryingArchiveId(shot.id);
+    try {
+      await retryNasArchive(shot.jobId);
+      await refreshShots({ silent: true });
+      toast({ title: "NAS 보관을 다시 시도합니다.", description: "분석은 다시 실행하지 않습니다." });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "NAS 보관 재시도 요청에 실패했습니다.";
+      toast({ title: "NAS 재시도 실패", description: message, variant: "destructive" });
+    } finally {
+      setRetryingArchiveId(null);
     }
   };
 
@@ -1302,7 +1318,7 @@ function MainApp() {
     if (activeTab !== "list" && !showLookupLayer) return;
     const hasInProgress = shots.some((shot) => {
       const status = (shot.analysis?.status ?? shot.status) as string | undefined;
-      return status === "queued" || status === "running";
+      return status === "queued" || status === "running" || ["pending", "uploading", "retrying"].includes(shot.nasArchive?.state ?? "");
     });
     if (!hasInProgress) return;
     const interval = window.setInterval(() => {
@@ -1474,7 +1490,9 @@ function MainApp() {
                   onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
                   onRetake={handleRetake}
                   onDelete={(shot) => handleDelete(shot)}
+                  onRetryArchive={handleRetryArchive}
                   deletingId={deletingId}
+                  retryingArchiveId={retryingArchiveId}
                   analyzingId={analyzingId}
                   openIds={openShotIds}
                 />
@@ -1494,7 +1512,9 @@ function MainApp() {
                     setActiveTab("analysis");
                   }}
                   onDelete={(shot) => handleDelete(shot)}
+                  onRetryArchive={handleRetryArchive}
                   deletingId={deletingId}
+                  retryingArchiveId={retryingArchiveId}
                   openIds={openShotIds}
                 />
               </TabsContent>
@@ -1780,7 +1800,9 @@ function MainApp() {
                         onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
                         onRetake={handleRetake}
                         onDelete={(shot) => handleDelete(shot)}
+                        onRetryArchive={handleRetryArchive}
                         deletingId={deletingId}
+                        retryingArchiveId={retryingArchiveId}
                         analyzingId={analyzingId}
                         openIds={openShotIds}
                       />
@@ -1801,7 +1823,9 @@ function MainApp() {
                           setActiveTab("analysis");
                         }}
                         onDelete={(shot) => handleDelete(shot)}
+                        onRetryArchive={handleRetryArchive}
                         deletingId={deletingId}
+                        retryingArchiveId={retryingArchiveId}
                         openIds={openShotIds}
                       />
                     </TabsContent>

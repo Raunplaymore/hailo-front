@@ -165,6 +165,18 @@ export type CoachFinding = {
   theory?: string | null;
 };
 
+export type NasArchiveState = "disabled" | "pending" | "uploading" | "retrying" | "stored" | "failed";
+
+export type NasArchiveStatus = {
+  state: NasArchiveState;
+  attempt?: number;
+  retryAt?: string | null;
+  archivedAt?: string | null;
+  artifactCount?: number | null;
+  error?: string | null;
+  updatedAt?: string | null;
+};
+
 export type Shot = {
   id: string;
   filename: string;
@@ -182,4 +194,5 @@ export type Shot = {
   status?: JobStatus;
   club?: string;
   analysis?: AnalysisResult | null;
+  nasArchive?: NasArchiveStatus | null;
 };

@@ -1306,7 +1306,7 @@ function MainApp() {
     });
     if (!hasInProgress) return;
     const interval = window.setInterval(() => {
-      refreshShots();
+      refreshShots({ silent: true });
     }, 1000);
     return () => window.clearInterval(interval);
   }, [activeTab, showLookupLayer, shots, refreshShots]);
@@ -1320,7 +1320,7 @@ function MainApp() {
     >
       {activeTab === "camera" && (
         <section className="min-w-0 space-y-4" aria-label="카메라 촬영 화면">
-          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-card/70 p-3 shadow-xl shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 p-3 border shadow-xl rounded-2xl border-white/10 bg-card/70 shadow-black/15 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold text-emerald-200">Camera workflow</p>
               <h2 className="text-lg font-semibold text-foreground">화면과 조작부</h2>
@@ -1332,16 +1332,16 @@ function MainApp() {
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 px-4"
+                className="px-4 min-h-11"
                 fullWidth={false}
                 onClick={() => setShowCameraSettingsLayer(true)}
               >
-                설정부
+                Settings
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 px-4"
+                className="px-4 min-h-11"
                 fullWidth={false}
                 onClick={() => {
                   setShowLookupLayer(true);
@@ -1349,7 +1349,7 @@ function MainApp() {
                   refreshShots();
                 }}
               >
-                조회부
+                Lists
               </Button>
             </div>
           </div>
@@ -1568,11 +1568,11 @@ function MainApp() {
                 findings={analysis?.coachFindings ?? []}
               />
 
-              <details className="group rounded-2xl border border-border bg-card shadow-sm">
+              <details className="border shadow-sm group rounded-2xl border-border bg-card">
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground">상세 지표 / 디버그</p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="text-xs truncate text-muted-foreground">
                       템포, 이벤트 타이밍, 트래킹 품질 등 세부 항목은 필요할 때만 펼칩니다.
                     </p>
                   </div>
@@ -1581,7 +1581,7 @@ function MainApp() {
                     <span className="hidden group-open:inline">접기</span>
                   </span>
                 </summary>
-                <div className="border-t border-border p-2 sm:p-3">
+                <div className="p-2 border-t border-border sm:p-3">
                   <MetricsTable
                     analysis={analysis}
                     status={jobStatus}
@@ -1591,7 +1591,7 @@ function MainApp() {
               </details>
             </div>
 
-            <div className="order-first xl:order-none min-w-0 xl:sticky xl:top-4">
+            <div className="order-first min-w-0 xl:order-none xl:sticky xl:top-4">
               <AnalysisPlayer
                 videoUrl={selectedVideoUrl}
                 events={analysis?.events}
@@ -1638,17 +1638,17 @@ function MainApp() {
 
       {showCameraSettingsLayer && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-3 py-4 sm:px-6"
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 py-4 bg-black/65 sm:px-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="camera-settings-layer-title"
         >
           <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl shadow-black/50">
-            <div className="flex flex-col gap-3 border-b border-border bg-card/90 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 p-4 border-b border-border bg-card/90 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-emerald-200">Settings layer</p>
                 <h2 id="camera-settings-layer-title" className="text-xl font-semibold text-foreground">
-                  설정부
+                  Settings
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   연결, 프리뷰, 클럽/렌즈 값을 촬영 전에 조정합니다.
@@ -1657,7 +1657,7 @@ function MainApp() {
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 px-4"
+                className="px-4 min-h-11"
                 fullWidth={false}
                 onClick={() => setShowCameraSettingsLayer(false)}
               >
@@ -1705,33 +1705,33 @@ function MainApp() {
 
       {showLookupLayer && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 px-3 py-4 sm:px-6"
+          className="fixed inset-0 z-50 flex items-center justify-center px-3 py-4 bg-black/65 sm:px-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="camera-lookup-layer-title"
         >
           <div className="flex max-h-[92vh] w-full min-w-0 max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-background shadow-2xl shadow-black/50">
-            <div className="flex flex-col gap-3 border-b border-border bg-card/90 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 p-4 border-b border-border bg-card/90 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-emerald-200">Lookup layer</p>
                 <h2 id="camera-lookup-layer-title" className="text-xl font-semibold text-foreground">
-                  조회부
+                  Lists
                 </h2>
-                <p className="mt-1 break-words text-sm text-muted-foreground">
+                <p className="mt-1 text-sm break-words text-muted-foreground">
                   촬영 세션과 업로드 영상을 확인하고 분석 화면으로 이동합니다.
                 </p>
               </div>
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 px-4"
+                className="px-4 min-h-11"
                 fullWidth={false}
                 onClick={() => setShowLookupLayer(false)}
               >
                 닫기
               </Button>
             </div>
-            <div className="min-w-0 overflow-y-auto p-4">
+            <div className="min-w-0 p-4 overflow-y-auto">
               <Tabs
                 value={listMode}
                 onValueChange={(val) => setListMode(val as "sessions" | "uploads")}
@@ -1819,7 +1819,7 @@ function MainApp() {
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative w-full max-w-xl p-4 space-y-3 border border-border bg-card shadow-2xl shadow-black/40 rounded-xl">
+          <div className="relative w-full max-w-xl p-4 space-y-3 border shadow-2xl border-border bg-card shadow-black/40 rounded-xl">
             <div className="flex items-center justify-end">
               <Button
                 type="button"

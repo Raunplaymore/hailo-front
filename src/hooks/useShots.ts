@@ -8,7 +8,7 @@ type UseShotsResult = {
   isLoading: boolean;
   error: string | null;
   select: (shot: Shot | null) => void;
-  refresh: () => Promise<void>;
+  refresh: (options?: { silent?: boolean }) => Promise<void>;
 };
 
 export function useShots(): UseShotsResult {
@@ -17,9 +17,11 @@ export function useShots(): UseShotsResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
     try {
       const data = await fetchShots();
       setShots(data);
@@ -27,9 +29,9 @@ export function useShots(): UseShotsResult {
       console.error(err);
       setError("샷 목록을 불러오지 못했습니다.");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
-  }, [selected]);
+  }, []);
 
   useEffect(() => {
     load();

@@ -44,7 +44,7 @@ jobs:
         run: VITE_NAS_LIBRARY_MODE=true npm run build
 
       - name: Create static release archive
-        run: tar czf /tmp/hailo-nas-library.tar.gz -C dist .
+        run: tar czf hailo-nas-library.tar.gz -C dist .
 
       - name: Upload static release to NAS
         uses: appleboy/scp-action@v0.1.7
@@ -53,7 +53,7 @@ jobs:
           port: ${{ secrets.NAS_SSH_PORT }}
           username: ${{ secrets.NAS_SSH_USER }}
           key: ${{ secrets.NAS_SSH_KEY }}
-          source: '/tmp/hailo-nas-library.tar.gz'
+          source: 'hailo-nas-library.tar.gz'
           target: '/tmp'
 
       - name: Activate NAS static release

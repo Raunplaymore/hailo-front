@@ -47,6 +47,7 @@ import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus, retr
 import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { InferDebugPage } from "./components/debug/InferDebugPage";
+import { LibraryApp } from "./components/library/LibraryApp";
 
 type TabKey = "camera" | "upload" | "list" | "analysis" | "settings";
 
@@ -115,6 +116,8 @@ const mapAutoRecordState = (state: AutoRecordState): SessionState => {
 };
 
 function App() {
+  const isNasLibraryMode = import.meta.env.VITE_NAS_LIBRARY_MODE === "true";
+  if (isNasLibraryMode) return <LibraryApp />;
   const isInferDebugPage =
     typeof window !== "undefined" && window.location.pathname.startsWith("/test/infer-debug");
   if (isInferDebugPage) return <InferDebugPage />;

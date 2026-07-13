@@ -62,6 +62,6 @@ jobs:
             TARGET="$RELEASES/$RELEASE_NAME"
             mkdir -p "$TARGET"
             tar xzf /tmp/hailo-nas-library.tar.gz -C "$TARGET"
-            ln -sfn "$TARGET" "$ROOT/current"
+            ln -sfn "releases/$RELEASE_NAME" "$ROOT/current"
             find "$RELEASES" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +4 | cut -d' ' -f2- | xargs -r rm -rf
             rm -f /tmp/hailo-nas-library.tar.gz

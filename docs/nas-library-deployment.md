@@ -1,6 +1,6 @@
 # NAS 모바일 라이브러리 배포
 
-`Deploy NAS Library` workflow는 NAS가 Pi와 무관하게 모바일 library build를 제공하도록 `/volume1/hailo/web/releases`에 Vite build를 올리고 `current` 링크를 전환한다.
+`Deploy NAS Library` workflow는 NAS가 Pi와 무관하게 모바일 library build를 제공하도록 `/volume1/hailo/web/releases`에 Vite build를 올리고, 컨테이너 bind mount에서도 유효한 상대 `current` 링크를 전환한다.
 
 이 workflow는 NAS SSH private key가 GitHub에 등록되기 전에는 실행하지 않는다. 설정할 repository secrets는 다음 네 개다.
 

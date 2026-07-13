@@ -1,6 +1,15 @@
 name: Deploy NAS Library
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - '.github/workflows/deploy-nas-library.yml'
   workflow_dispatch:
 
 concurrency:

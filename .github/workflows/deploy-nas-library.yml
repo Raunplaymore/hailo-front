@@ -1,0 +1,76 @@
+name: Deploy NAS Library
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - '.github/workflows/deploy-nas-library.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: nas-library-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Seoul
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Use Node.js 20.19.4
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.4
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build NAS library
+        run: VITE_NAS_LIBRARY_MODE=true npm run build
+
+      - name: Create static release archive
+        run: tar czf /tmp/hailo-nas-library.tar.gz -C dist .
+
+      - name: Upload static release to NAS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.NAS_HOST }}
+          port: ${{ secrets.NAS_SSH_PORT }}
+          username: ${{ secrets.NAS_SSH_USER }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          source: '/tmp/hailo-nas-library.tar.gz'
+          target: '/tmp'
+
+      - name: Activate NAS static release
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.NAS_HOST }}
+          port: ${{ secrets.NAS_SSH_PORT }}
+          username: ${{ secrets.NAS_SSH_USER }}
+          key: ${{ secrets.NAS_SSH_KEY }}
+          script: |
+            set -eu
+            ROOT=/volume1/hailo/web
+            RELEASES="$ROOT/releases"
+            RELEASE_NAME="$(date +%Y%m%d%H%M%S)"
+            TARGET="$RELEASES/$RELEASE_NAME"
+            mkdir -p "$TARGET"
+            tar xzf /tmp/hailo-nas-library.tar.gz -C "$TARGET"
+            ln -sfn "$TARGET" "$ROOT/current"
+            find "$RELEASES" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +4 | cut -d' ' -f2- | xargs -r rm -rf
+            rm -f /tmp/hailo-nas-library.tar.gz

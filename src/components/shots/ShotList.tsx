@@ -110,7 +110,12 @@ export function ShotList({
               const analyzeButtonLabel = isFailed ? "재시도" : "분석";
               const isOpen = openIds?.has(shot.id);
               const archive = shot.nasArchive;
-              const archiveLabel = archive ? NAS_ARCHIVE_LABELS[archive.state] : null;
+              const archiveLabel =
+                archive?.state === "stored" && archive.videoStored === false
+                  ? "NAS 분석 보관 완료 · 원본 영상 없음"
+                  : archive
+                    ? NAS_ARCHIVE_LABELS[archive.state]
+                    : null;
               const canRetryArchive = archive?.state === "failed" && Boolean(onRetryArchive && shot.jobId);
 
               return (

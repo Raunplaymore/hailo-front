@@ -173,6 +173,7 @@ export type NasArchiveStatus = {
   retryAt?: string | null;
   archivedAt?: string | null;
   artifactCount?: number | null;
+  videoStored?: boolean | null;
   error?: string | null;
   updatedAt?: string | null;
 };

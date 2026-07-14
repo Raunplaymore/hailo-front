@@ -216,7 +216,7 @@ function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { 
     {layers.club && clubFrames.length > 1 ? <polyline points={clubFrames.filter((frame) => frame.handle).map((frame) => `${frame.handle!.x},${frame.handle!.y}`).join(" ")} fill="none" stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" /> : null}
     {layers.club && latestClub?.head && latestClub.handle ? <line x1={latestClub.head.x} y1={latestClub.head.y} x2={latestClub.handle.x} y2={latestClub.handle.y} stroke="#fbbf24" strokeWidth="0.009" /> : null}
     {layers.pose && pose ? SKELETON_LINKS.map(([from, to]) => { const a = pose.keypoints[from]; const b = pose.keypoints[to]; return Array.isArray(a) && Array.isArray(b) ? <line key={`${from}-${to}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#34d399" strokeWidth="0.006" /> : null; }) : null}
-    {layers.pose && pose ? Object.entries(pose.keypoints).map(([name, point]) => Array.isArray(point) && (point[2] ?? 1) >= .15 ? <circle key={name} cx={point[0]} cy={point[1]} r="0.012" fill={jointColor(name)} /> : null) : null}
+    {layers.pose && pose ? Object.entries(pose.keypoints).map(([name, point]) => Array.isArray(point) && (point[2] ?? 1) >= .15 ? <circle key={name} cx={point[0]} cy={point[1]} r="0.009" fill={jointColor(name)} /> : null) : null}
     {layers.hands ? (["left_wrist", "right_wrist"] as const).map((key) => {
       const trail = handTrailSegments(poseFrames, key, timeMs);
       return <g key={key} fill="none" stroke="#fb7185" strokeLinecap="round">

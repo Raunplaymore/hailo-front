@@ -7,6 +7,8 @@ import {
   generateInferDebugMeta,
   InferDebugAnalysisResponse,
   InferDebugFramesResponse,
+  ClubPreprocessLabResponse,
+  runClubPreprocessLab,
 } from "../../api/debug";
 import { Button } from "../Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -231,6 +233,8 @@ export function InferDebugPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingDebug, setIsGeneratingDebug] = useState(false);
+  const [isRunningLab, setIsRunningLab] = useState(false);
+  const [labReport, setLabReport] = useState<ClubPreprocessLabResponse | null>(null);
 
   const labels = useMemo(() => {
     const found = new Set<string>();
@@ -292,6 +296,7 @@ export function InferDebugPage() {
     }
     setIsLoading(true);
     setError(null);
+    setLabReport(null);
     try {
       const [next, nextAnalysis] = await Promise.all([
         fetchInferDebugFrames(trimmed, { limit, force, variant: targetVariant }),
@@ -335,6 +340,23 @@ export function InferDebugPage() {
       setError(err instanceof Error ? err.message : "debug meta를 생성하지 못했습니다.");
     } finally {
       setIsGeneratingDebug(false);
+    }
+  };
+
+  const handleRunLab = async () => {
+    const trimmed = jobId.trim();
+    if (!trimmed) {
+      setError("먼저 jobId를 불러오세요.");
+      return;
+    }
+    setIsRunningLab(true);
+    setError(null);
+    try {
+      setLabReport(await runClubPreprocessLab(trimmed));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "보정 실험을 실행하지 못했습니다.");
+    } finally {
+      setIsRunningLab(false);
     }
   };
 
@@ -430,6 +452,17 @@ export function InferDebugPage() {
               onClick={handleGenerateDebugMeta}
             >
               Debug Meta
+            </Button>
+            <Button
+              fullWidth={false}
+              className="px-4 py-2 text-sm sm:col-start-5"
+              type="button"
+              disabled={isLoading || isGeneratingDebug || isRunningLab || !jobId.trim()}
+              isLoading={isRunningLab}
+              loadingText="비교 중..."
+              onClick={handleRunLab}
+            >
+              보정 비교
             </Button>
           </form>
         </header>
@@ -541,6 +574,47 @@ export function InferDebugPage() {
                 </div>
               </CardContent>
             </Card>
+          </section>
+        )}
+
+        {(data || labReport) && (
+          <section className="rounded-lg border border-border bg-card p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold">클럽 검출 보정 실험실</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  원본은 보존하고, 대비 보정·손목 ROI 보정본만 별도로 Hailo 검출해 비교합니다. 분석 결과나 NAS에는 저장하지 않습니다.
+                </p>
+              </div>
+              {!labReport && (
+                <Button type="button" variant="outline" fullWidth={false} disabled={isRunningLab || !jobId.trim()} onClick={handleRunLab}>
+                  {isRunningLab ? "비교 중..." : "보정 비교 실행"}
+                </Button>
+              )}
+            </div>
+            {labReport && (
+              <div className="mt-4 space-y-3">
+                <div className={`rounded-md border px-3 py-2 text-sm ${labReport.report.decision === "candidate_for_visual_review" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100" : "border-border bg-muted/40 text-muted-foreground"}`}>
+                  {labReport.report.decision === "candidate_for_visual_review"
+                    ? "운영 후보: 수치 개선이 확인됐습니다. 오검출과 ROI 좌표 보정만 시각 검토하면 됩니다."
+                    : "운영 후보 없음: 이번 영상에서는 보정이 클럽 헤드·핸들 동시 검출을 충분히 개선하지 못했습니다."}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {Object.entries(labReport.report.results).map(([variantName, result]) => (
+                    <div key={variantName} className="rounded-md border border-border bg-muted/30 p-3">
+                      <p className="text-sm font-semibold">{variantName === "source" ? "원본" : variantName === "contrast" ? "대비 보정" : "손목 ROI"}</p>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <dt>헤드</dt><dd className="text-right text-foreground">{result.detectedFrames.club_head ?? 0}</dd>
+                        <dt>핸들</dt><dd className="text-right text-foreground">{result.detectedFrames.club_handle ?? 0}</dd>
+                        <dt>동시 검출</dt><dd className="text-right text-foreground">{result.pairedHeadHandleFrames}</dd>
+                        <dt>샤프트 근거</dt><dd className="text-right text-foreground">{result.shaftEvidenceScore.toFixed(3)}</dd>
+                      </dl>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">{labReport.report.guardrail}</p>
+              </div>
+            )}
           </section>
         )}
 

@@ -61,6 +61,32 @@ export type InferDebugAnalysisResponse = {
   } | null;
 };
 
+export type ClubPreprocessLabVariant = {
+  frames: number;
+  detectedFrames: Record<string, number>;
+  pairedHeadHandleFrames: number;
+  shaftEvidenceScore: number;
+};
+
+export type ClubPreprocessLabResponse = {
+  ok: boolean;
+  jobId: string;
+  labOnly: true;
+  scorePath: string;
+  report: {
+    decision: "candidate_for_visual_review" | "no_candidate";
+    results: Record<string, ClubPreprocessLabVariant>;
+    candidates: Array<{
+      variant: string;
+      scoreGain: number;
+      headFrameGain: number;
+      pairedFrameGain: number;
+      qualifies: boolean;
+    }>;
+    guardrail: string;
+  };
+};
+
 const withBaseUrl = (url: string) => {
   if (/^https?:\/\//i.test(url)) return url;
   return `${API_BASE}${url}`;
@@ -96,4 +122,11 @@ export async function generateInferDebugMeta(jobId: string) {
 
 export async function fetchInferDebugAnalysis(jobId: string) {
   return client.get<InferDebugAnalysisResponse>(`/api/analyze/${encodeURIComponent(jobId)}`);
+}
+
+export async function runClubPreprocessLab(jobId: string) {
+  return client.post<ClubPreprocessLabResponse>(
+    `/api/labs/club-preprocess/${encodeURIComponent(jobId)}`,
+    new Blob(["{}"], { type: "application/json" })
+  );
 }

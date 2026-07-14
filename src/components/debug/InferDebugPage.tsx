@@ -1,5 +1,5 @@
-import { FormEvent, useMemo, useState } from "react";
-import { Filter, RefreshCw, Search } from "lucide-react";
+import { FormEvent, useMemo, useRef, useState } from "react";
+import { Filter, RefreshCw, Search, X } from "lucide-react";
 import {
   DebugDetection,
   fetchInferDebugAnalysis,
@@ -214,6 +214,7 @@ function nearestEventLabel(events: ReturnType<typeof extractEvents>, timeMs: num
 
 export function InferDebugPage() {
   const [jobId, setJobId] = useState(getInitialJobId);
+  const jobIdInputRef = useRef<HTMLInputElement>(null);
   const [limit, setLimit] = useState(24);
   const [variant, setVariant] = useState<"main" | "debug">("main");
   const [threshold, setThreshold] = useState(0.25);
@@ -365,6 +366,12 @@ export function InferDebugPage() {
     load(false);
   };
 
+  const clearJobId = () => {
+    setJobId("");
+    setError(null);
+    requestAnimationFrame(() => jobIdInputRef.current?.focus());
+  };
+
   const toggleLabel = (label: string) => {
     setShowAllLabels(false);
     setSelectedLabels((prev) => {
@@ -399,12 +406,27 @@ export function InferDebugPage() {
             </h1>
           </div>
           <form className="grid gap-2 sm:grid-cols-[minmax(18rem,1fr)_6rem_7rem_auto_auto]" onSubmit={handleSubmit}>
-            <Input
-              value={jobId}
-              onChange={(event) => setJobId(event.target.value)}
-              placeholder="jobId"
-              aria-label="jobId"
-            />
+            <div className="relative">
+              <Input
+                ref={jobIdInputRef}
+                value={jobId}
+                onChange={(event) => setJobId(event.target.value)}
+                placeholder="jobId"
+                aria-label="jobId"
+                className={jobId ? "pr-10" : undefined}
+              />
+              {jobId && (
+                <button
+                  type="button"
+                  onClick={clearJobId}
+                  className="absolute right-1 top-1 grid size-7 place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Job ID 지우기"
+                  title="Job ID 지우기"
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </button>
+              )}
+            </div>
             <Input
               type="number"
               min={4}

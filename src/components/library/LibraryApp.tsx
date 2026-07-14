@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Archive, ChevronLeft, RefreshCw, Trash2, Video } from "lucide-react";
+import { Archive, CalendarDays, ChevronLeft, ChevronRight, Film, RefreshCw, Trash2, Video } from "lucide-react";
 import { normalizeAnalysis } from "../../api/shots";
 import { AnalysisPlayer } from "../analysis/AnalysisPlayer";
 import { CoachSummary } from "../analysis/CoachSummary";
@@ -22,6 +22,30 @@ type LibraryDetail = LibraryJob & {
   progress?: unknown;
   artifacts?: Array<{ artifact?: string; filename?: string }>;
 };
+
+type LibraryListResponse = {
+  jobs: LibraryJob[];
+  total?: number;
+  nextCursor?: string | null;
+};
+
+type PeriodFilter = "all" | "7d" | "30d" | "90d" | "year";
+
+const PERIOD_OPTIONS: Array<{ value: PeriodFilter; label: string; days?: number }> = [
+  { value: "all", label: "전체" },
+  { value: "7d", label: "7일", days: 7 },
+  { value: "30d", label: "30일", days: 30 },
+  { value: "90d", label: "90일", days: 90 },
+  { value: "year", label: "올해" },
+];
+
+function sinceForPeriod(period: PeriodFilter) {
+  if (period === "all") return null;
+  const since = new Date();
+  if (period === "year") since.setMonth(0, 1);
+  else since.setDate(since.getDate() - (PERIOD_OPTIONS.find((option) => option.value === period)?.days ?? 0));
+  return since.toISOString();
+}
 
 function analysisForLibrary(job: LibraryDetail | null): AnalysisResult | null {
   if (!job?.analysis || typeof job.analysis !== "object") return null;
@@ -58,13 +82,24 @@ export function LibraryApp() {
   const [jobs, setJobs] = useState<LibraryJob[]>([]);
   const [selected, setSelected] = useState<LibraryDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [period, setPeriod] = useState<PeriodFilter>("all");
+  const [pageSize, setPageSize] = useState(12);
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
   const selectedAnalysis = useMemo(() => analysisForLibrary(selected), [selected]);
 
-  const loadJobs = async () => {
+  const loadJobs = async (cursor = "") => {
     setLoading(true);
     try {
-      const result = await libraryRequest<{ jobs: LibraryJob[] }>("/api/library/jobs");
+      const params = new URLSearchParams({ limit: String(pageSize) });
+      if (cursor) params.set("cursor", cursor);
+      const since = sinceForPeriod(period);
+      if (since) params.set("since", since);
+      const result = await libraryRequest<LibraryListResponse>(`/api/library/jobs?${params.toString()}`);
       setJobs(result.jobs || []);
+      setTotal(result.total ?? result.jobs?.length ?? 0);
+      setNextCursor(result.nextCursor ?? null);
       setError(null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "기록을 불러오지 못했습니다.");
@@ -77,10 +112,15 @@ export function LibraryApp() {
     libraryRequest<{ authenticated: boolean }>("/api/auth/me")
       .then(() => {
         setAuthenticated(true);
-        return loadJobs();
       })
       .catch(() => setAuthenticated(false));
   }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    setCursorStack([]);
+    void loadJobs();
+  }, [authenticated, period, pageSize]);
 
   const login = async (event: FormEvent) => {
     event.preventDefault();
@@ -92,7 +132,6 @@ export function LibraryApp() {
       });
       setPassword("");
       setAuthenticated(true);
-      await loadJobs();
     } catch {
       setError("비밀번호를 확인하세요.");
     }
@@ -113,7 +152,8 @@ export function LibraryApp() {
     try {
       await libraryRequest(`/api/library/jobs/${encodeURIComponent(jobId)}`, { method: "DELETE" });
       if (selected?.jobId === jobId) setSelected(null);
-      await loadJobs();
+      const currentCursor = cursorStack.at(-1) ?? "";
+      await loadJobs(currentCursor);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "삭제하지 못했습니다.");
     }
@@ -122,6 +162,25 @@ export function LibraryApp() {
   if (authenticated === null) {
     return <main className="mx-auto flex min-h-screen max-w-xl items-center p-5 text-sm text-muted-foreground">NAS 라이브러리를 확인 중입니다.</main>;
   }
+
+  const currentPage = cursorStack.length + 1;
+  const changePeriod = (nextPeriod: PeriodFilter) => {
+    if (nextPeriod === period) return;
+    setPeriod(nextPeriod);
+  };
+
+  const goNextPage = async () => {
+    if (!nextCursor) return;
+    setCursorStack((previous) => [...previous, nextCursor]);
+    await loadJobs(nextCursor);
+  };
+
+  const goPreviousPage = async () => {
+    if (!cursorStack.length) return;
+    const previousStack = cursorStack.slice(0, -1);
+    setCursorStack(previousStack);
+    await loadJobs(previousStack.at(-1) ?? "");
+  };
 
   if (!authenticated) {
     return (
@@ -156,7 +215,7 @@ export function LibraryApp() {
             <p className="text-sm text-muted-foreground">NAS에 안전하게 보관된 분석 기록</p>
           </div>
         </div>
-        <Button variant="outline" fullWidth={false} className="grid size-11 place-items-center !p-0" aria-label="기록 새로고침" title="기록 새로고침" onClick={loadJobs} disabled={loading}>
+        <Button variant="outline" fullWidth={false} className="grid size-11 place-items-center !p-0" aria-label="기록 새로고침" title="기록 새로고침" onClick={() => loadJobs(cursorStack.at(-1) ?? "")} disabled={loading}>
           <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} aria-hidden="true" />
         </Button>
       </header>
@@ -191,24 +250,76 @@ export function LibraryApp() {
         </section>
       )}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">보관된 스윙</CardTitle>
-          <CardDescription>선택하면 분석 레이어와 코칭을 그대로 다시 볼 수 있습니다.</CardDescription>
+        <CardHeader className="gap-4">
+          <div>
+            <CardTitle className="text-base">보관된 스윙</CardTitle>
+            <CardDescription>기간과 페이지를 정해 필요한 기록만 빠르게 찾습니다.</CardDescription>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
+            <fieldset className="min-w-0">
+              <legend className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><CalendarDays className="size-3.5" aria-hidden="true" />기간</legend>
+              <div className="flex flex-wrap gap-1.5">
+                {PERIOD_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => changePeriod(option.value)}
+                    aria-pressed={period === option.value}
+                    className={`min-h-9 rounded-md border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${period === option.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+            <label className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+              페이지당
+              <select
+                value={pageSize}
+                onChange={(event) => setPageSize(Number(event.target.value))}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="페이지당 표시할 기록 수"
+              >
+                <option value={12}>12개</option>
+                <option value={24}>24개</option>
+                <option value={48}>48개</option>
+              </select>
+            </label>
+          </div>
         </CardHeader>
         <CardContent>
-          {!jobs.length && !loading ? <div className="rounded-xl border border-dashed p-6 text-center"><Video className="mx-auto size-6 text-muted-foreground" aria-hidden="true" /><p className="mt-2 text-sm font-medium">아직 보관된 스윙이 없습니다.</p><p className="mt-1 text-xs text-muted-foreground">Pi에서 분석을 완료하면 이곳에서 언제든 다시 볼 수 있습니다.</p></div> : (
-            <ul className="space-y-2">
-              {jobs.map((job) => (
-                <li key={job.jobId} className="flex items-center gap-2 rounded-xl border bg-card p-2 transition-colors hover:bg-muted/40">
-                  <button className="min-h-14 min-w-0 flex-1 rounded-lg px-2 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => openJob(job.jobId)} aria-label={`${job.shot?.originalName || job.shot?.media?.filename || job.jobId} 분석 열기`}>
-                    <span className="mb-1 flex flex-wrap items-center gap-1.5"><span className="block truncate text-sm font-semibold">{job.shot?.originalName || job.shot?.media?.filename || job.jobId}</span><span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${qualityFor(job).className}`}>{qualityFor(job).label}</span></span>
-                    <span className="block text-xs text-muted-foreground">{job.archivedAt ? new Date(job.archivedAt).toLocaleString() : job.jobId} · {job.videoStored ? "영상 보관됨" : "분석만 보관됨"}</span>
-                  </button>
-                  <Button variant="outline" fullWidth={false} className="grid size-11 shrink-0 place-items-center !p-0 text-muted-foreground hover:text-destructive" aria-label={`${job.shot?.originalName || job.jobId} 삭제`} title="기록 삭제" onClick={() => deleteJob(job.jobId)}><Trash2 className="size-4" aria-hidden="true" /></Button>
-                </li>
-              ))}
-            </ul>
+          <div className="mb-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+            <span>총 {total.toLocaleString()}개 · {currentPage}페이지</span>
+            {loading && <span role="status">기록을 불러오는 중…</span>}
+          </div>
+          {!jobs.length && !loading ? <div className="rounded-xl border border-dashed p-6 text-center"><Video className="mx-auto size-6 text-muted-foreground" aria-hidden="true" /><p className="mt-2 text-sm font-medium">이 기간에는 보관된 스윙이 없습니다.</p><p className="mt-1 text-xs text-muted-foreground">기간을 넓히면 이전 기록을 다시 볼 수 있습니다.</p></div> : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {jobs.map((job) => {
+                const quality = qualityFor(job);
+                const title = job.shot?.originalName || job.shot?.media?.filename || job.jobId;
+                return (
+                  <article key={job.jobId} className="group relative overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/45 hover:bg-muted/30">
+                    <button className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onClick={() => openJob(job.jobId)} aria-label={`${title} 분석 열기`}>
+                      <div className="relative grid aspect-video place-items-center border-b bg-muted/45 text-muted-foreground">
+                        <Film className="size-8" aria-hidden="true" />
+                        <span className="absolute bottom-2 left-2 rounded bg-background/90 px-2 py-1 text-[11px] font-semibold text-foreground">{job.videoStored ? "영상 보관" : "분석 보관"}</span>
+                      </div>
+                      <div className="min-w-0 p-3">
+                        <span className="mb-2 flex items-start justify-between gap-2"><span className="min-w-0 truncate text-sm font-semibold">{title}</span><span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${quality.className}`}>{quality.label}</span></span>
+                        <span className="block text-xs text-muted-foreground">{job.archivedAt ? new Date(job.archivedAt).toLocaleString() : job.jobId}</span>
+                      </div>
+                    </button>
+                    <Button variant="outline" fullWidth={false} className="absolute right-2 top-2 grid size-9 place-items-center !p-0 bg-background/90 text-muted-foreground hover:text-destructive" aria-label={`${title} 삭제`} title="기록 삭제" onClick={() => deleteJob(job.jobId)}><Trash2 className="size-4" aria-hidden="true" /></Button>
+                  </article>
+                );
+              })}
+            </div>
           )}
+          <nav className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4" aria-label="보관 기록 페이지">
+            <Button variant="outline" fullWidth={false} className="min-h-10 px-3 py-2 text-sm" disabled={loading || currentPage === 1} onClick={goPreviousPage}><ChevronLeft className="mr-1 size-4" aria-hidden="true" />이전</Button>
+            <span className="text-sm font-medium text-muted-foreground">{currentPage} 페이지</span>
+            <Button variant="outline" fullWidth={false} className="min-h-10 px-3 py-2 text-sm" disabled={loading || !nextCursor} onClick={goNextPage}>다음<ChevronRight className="ml-1 size-4" aria-hidden="true" /></Button>
+          </nav>
         </CardContent>
       </Card>
     </main>

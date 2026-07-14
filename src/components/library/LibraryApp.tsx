@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Archive, CalendarDays, ChevronLeft, ChevronRight, Film, RefreshCw, Trash2, Video } from "lucide-react";
+import { Archive, CalendarDays, ChevronLeft, ChevronRight, Clock3, Film, ImageOff, RefreshCw, Trash2, Video } from "lucide-react";
 import { normalizeAnalysis } from "../../api/shots";
 import { AnalysisPlayer } from "../analysis/AnalysisPlayer";
 import { CoachSummary } from "../analysis/CoachSummary";
@@ -13,6 +13,8 @@ type LibraryJob = {
   status?: string;
   archivedAt?: string;
   videoStored: boolean;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
   shot?: { media?: { filename?: string }; originalName?: string } | null;
   analysis?: { summary?: string; confidence?: number } | null;
 };
@@ -62,6 +64,22 @@ function qualityFor(job: LibraryJob) {
   if (score < 0.25) return { label: "참고용 분석", className: "border-slate-300/30 bg-slate-400/10 text-slate-100" };
   if (score < 0.5) return { label: "일부 참고", className: "border-amber-300/30 bg-amber-400/10 text-amber-100" };
   return { label: "분석 완료", className: "border-emerald-300/30 bg-emerald-400/10 text-emerald-100" };
+}
+
+function thumbnailFor(job: LibraryJob) {
+  return job.thumbnailUrl || job.posterUrl || null;
+}
+
+function archiveDate(job: LibraryJob) {
+  if (!job.archivedAt) return null;
+  const date = new Date(job.archivedAt);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function dateLabel(job: LibraryJob) {
+  const date = archiveDate(job);
+  if (!date) return "날짜 정보 없음";
+  return new Intl.DateTimeFormat("ko-KR", { month: "short", day: "numeric", weekday: "short" }).format(date);
 }
 
 async function libraryRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -182,6 +200,11 @@ export function LibraryApp() {
     await loadJobs(previousStack.at(-1) ?? "");
   };
 
+  const firstArchivedDate = jobs.reduce<Date | null>((latest, job) => {
+    const date = archiveDate(job);
+    return date && (!latest || date > latest) ? date : latest;
+  }, null);
+
   if (!authenticated) {
     return (
       <main className="mx-auto flex min-h-screen max-w-md items-center p-5">
@@ -206,13 +229,13 @@ export function LibraryApp() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl space-y-4 p-4 pb-10 sm:p-6">
-      <header className="flex items-center justify-between gap-3">
+    <main className="mx-auto min-h-screen max-w-5xl space-y-4 p-3 pb-10 sm:space-y-5 sm:p-6">
+      <header className="flex items-center justify-between gap-3 py-1 sm:py-2">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary/10 text-primary"><Archive className="size-5" aria-hidden="true" /></span>
+          <span className="grid size-10 shrink-0 place-items-center rounded-2xl border border-primary/25 bg-primary/10 text-primary shadow-[0_8px_24px_hsl(var(--primary)/0.12)]"><Archive className="size-5" aria-hidden="true" /></span>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold">내 스윙</h1>
-            <p className="text-sm text-muted-foreground">NAS에 안전하게 보관된 분석 기록</p>
+            <h1 className="text-xl font-bold tracking-tight">스윙 라이브러리</h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">보관본을 찾아보고 학습 후보를 고르세요</p>
           </div>
         </div>
         <Button variant="outline" fullWidth={false} className="grid size-11 place-items-center !p-0" aria-label="기록 새로고침" title="기록 새로고침" onClick={() => loadJobs(cursorStack.at(-1) ?? "")} disabled={loading}>
@@ -249,31 +272,45 @@ export function LibraryApp() {
           </Card>
         </section>
       )}
-      <Card>
-        <CardHeader className="gap-4">
-          <div>
-            <CardTitle className="text-base">보관된 스윙</CardTitle>
-            <CardDescription>기간과 페이지를 정해 필요한 기록만 빠르게 찾습니다.</CardDescription>
+      <Card className="overflow-hidden border-border/90">
+        <CardHeader className="gap-4 p-4 pb-3 sm:p-6 sm:pb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-primary"><Film className="size-3.5" aria-hidden="true" /> Archive</p>
+              <CardTitle className="mt-1 text-lg">보관된 스윙</CardTitle>
+              <CardDescription className="mt-1">날짜별로 훑어보고 필요한 영상만 열어보세요.</CardDescription>
+            </div>
+            <div className="shrink-0 rounded-xl border border-border bg-muted/40 px-3 py-2 text-right">
+              <p className="text-lg font-bold leading-none tabular-nums">{total.toLocaleString()}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">보관 기록</p>
+            </div>
           </div>
-          <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/75 bg-muted/25 p-2 text-xs sm:max-w-sm">
+            <div className="flex min-w-0 items-center gap-2 rounded-lg bg-background/60 px-2.5 py-2">
+              <Clock3 className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+              <span className="min-w-0 truncate text-muted-foreground">{firstArchivedDate ? `${new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric" }).format(firstArchivedDate)} 최근 보관` : "최근 보관 없음"}</span>
+            </div>
+            <div className="flex items-center justify-end gap-1.5 rounded-lg px-2.5 py-2 text-muted-foreground"><span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />{currentPage} / {Math.max(1, Math.ceil(total / pageSize))} 페이지</div>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-end sm:justify-between">
             <fieldset className="min-w-0">
-              <legend className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><CalendarDays className="size-3.5" aria-hidden="true" />기간</legend>
-              <div className="flex flex-wrap gap-1.5">
+              <legend className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><CalendarDays className="size-3.5" aria-hidden="true" />기간 필터</legend>
+              <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
                 {PERIOD_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
                     onClick={() => changePeriod(option.value)}
                     aria-pressed={period === option.value}
-                    className={`min-h-9 rounded-md border px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${period === option.value ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                    className={`min-h-9 shrink-0 rounded-full border px-3.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${period === option.value ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                   >
                     {option.label}
                   </button>
                 ))}
               </div>
             </fieldset>
-            <label className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-              페이지당
+            <label className="flex shrink-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+              한 번에
               <select
                 value={pageSize}
                 onChange={(event) => setPageSize(Number(event.target.value))}
@@ -287,38 +324,42 @@ export function LibraryApp() {
             </label>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>총 {total.toLocaleString()}개 · {currentPage}페이지</span>
+        <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
+          <div className="mb-3 flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+            <span>{period === "all" ? "전체 기록" : PERIOD_OPTIONS.find((option) => option.value === period)?.label} · {jobs.length}개 표시</span>
             {loading && <span role="status">기록을 불러오는 중…</span>}
           </div>
           {!jobs.length && !loading ? <div className="rounded-xl border border-dashed p-6 text-center"><Video className="mx-auto size-6 text-muted-foreground" aria-hidden="true" /><p className="mt-2 text-sm font-medium">이 기간에는 보관된 스윙이 없습니다.</p><p className="mt-1 text-xs text-muted-foreground">기간을 넓히면 이전 기록을 다시 볼 수 있습니다.</p></div> : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
               {jobs.map((job) => {
                 const quality = qualityFor(job);
                 const title = job.shot?.originalName || job.shot?.media?.filename || job.jobId;
+                const thumbnailUrl = thumbnailFor(job);
                 return (
-                  <article key={job.jobId} className="group relative overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/45 hover:bg-muted/30">
+                  <article key={job.jobId} className="group relative overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:border-primary/55 hover:shadow-lg hover:shadow-black/15">
                     <button className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onClick={() => openJob(job.jobId)} aria-label={`${title} 분석 열기`}>
-                      <div className="relative grid aspect-video place-items-center border-b bg-muted/45 text-muted-foreground">
-                        <Film className="size-8" aria-hidden="true" />
-                        <span className="absolute bottom-2 left-2 rounded bg-background/90 px-2 py-1 text-[11px] font-semibold text-foreground">{job.videoStored ? "영상 보관" : "분석 보관"}</span>
+                      <div className="relative grid aspect-[4/3] place-items-center overflow-hidden border-b bg-muted/45 text-muted-foreground sm:aspect-video">
+                        {thumbnailUrl ? <img src={thumbnailUrl} alt="" className="size-full object-cover transition duration-300 group-hover:scale-[1.03]" loading="lazy" /> : <>
+                          <Film className="size-7 opacity-75 sm:size-8" aria-hidden="true" />
+                          <ImageOff className="absolute bottom-2 right-2 size-3.5 opacity-45" aria-label="썸네일 준비 중" />
+                        </>}
+                        <span className="absolute bottom-2 left-2 rounded-md border border-white/10 bg-background/85 px-1.5 py-1 text-[10px] font-semibold text-foreground backdrop-blur-sm">{job.videoStored ? "영상" : "결과만"}</span>
                       </div>
-                      <div className="min-w-0 p-3">
-                        <span className="mb-2 flex items-start justify-between gap-2"><span className="min-w-0 truncate text-sm font-semibold">{title}</span><span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${quality.className}`}>{quality.label}</span></span>
-                        <span className="block text-xs text-muted-foreground">{job.archivedAt ? new Date(job.archivedAt).toLocaleString() : job.jobId}</span>
+                      <div className="min-w-0 p-2.5 sm:p-3">
+                        <span className="mb-1.5 block truncate text-sm font-semibold leading-tight">{title}</span>
+                        <span className="flex items-center justify-between gap-1.5"><span className="truncate text-[11px] text-muted-foreground">{dateLabel(job)}</span><span className={`hidden shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold sm:inline ${quality.className}`}>{quality.label}</span></span>
                       </div>
                     </button>
-                    <Button variant="outline" fullWidth={false} className="absolute right-2 top-2 grid size-9 place-items-center !p-0 bg-background/90 text-muted-foreground hover:text-destructive" aria-label={`${title} 삭제`} title="기록 삭제" onClick={() => deleteJob(job.jobId)}><Trash2 className="size-4" aria-hidden="true" /></Button>
+                    <Button variant="outline" fullWidth={false} className="absolute right-1.5 top-1.5 grid size-8 place-items-center !border-white/10 !p-0 bg-background/85 text-muted-foreground opacity-0 backdrop-blur-sm hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 sm:right-2 sm:top-2" aria-label={`${title} 삭제`} title="기록 삭제" onClick={() => deleteJob(job.jobId)}><Trash2 className="size-3.5" aria-hidden="true" /></Button>
                   </article>
                 );
               })}
             </div>
           )}
-          <nav className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4" aria-label="보관 기록 페이지">
-            <Button variant="outline" fullWidth={false} className="min-h-10 px-3 py-2 text-sm" disabled={loading || currentPage === 1} onClick={goPreviousPage}><ChevronLeft className="mr-1 size-4" aria-hidden="true" />이전</Button>
-            <span className="text-sm font-medium text-muted-foreground">{currentPage} 페이지</span>
-            <Button variant="outline" fullWidth={false} className="min-h-10 px-3 py-2 text-sm" disabled={loading || !nextCursor} onClick={goNextPage}>다음<ChevronRight className="ml-1 size-4" aria-hidden="true" /></Button>
+          <nav className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3" aria-label="보관 기록 페이지">
+            <Button variant="outline" fullWidth={false} className="min-h-10 rounded-xl px-3 py-2 text-sm" disabled={loading || currentPage === 1} onClick={goPreviousPage}><ChevronLeft className="mr-1 size-4" aria-hidden="true" />이전</Button>
+            <span className="rounded-lg bg-muted px-2.5 py-2 text-xs font-semibold text-muted-foreground">{currentPage} 페이지</span>
+            <Button variant="outline" fullWidth={false} className="min-h-10 rounded-xl px-3 py-2 text-sm" disabled={loading || !nextCursor} onClick={goNextPage}>다음<ChevronRight className="ml-1 size-4" aria-hidden="true" /></Button>
           </nav>
         </CardContent>
       </Card>

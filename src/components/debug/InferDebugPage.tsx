@@ -583,7 +583,7 @@ export function InferDebugPage() {
               <div>
                 <p className="text-sm font-semibold">클럽 검출 보정 실험실</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  원본은 보존하고, 대비 보정·손목 ROI 보정본만 별도로 Hailo 검출해 비교합니다. 분석 결과나 NAS에는 저장하지 않습니다.
+                  원본은 보존하고, 대비 보정·손목 ROI 보정본만 별도로 Hailo 검출해 비교합니다. 완료된 실험 묶음은 NAS 학습 데이터로 비동기 보관합니다.
                 </p>
               </div>
               {!labReport && (
@@ -612,6 +612,12 @@ export function InferDebugPage() {
                     </div>
                   ))}
                 </div>
+                {labReport.archive && (
+                  <p className="text-xs text-muted-foreground">
+                    NAS 보관: {labReport.archive.state === "pending" ? "업로드 대기" : labReport.archive.state}
+                    {labReport.archive.error ? ` · ${labReport.archive.error}` : ""}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">{labReport.report.guardrail}</p>
               </div>
             )}

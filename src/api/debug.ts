@@ -73,6 +73,11 @@ export type ClubPreprocessLabResponse = {
   jobId: string;
   labOnly: true;
   scorePath: string;
+  archive?: {
+    state: string;
+    archiveJobId?: string;
+    error?: string;
+  };
   report: {
     decision: "candidate_for_visual_review" | "no_candidate";
     results: Record<string, ClubPreprocessLabVariant>;

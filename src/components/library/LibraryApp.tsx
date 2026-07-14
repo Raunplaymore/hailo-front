@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Archive, ChevronLeft, RefreshCw, Trash2, Video } from "lucide-react";
 import { normalizeAnalysis } from "../../api/shots";
 import { AnalysisPlayer } from "../analysis/AnalysisPlayer";
@@ -156,7 +156,7 @@ export function LibraryApp() {
             <p className="text-sm text-muted-foreground">NAS에 안전하게 보관된 분석 기록</p>
           </div>
         </div>
-        <Button variant="outline" size="icon" aria-label="기록 새로고침" title="기록 새로고침" onClick={loadJobs} disabled={loading}>
+        <Button variant="outline" fullWidth={false} className="grid size-11 place-items-center !p-0" aria-label="기록 새로고침" title="기록 새로고침" onClick={loadJobs} disabled={loading}>
           <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} aria-hidden="true" />
         </Button>
       </header>
@@ -169,7 +169,7 @@ export function LibraryApp() {
               <h2 className="truncate text-lg font-bold">{selected.shot?.originalName || selected.shot?.media?.filename || selected.jobId}</h2>
               <p className="text-xs text-muted-foreground">{selected.archivedAt ? new Date(selected.archivedAt).toLocaleString() : selected.jobId}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setSelected(null)}><ChevronLeft className="mr-1 size-4" aria-hidden="true" />목록</Button>
+            <Button variant="outline" fullWidth={false} className="min-h-11 px-3 py-2 text-sm" onClick={() => setSelected(null)}><ChevronLeft className="mr-1 size-4" aria-hidden="true" />목록</Button>
           </div>
           {selected.videoStored ? (
             <AnalysisPlayer
@@ -185,7 +185,7 @@ export function LibraryApp() {
           <Card className="border-destructive/30">
             <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">삭제하면 NAS 보관 파일이 제거되고 Pi에 삭제 이력이 동기화됩니다.</p>
-              <Button variant="destructive" onClick={() => deleteJob(selected.jobId)}><Trash2 className="mr-2 size-4" aria-hidden="true" />이 기록 삭제</Button>
+              <Button variant="danger" fullWidth={false} className="min-h-11 rounded-xl px-3 py-2" onClick={() => deleteJob(selected.jobId)}><Trash2 className="mr-2 size-4" aria-hidden="true" />이 기록 삭제</Button>
             </CardContent>
           </Card>
         </section>
@@ -204,7 +204,7 @@ export function LibraryApp() {
                     <span className="mb-1 flex flex-wrap items-center gap-1.5"><span className="block truncate text-sm font-semibold">{job.shot?.originalName || job.shot?.media?.filename || job.jobId}</span><span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${qualityFor(job).className}`}>{qualityFor(job).label}</span></span>
                     <span className="block text-xs text-muted-foreground">{job.archivedAt ? new Date(job.archivedAt).toLocaleString() : job.jobId} · {job.videoStored ? "영상 보관됨" : "분석만 보관됨"}</span>
                   </button>
-                  <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive" aria-label={`${job.shot?.originalName || job.jobId} 삭제`} title="기록 삭제" onClick={() => deleteJob(job.jobId)}><Trash2 className="size-4" aria-hidden="true" /></Button>
+                  <Button variant="outline" fullWidth={false} className="grid size-11 shrink-0 place-items-center !p-0 text-muted-foreground hover:text-destructive" aria-label={`${job.shot?.originalName || job.jobId} 삭제`} title="기록 삭제" onClick={() => deleteJob(job.jobId)}><Trash2 className="size-4" aria-hidden="true" /></Button>
                 </li>
               ))}
             </ul>

@@ -148,7 +148,7 @@ export function ShotList({
                     {isProcessing && <Badge tone="processing">분석중...</Badge>}
                     {isDone && <Badge tone="success">분석 완료</Badge>}
                     {archiveLabel && (
-                      <Badge tone={archive.state === "failed" ? "failed" : archive.state === "stored" ? "success" : "processing"}>
+                      <Badge tone={archive?.state === "failed" ? "failed" : archive?.state === "stored" ? "success" : "processing"}>
                         <Cloud className="h-3 w-3" aria-hidden="true" />
                         {archiveLabel}
                       </Badge>

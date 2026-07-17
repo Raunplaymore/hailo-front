@@ -7,8 +7,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = resolve(root, "..");
 const repos = [
   ["hailo-infer", resolve(workspace, "hailo-infer")],
-  ["pi_service", resolve(workspace, "pi_service")],
-  ["pi_web", root],
+  ["hailo-back", resolve(workspace, "hailo-back")],
+  ["hailo-front", root],
 ];
 
 function git(cwd, args) {
@@ -37,7 +37,7 @@ function parsePorcelainStatus(status) {
 }
 
 console.log("Coach release summary\n");
-console.log("Push order: hailo-infer -> pi_service -> pi_web\n");
+console.log("Push order: hailo-infer -> hailo-back -> hailo-front\n");
 
 const releaseWarnings = [];
 

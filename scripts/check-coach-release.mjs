@@ -8,7 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workspace = resolve(root, "..");
 const repos = {
   hailoInfer: resolve(workspace, "hailo-infer"),
-  piService: resolve(workspace, "pi_service"),
+  piService: resolve(workspace, "hailo-back"),
   piWeb: root,
 };
 const runtimeVerificationTestDir = mkdtempSync(resolve(tmpdir(), "coach-runtime-verification-"));

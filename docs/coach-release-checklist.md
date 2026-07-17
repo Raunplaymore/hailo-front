@@ -19,7 +19,7 @@ The coach feature spans three repositories:
 Run these before any push:
 
 ```bash
-cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
+cd /Users/hwangjunguk/Desktop/Ray/UK/hailo-front
 npm run coach:release-summary
 npm run check:coach-release
 ```
@@ -30,15 +30,15 @@ If both commands look correct, push using the commands printed by
 The command above runs the repo-specific gates below:
 
 ```bash
-cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/hailo-infer
+cd /Users/hwangjunguk/Desktop/Ray/UK/hailo-infer
 PYTHONPYCACHEPREFIX=/tmp/hailo_pycache python3 -m py_compile app/services/coach_commentary.py scripts/check_coach_commentary.py scripts/preview_coach_findings.py
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/check_coach_commentary.py
 PYTHONDONTWRITEBYTECODE=1 python3 scripts/preview_coach_findings.py --json
 
-cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_service
+cd /Users/hwangjunguk/Desktop/Ray/UK/hailo-back
 npm run check
 
-cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
+cd /Users/hwangjunguk/Desktop/Ray/UK/hailo-front
 npm run check:analysis
 npm run check:coach-ui
 npm run build

@@ -27,18 +27,17 @@ Before changing API contracts, camera/inference flows, shared configuration, dep
 
 | Project | Path | Role | Check before changing |
 |---|---|---|---|
-| `pi_web` | `/Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web` | Vite React frontend for swing capture, live preview overlay, session history, upload, and analysis results. | UI behavior, browser API calls, Vite env keys, frontend proxy behavior, displayed analysis schema. |
-| `pi_service` | `/Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_service` | Node/Express backend (`hailo-back`) for uploads, static file serving, analysis job orchestration, and calls to `hailo-infer`. | `/api/analyze/*`, `/api/files/*`, upload/data paths, `INFER_BASE_URL`, analysis status/result schema. |
-| `pi_camera` | `/Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_camera` | Raspberry Pi camera capture server for rpicam/libcamera preview, capture, session recording, Hailo metadata generation, and analysis trigger calls. | `/api/camera/*`, `/api/session/*`, MJPEG streams, capture/session file naming, meta JSON format, `ANALYZE_URL`, camera env vars. |
-| `hailo-infer` | `/Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/hailo-infer` | Python inference/coach microservice that consumes Hailo metadata, segments swing events, computes coaching metrics, and writes analysis JSON. | `/v1/jobs`, job/result schema, meta-driven analysis logic, `UPLOAD_DIR`/`META_DIR`/`DATA_DIR`, systemd/deploy behavior. |
-| `pi_charuco` | `/Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_charuco` | ChArUco calibration helper with captured calibration images and generated camera intrinsics/FOV JSON. | Lens calibration values, FOV/intrinsics assumptions, calibration JSON copied into camera/frontend/backend config. |
+| `hailo-front` | `/Users/hwangjunguk/Desktop/Ray/UK/hailo-front` | Vite React frontend for swing capture, live preview overlay, session history, upload, and analysis results. | UI behavior, browser API calls, Vite env keys, frontend proxy behavior, displayed analysis schema. |
+| `hailo-back` | `/Users/hwangjunguk/Desktop/Ray/UK/hailo-back` | Node/Express backend for uploads, static file serving, analysis job orchestration, and calls to `hailo-infer`. | `/api/analyze/*`, `/api/files/*`, upload/data paths, `INFER_BASE_URL`, analysis status/result schema. |
+| `hailo-camera` | `/Users/hwangjunguk/Desktop/Ray/UK/hailo-camera` | Raspberry Pi camera capture server for rpicam/libcamera preview, capture, session recording, Hailo metadata generation, and analysis trigger calls. | `/api/camera/*`, `/api/session/*`, MJPEG streams, capture/session file naming, meta JSON format, `ANALYZE_URL`, camera env vars. |
+| `hailo-infer` | `/Users/hwangjunguk/Desktop/Ray/UK/hailo-infer` | Python inference/coach microservice that consumes Hailo metadata, segments swing events, computes coaching metrics, and writes analysis JSON. | `/v1/jobs`, job/result schema, meta-driven analysis logic, `UPLOAD_DIR`/`META_DIR`/`DATA_DIR`, systemd/deploy behavior. |
 
 ## Golf Analyzer Baseline
 
 This workspace is no longer treated as a single web app. The default operating model is:
 
-- `pi_web` as workspace anchor
-- `pi_service`, `pi_camera`, `hailo-infer` inspected together for API, inference, or analysis changes
+- `hailo-front` as workspace anchor
+- `hailo-back`, `hailo-camera`, `hailo-infer` inspected together for API, inference, or analysis changes
 - body analysis handled by pose-based tooling
 - Hailo path biased toward club-only inference
 

@@ -38,7 +38,7 @@ improvement loop.
 ## Local Evidence Command
 
 ```bash
-cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
+cd /Users/hwangjunguk/Desktop/Ray/UK/hailo-front
 npm run check:coach-release
 ```
 

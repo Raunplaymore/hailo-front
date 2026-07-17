@@ -6,7 +6,7 @@ commentary release.
 Create a sample verification file with:
 
 ```bash
-cd /Users/hwangjunguk/Desktop/dir_UK/dir_sandbox/pi_web
+cd /Users/hwangjunguk/Desktop/Ray/UK/hailo-front
 npm run coach:new-runtime-verification -- --job-id <job-id> --shot-id <shot-id> --tester <name>
 ```
 

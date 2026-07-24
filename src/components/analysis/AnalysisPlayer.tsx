@@ -34,9 +34,11 @@ const SKELETON_LINKS = [
 
 type OverlayBounds = { left: number; top: number; width: number; height: number };
 type HandTrailPoint = { timeMs: number; x: number; y: number };
+type ClubTrailPoint = HandTrailPoint;
 
 const HAND_TRAIL_DURATION_MS = 800;
 const HAND_TRAIL_MAX_GAP_MS = 120;
+const CLUB_TRAIL_MAX_GAP_MS = 120;
 const LEFT_JOINT_COLOR = "#38bdf8";
 const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
@@ -210,10 +212,17 @@ function nearestAt<T extends { timeMs: number }>(frames: T[], timeMs: number): T
 function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { pose?: AnalysisOverlay["poseFrames"][number]; poseFrames: AnalysisOverlay["poseFrames"]; clubFrames: AnalysisOverlay["clubFrames"]; events?: AnalysisResult["events"]; timeMs: number; layers: Record<"pose" | "hands" | "club" | "events", boolean> }) {
   const hands = pose ? [pose.keypoints.left_wrist, pose.keypoints.right_wrist].filter((point): point is [number, number, number?] => Array.isArray(point) && (point[2] ?? 1) >= .15) : [];
   const latestClub = clubFrames.at(-1);
+  const headPaths = smoothClubTrailPaths(clubFrames, "head");
+  const handlePaths = smoothClubTrailPaths(clubFrames, "handle");
   const currentEvent = Object.entries(events ?? {}).find(([, event]) => event && Math.abs(event.timeMs - timeMs) < 80)?.[0];
   return <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="block h-full w-full" aria-label="분석 오버레이">
-    {layers.club && clubFrames.length > 1 ? <polyline points={clubFrames.filter((frame) => frame.head).map((frame) => `${frame.head!.x},${frame.head!.y}`).join(" ")} fill="none" stroke="#38bdf8" strokeWidth="0.007" /> : null}
-    {layers.club && clubFrames.length > 1 ? <polyline points={clubFrames.filter((frame) => frame.handle).map((frame) => `${frame.handle!.x},${frame.handle!.y}`).join(" ")} fill="none" stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" /> : null}
+    {layers.club ? <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+      {headPaths.map((path, index) => <g key={`head-${index}`}>
+        <path d={path} stroke="#082f49" strokeWidth="0.013" opacity="0.45" />
+        <path d={path} stroke="#38bdf8" strokeWidth="0.007" />
+      </g>)}
+      {handlePaths.map((path, index) => <path key={`handle-${index}`} d={path} stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" />)}
+    </g> : null}
     {layers.club && latestClub?.head && latestClub.handle ? <line x1={latestClub.head.x} y1={latestClub.head.y} x2={latestClub.handle.x} y2={latestClub.handle.y} stroke="#fbbf24" strokeWidth="0.009" /> : null}
     {layers.pose && pose ? SKELETON_LINKS.map(([from, to]) => { const a = pose.keypoints[from]; const b = pose.keypoints[to]; return Array.isArray(a) && Array.isArray(b) ? <line key={`${from}-${to}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#34d399" strokeWidth="0.006" /> : null; }) : null}
     {layers.pose && pose ? Object.entries(pose.keypoints).map(([name, point]) => Array.isArray(point) && (point[2] ?? 1) >= .15 ? <circle key={name} cx={point[0]} cy={point[1]} r="0.009" fill={jointColor(name)} /> : null) : null}
@@ -249,4 +258,55 @@ function handTrailSegments(poseFrames: AnalysisOverlay["poseFrames"], key: "left
     const from = points[index];
     return to.timeMs - from.timeMs <= HAND_TRAIL_MAX_GAP_MS ? [{ from, to }] : [];
   });
+}
+
+function smoothClubTrailPaths(clubFrames: AnalysisOverlay["clubFrames"], key: "head" | "handle") {
+  const points: ClubTrailPoint[] = clubFrames
+    .flatMap((frame) => {
+      const point = frame[key];
+      return point && Number.isFinite(point.x) && Number.isFinite(point.y)
+        ? [{ timeMs: frame.timeMs, x: point.x, y: point.y }]
+        : [];
+    })
+    .sort((a, b) => a.timeMs - b.timeMs);
+
+  const segments = points.reduce<ClubTrailPoint[][]>((groups, point) => {
+    const current = groups.at(-1);
+    if (!current || point.timeMs - current.at(-1)!.timeMs > CLUB_TRAIL_MAX_GAP_MS) {
+      groups.push([point]);
+    } else {
+      current.push(point);
+    }
+    return groups;
+  }, []);
+
+  return segments.filter((segment) => segment.length > 1).map(smoothPathFromPoints);
+}
+
+function smoothPathFromPoints(points: ClubTrailPoint[]) {
+  const first = points[0];
+  if (points.length === 2) return `M ${formatCoordinate(first.x)} ${formatCoordinate(first.y)} L ${formatCoordinate(points[1].x)} ${formatCoordinate(points[1].y)}`;
+
+  const curve = 0.5;
+  const segments = [`M ${formatCoordinate(first.x)} ${formatCoordinate(first.y)}`];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const p0 = points[Math.max(0, index - 1)];
+    const p1 = points[index];
+    const p2 = points[index + 1];
+    const p3 = points[Math.min(points.length - 1, index + 2)];
+    const c1 = {
+      x: p1.x + ((p2.x - p0.x) * curve) / 6,
+      y: p1.y + ((p2.y - p0.y) * curve) / 6,
+    };
+    const c2 = {
+      x: p2.x - ((p3.x - p1.x) * curve) / 6,
+      y: p2.y - ((p3.y - p1.y) * curve) / 6,
+    };
+    segments.push(`C ${formatCoordinate(c1.x)} ${formatCoordinate(c1.y)}, ${formatCoordinate(c2.x)} ${formatCoordinate(c2.y)}, ${formatCoordinate(p2.x)} ${formatCoordinate(p2.y)}`);
+  }
+  return segments.join(" ");
+}
+
+function formatCoordinate(value: number) {
+  return value.toFixed(4);
 }

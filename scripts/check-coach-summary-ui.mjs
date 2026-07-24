@@ -51,6 +51,10 @@ assert.match(playerSource, /style=\{overlayBounds\}/, "Overlay must render only 
 assert.match(playerSource, /HAND_TRAIL_DURATION_MS = 800/, "Hand overlay must keep the trail focused on recent movement.");
 assert.match(playerSource, /HAND_TRAIL_MAX_GAP_MS = 120/, "Hand overlay must avoid drawing through tracking gaps.");
 assert.match(playerSource, /strokeLinecap="round"/, "Hand trail segments must render as a smooth fading line.");
+assert.match(playerSource, /CLUB_TRAIL_MAX_GAP_MS = 120/, "Club trajectory must not bridge long detection gaps.");
+assert.match(playerSource, /function smoothClubTrailPaths\(/, "Club trajectory must use a dedicated smoothing path builder.");
+assert.match(playerSource, /smoothClubTrailPaths\(clubFrames, "head"\)/, "Club-head trajectory must render as a smooth path.");
+assert.match(playerSource, /strokeLinejoin="round"/, "Club trajectory curve must have rounded joins.");
 assert.match(playerSource, /grid min-w-0 grid-cols-2 gap-2/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
 assert.match(playerSource, /<AnalysisVideoPlayer/, "Analysis view must use the dedicated video player.");
 assert.doesNotMatch(videoPlayerSource, /\scontrols(?:\s|=|>)/, "Native video controls must not cover the analysis frame.");

@@ -140,6 +140,23 @@ export type SwingTrackingAnnotationResponse = {
   annotationPath?: string;
 };
 
+export type SwingTrackingAnnotationListItem = {
+  jobId: string;
+  status: "draft" | "reviewed";
+  viewpoint: "unknown" | "down_the_line" | "face_on";
+  handedness: "right" | "left";
+  labeledFrames: number;
+  events: number;
+  updatedAt: string | null;
+};
+
+export type SwingTrackingAnnotationListResponse = {
+  ok: boolean;
+  count: number;
+  target: number;
+  annotations: SwingTrackingAnnotationListItem[];
+};
+
 const withBaseUrl = (url: string) => {
   if (/^https?:\/\//i.test(url)) return url;
   return `${API_BASE}${url}`;
@@ -187,6 +204,12 @@ export async function runClubPreprocessLab(jobId: string) {
 export async function fetchSwingTrackingAnnotation(jobId: string) {
   return client.get<SwingTrackingAnnotationResponse>(
     `/api/debug/infer/${encodeURIComponent(jobId)}/annotation`
+  );
+}
+
+export async function fetchSwingTrackingAnnotations() {
+  return client.get<SwingTrackingAnnotationListResponse>(
+    "/api/debug/swing-tracking/annotations"
   );
 }
 

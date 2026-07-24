@@ -22,12 +22,14 @@ import {
   fetchInferDebugAnalysis,
   fetchInferDebugFrames,
   fetchSwingTrackingAnnotation,
+  fetchSwingTrackingAnnotations,
   generateInferDebugMeta,
   InferDebugAnalysisResponse,
   InferDebugFramesResponse,
   runClubPreprocessLab,
   saveSwingTrackingAnnotation,
   SwingTrackingAnnotation,
+  SwingTrackingAnnotationListResponse,
   SwingTrackingFrameLabel,
   SwingTrackingPoint,
 } from "../../api/debug";
@@ -254,6 +256,8 @@ export function InferDebugPage() {
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
   const [analysis, setAnalysis] = useState<InferDebugAnalysisResponse | null>(null);
   const [annotation, setAnnotation] = useState<SwingTrackingAnnotation | null>(null);
+  const [annotationCatalog, setAnnotationCatalog] =
+    useState<SwingTrackingAnnotationListResponse | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [activeTool, setActiveTool] = useState<LabelTool>("clubHead");
   const [overlayOptions, setOverlayOptions] = useState<OverlayOptions>({
@@ -332,12 +336,25 @@ export function InferDebugPage() {
     setNotice(null);
   };
 
-  const loadVariant = async (targetVariant: "main" | "debug", force = false) => {
-    const trimmed = jobId.trim();
+  const refreshAnnotationCatalog = async () => {
+    try {
+      setAnnotationCatalog(await fetchSwingTrackingAnnotations());
+    } catch {
+      // Catalog visibility must not block frame labeling.
+    }
+  };
+
+  const loadVariant = async (
+    targetVariant: "main" | "debug",
+    force = false,
+    requestedJobId?: string
+  ) => {
+    const trimmed = (requestedJobId ?? jobId).trim();
     if (!trimmed) {
       setError("jobId를 입력하세요.");
       return;
     }
+    setJobId(trimmed);
     setIsLoading(true);
     setError(null);
     setNotice(null);
@@ -413,6 +430,7 @@ export function InferDebugPage() {
     try {
       const response = await saveSwingTrackingAnnotation(jobId.trim(), annotation);
       if (response.annotation) setAnnotation(response.annotation);
+      await refreshAnnotationCatalog();
       setDirty(false);
       setNotice("라벨을 저장했습니다.");
     } catch (saveError) {
@@ -576,6 +594,10 @@ export function InferDebugPage() {
   };
 
   useEffect(() => {
+    void refreshAnnotationCatalog();
+  }, []);
+
+  useEffect(() => {
     if (!isPlaying || !data) return;
     const timer = window.setInterval(() => {
       setSelectedIndex((current) => {
@@ -720,6 +742,84 @@ export function InferDebugPage() {
             {notice}
           </div>
         ) : null}
+
+        <section className="mb-4 border border-white/10 bg-[#0d141f]">
+          <div className="grid gap-4 p-4 md:grid-cols-[14rem_minmax(0,1fr)] md:items-center">
+            <div>
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                    Dataset progress
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-white">
+                    저장 {annotationCatalog?.count ?? "—"} / {annotationCatalog?.target ?? 30}
+                  </p>
+                </div>
+                <span className="font-mono text-xs text-slate-500">
+                  {annotationCatalog
+                    ? `${Math.min(100, Math.round((annotationCatalog.count / annotationCatalog.target) * 100))}%`
+                    : "불러오는 중"}
+                </span>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden bg-white/10">
+                <div
+                  className="h-full bg-cyan-300 transition-[width]"
+                  style={{
+                    width: annotationCatalog
+                      ? `${Math.min(100, (annotationCatalog.count / annotationCatalog.target) * 100)}%`
+                      : "0%",
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                10개에서 라벨 기준을 점검하고, 30개에서 1차 추적 성능을 비교합니다.
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold text-slate-300">저장된 스윙</p>
+                <button
+                  type="button"
+                  onClick={() => void refreshAnnotationCatalog()}
+                  className="text-[11px] text-slate-500 hover:text-white"
+                >
+                  새로고침
+                </button>
+              </div>
+              {annotationCatalog?.annotations.length ? (
+                <div className="grid max-h-36 gap-2 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
+                  {annotationCatalog.annotations.map((item, index) => (
+                    <button
+                      key={item.jobId}
+                      type="button"
+                      onClick={() => {
+                        if (dirty && !window.confirm("저장하지 않은 현재 라벨을 버리고 이동할까요?")) return;
+                        void loadVariant("main", false, item.jobId);
+                      }}
+                      className="min-w-0 border border-white/10 bg-black/20 px-3 py-2 text-left hover:border-cyan-300/30 hover:bg-cyan-300/5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-white">#{index + 1}</span>
+                        <span className={item.status === "reviewed" ? "text-[10px] text-emerald-300" : "text-[10px] text-amber-300"}>
+                          {item.status === "reviewed" ? "검토 완료" : "초안"}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate font-mono text-[10px] text-slate-400">{item.jobId}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        라벨 {item.labeledFrames}F · 이벤트 {item.events}/4
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid h-20 place-items-center border border-dashed border-white/10 text-xs text-slate-600">
+                  아직 저장된 스윙이 없습니다.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
         {!data ? (
           <section className="grid min-h-[70vh] place-items-center">

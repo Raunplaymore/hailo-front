@@ -32,5 +32,8 @@ assert.match(
 assert.match(source, /그립 부분의 중앙/, "The handle target must be described as the grip center.");
 assert.match(source, /setPointVisibility/, "Occluded and out-of-frame targets must be labelable.");
 assert.match(source, /현재 프레임 라벨 삭제/, "Deleting labels must be an explicit frame action.");
+assert.match(source, /저장 \{annotationCatalog\?\.count/, "The saved swing count must be visible.");
+assert.match(source, /Dataset progress/, "The 30-swing dataset target must be shown.");
+assert.match(source, /저장된 스윙/, "Saved swings must be available as a reopenable list.");
 
 console.log("tracking lab responsive UI check passed");

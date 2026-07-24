@@ -38,7 +38,9 @@ type ClubTrailPoint = HandTrailPoint;
 
 const HAND_TRAIL_DURATION_MS = 800;
 const HAND_TRAIL_MAX_GAP_MS = 120;
+const CLUB_TRAIL_DURATION_MS = 550;
 const CLUB_TRAIL_MAX_GAP_MS = 120;
+const CLUB_TRAIL_MIN_CONFIDENCE = 0.3;
 const LEFT_JOINT_COLOR = "#38bdf8";
 const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
@@ -51,7 +53,9 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
   const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(null);
   const activePose = useMemo(() => nearestAt(overlay?.poseFrames ?? [], timeMs), [overlay, timeMs]);
   const visiblePose = useMemo(() => (overlay?.poseFrames ?? []).filter((frame) => frame.timeMs <= timeMs), [overlay, timeMs]);
-  const visibleClub = useMemo(() => (overlay?.clubFrames ?? []).filter((frame) => frame.timeMs <= timeMs), [overlay, timeMs]);
+  const visibleClub = useMemo(() => (overlay?.clubFrames ?? []).filter((frame) => (
+    frame.timeMs <= timeMs && frame.timeMs >= timeMs - CLUB_TRAIL_DURATION_MS
+  )), [overlay, timeMs]);
 
   const syncOverlayBounds = () => {
     const video = videoRef.current;
@@ -264,7 +268,10 @@ function smoothClubTrailPaths(clubFrames: AnalysisOverlay["clubFrames"], key: "h
   const points: ClubTrailPoint[] = clubFrames
     .flatMap((frame) => {
       const point = frame[key];
-      return point && Number.isFinite(point.x) && Number.isFinite(point.y)
+      return point
+        && (point.confidence ?? 1) >= CLUB_TRAIL_MIN_CONFIDENCE
+        && Number.isFinite(point.x)
+        && Number.isFinite(point.y)
         ? [{ timeMs: frame.timeMs, x: point.x, y: point.y }]
         : [];
     })

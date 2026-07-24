@@ -52,6 +52,8 @@ assert.match(playerSource, /HAND_TRAIL_DURATION_MS = 800/, "Hand overlay must ke
 assert.match(playerSource, /HAND_TRAIL_MAX_GAP_MS = 120/, "Hand overlay must avoid drawing through tracking gaps.");
 assert.match(playerSource, /strokeLinecap="round"/, "Hand trail segments must render as a smooth fading line.");
 assert.match(playerSource, /CLUB_TRAIL_MAX_GAP_MS = 120/, "Club trajectory must not bridge long detection gaps.");
+assert.match(playerSource, /CLUB_TRAIL_DURATION_MS = 550/, "Club trajectory must remain a short live trail instead of a full-video scribble.");
+assert.match(playerSource, /CLUB_TRAIL_MIN_CONFIDENCE = 0\.3/, "Club trajectory must hide low-confidence detections.");
 assert.match(playerSource, /function smoothClubTrailPaths\(/, "Club trajectory must use a dedicated smoothing path builder.");
 assert.match(playerSource, /smoothClubTrailPaths\(clubFrames, "head"\)/, "Club-head trajectory must render as a smooth path.");
 assert.match(playerSource, /strokeLinejoin="round"/, "Club trajectory curve must have rounded joins.");

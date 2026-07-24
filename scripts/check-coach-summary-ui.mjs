@@ -30,6 +30,10 @@ assert.match(source, /finding\.evidence/, "Structured evidence must remain avail
 assert.match(source, /finding\.interpretation/, "Structured interpretation must remain available in the collapsed disclosure.");
 assert.match(source, /function AdditionalFindings\(/, "Secondary coaching must be grouped behind a compact disclosure.");
 assert.match(source, /function MaintainPoints\(/, "Positive maintenance points must be separated from corrective coaching.");
+assert.match(source, /function QualityNotices\(/, "Capture and analysis quality notices must render outside corrective coaching.");
+assert.match(source, /item\.category === "quality"/, "Quality findings must be partitioned before selecting the primary coach action.");
+assert.match(source, /item\.category !== "quality"/, "Primary coaching must exclude capture and analysis quality findings.");
+assert.match(source, /촬영 안내를 코칭으로 대신하지 않습니다/, "The empty state must explain why no corrective action is shown.");
 assert.match(source, /sequence_rushed_proxy/, "Duplicate transition proxy findings must be recognized for concise coaching.");
 assert.doesNotMatch(source, /<div className="border-t px-3 pb-3 pt-2">\s*<p[^>]*>\{parsed\.main\}<\/p>/, "Expanded findings must not repeat the summary sentence before their details.");
 assert.match(source, /summary\?: string \| null/, "CoachSummary must accept the analysis summary to avoid a duplicate summary card.");

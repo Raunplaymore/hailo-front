@@ -304,6 +304,33 @@ function MaintainPoints({ items }: { items: CoachSummaryItem[] }) {
   );
 }
 
+function QualityNotices({ items }: { items: CoachSummaryItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-base">촬영·분석 확인</CardTitle>
+        <CardDescription>
+          스윙 자세 조언이 아니라, 분석 구간과 데이터 품질에 관한 안내입니다.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 p-4 pt-0">
+        {items.map((item) => (
+          <div key={item.key ?? item.parsed.main} className="rounded-xl border border-border bg-muted/25 px-3 py-3">
+            <p className="text-sm font-semibold text-foreground">
+              {item.parsed.priority ?? "분석 범위"}
+            </p>
+            {item.evidence ? (
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.evidence}</p>
+            ) : null}
+            <p className="mt-1 text-sm leading-6 text-foreground">{actionText(item)}</p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function CoachSummary({ summary, comments, findings }: CoachSummaryProps) {
   const structured: CoachSummaryItem[] = findings?.length
     ? findings.map((finding) => ({
@@ -336,30 +363,47 @@ export function CoachSummary({ summary, comments, findings }: CoachSummaryProps)
   const list = hasTempoTransitionFinding
     ? rawList.filter((item) => item.key !== "sequence_rushed_proxy")
     : rawList;
-  const actionItems = list.filter((item) => item.severity !== "info");
-  const primaryItem = actionItems[0] ?? list[0] ?? null;
+  const qualityItems = list.filter((item) => item.category === "quality");
+  const coachingItems = list.filter((item) => item.category !== "quality");
+  const actionItems = coachingItems.filter((item) => item.severity !== "info");
+  const primaryItem = actionItems[0] ?? null;
   const extraItems = actionItems.filter((item) => item !== primaryItem);
-  const maintainItems = primaryItem && actionItems.length === 0
-    ? list.filter((item) => item !== primaryItem)
-    : list.filter((item) => item.severity === "info");
+  const maintainItems = coachingItems.filter((item) => item.severity === "info");
   return (
-    <Card>
-      <CardHeader className="p-4 pb-2">
-        <CardTitle className="text-lg">코치 액션</CardTitle>
-        <CardDescription>한 번에 하나만 바꿔 보세요. 세부 근거는 필요할 때만 확인하면 됩니다.</CardDescription>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        {list.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{summary || "코멘트가 없습니다."}</p>
-        ) : (
-          <div className="space-y-3">
-            {primaryItem ? <PrimaryPracticePlan item={primaryItem} /> : null}
-            {primaryItem ? <EvidenceDetails item={primaryItem} /> : null}
-            <AdditionalFindings items={extraItems} />
-            <MaintainPoints items={maintainItems} />
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-3">
+      <Card>
+        <CardHeader className="p-4 pb-2">
+          <CardTitle className="text-lg">코치 액션</CardTitle>
+          <CardDescription>
+            검증된 교정 포인트가 여러 개면 하나를 먼저 보여주고, 나머지는 접어서 제공합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          {coachingItems.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-4">
+              <p className="text-sm font-semibold text-foreground">이번 영상에서는 교정 액션을 보류했습니다.</p>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                신뢰할 수 있는 스윙 교정 근거가 확보되지 않아 촬영 안내를 코칭으로 대신하지 않습니다.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {primaryItem ? <PrimaryPracticePlan item={primaryItem} /> : (
+                <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3">
+                  <p className="text-sm font-semibold text-emerald-950">새로 바꿀 동작은 없습니다.</p>
+                  <p className="mt-1 text-sm leading-6 text-emerald-900">
+                    이번 영상에서는 검증된 교정 항목보다 유지할 점만 확인되었습니다.
+                  </p>
+                </div>
+              )}
+              {primaryItem ? <EvidenceDetails item={primaryItem} /> : null}
+              <AdditionalFindings items={extraItems} />
+              <MaintainPoints items={maintainItems} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <QualityNotices items={qualityItems} />
+    </div>
   );
 }

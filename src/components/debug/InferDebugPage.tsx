@@ -36,6 +36,7 @@ type OverlayOptions = {
   endpoints: boolean;
   trajectory: boolean;
   smoothGuide: boolean;
+  clubHeadPoints: boolean;
   events: boolean;
   pose: boolean;
 };
@@ -226,6 +227,7 @@ export function InferDebugPage() {
     endpoints: true,
     trajectory: true,
     smoothGuide: true,
+    clubHeadPoints: true,
     events: true,
     pose: true,
   });
@@ -573,9 +575,10 @@ export function InferDebugPage() {
                     {[
                       ["boxes", "bbox"],
                       ["labels", "labels"],
-                      ["endpoints", "keys"],
-                      ["trajectory", "path"],
-                      ["smoothGuide", "guide"],
+                      ["endpoints", "bbox endpoint"],
+                      ["trajectory", "raw bbox path"],
+                      ["smoothGuide", "smoothed bbox fit"],
+                      ["clubHeadPoints", "club_head point"],
                       ["events", "events"],
                       ["pose", "pose"],
                     ].map(([key, label]) => (
@@ -593,6 +596,9 @@ export function InferDebugPage() {
                       </button>
                     ))}
                   </div>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    청록은 <code>club</code> bbox의 장축 끝점이고, 초록은 모델이 직접 검출한 <code>club_head</code> 중심점입니다. 스무딩 선은 새 추적값이 아니라 원시 bbox 끝점을 시각 보정한 것입니다.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -768,7 +774,7 @@ export function InferDebugPage() {
                           strokeWidth="0.45"
                         />
                       )}
-                      {overlayOptions.endpoints &&
+                      {overlayOptions.clubHeadPoints &&
                         clubHeadPoints.map((point, idx) => (
                           <circle
                             key={`head-${idx}`}

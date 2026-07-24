@@ -1,68 +1,66 @@
-import { FormEvent, useMemo, useRef, useState } from "react";
-import { Filter, RefreshCw, Search, X } from "lucide-react";
+import { FormEvent, MouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  CircleDot,
+  Crosshair,
+  Database,
+  FlaskConical,
+  Pause,
+  Play,
+  RefreshCw,
+  Save,
+  Search,
+  WandSparkles,
+  X,
+} from "lucide-react";
+import {
+  ClubPreprocessLabResponse,
   DebugDetection,
   fetchInferDebugAnalysis,
   fetchInferDebugFrames,
+  fetchSwingTrackingAnnotation,
   generateInferDebugMeta,
   InferDebugAnalysisResponse,
   InferDebugFramesResponse,
-  ClubPreprocessLabResponse,
   runClubPreprocessLab,
+  saveSwingTrackingAnnotation,
+  SwingTrackingAnnotation,
+  SwingTrackingFrameLabel,
+  SwingTrackingPoint,
 } from "../../api/debug";
 import { Button } from "../Button";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
 
+const EVENT_KEYS = ["address", "top", "impact", "finish"] as const;
+const EVENT_LABELS = {
+  address: "Address",
+  top: "Top",
+  impact: "Impact",
+  finish: "Finish",
+};
 const LABEL_COLORS: Record<string, string> = {
-  club_head: "#22c55e",
+  club_head: "#a3e635",
   club_handle: "#38bdf8",
   club: "#f59e0b",
   person: "#e879f9",
-  golf_ball: "#f43f5e",
-  player_ready: "#a3e635",
-  player_not_ready: "#fb7185",
+  golf_ball: "#fb7185",
 };
 
-const labelColor = (label: string) => LABEL_COLORS[label] ?? "#f8fafc";
-
-const formatMs = (value: number) => `${Math.round(value)}ms`;
-
 type Point = { x: number; y: number };
-type EndpointTrackPoint = Point & { frame: number; timeMs: number; confidence: number };
+type LabelTool = "clubHead" | "clubHandle" | "erase";
 type OverlayOptions = {
-  boxes: boolean;
-  labels: boolean;
-  endpoints: boolean;
-  trajectory: boolean;
-  smoothGuide: boolean;
-  clubHeadPoints: boolean;
-  events: boolean;
+  modelBoxes: boolean;
   pose: boolean;
+  bboxGuide: boolean;
+  modelHeadPath: boolean;
+  labels: boolean;
 };
 
 function getInitialJobId() {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("jobId") ?? "";
-}
-
-function frameBoxStyle(
-  bbox: [number, number, number, number],
-  meta: InferDebugFramesResponse["meta"]
-) {
-  let [x, y, width, height] = bbox;
-  if ((x > 1 || y > 1 || width > 1 || height > 1) && meta.width && meta.height) {
-    x /= meta.width;
-    width /= meta.width;
-    y /= meta.height;
-    height /= meta.height;
-  }
-  return {
-    left: `${Math.max(0, x) * 100}%`,
-    top: `${Math.max(0, y) * 100}%`,
-    width: `${Math.max(0, width) * 100}%`,
-    height: `${Math.max(0, height) * 100}%`,
-  };
 }
 
 function normalizeBox(
@@ -84,114 +82,43 @@ function boxCenter(det: DebugDetection, meta: InferDebugFramesResponse["meta"]):
   return { x: x + width / 2, y: y + height / 2 };
 }
 
-function clubBoxEndpoints(det: DebugDetection, meta: InferDebugFramesResponse["meta"]): [Point, Point] {
+function clubBoxEndpoint(det: DebugDetection, meta: InferDebugFramesResponse["meta"]): Point {
   const [x, y, width, height] = normalizeBox(det.bbox, meta);
-  const centerX = x + width / 2;
-  const centerY = y + height / 2;
-  if (width >= height) {
-    return [
-      { x, y: centerY },
-      { x: x + width, y: centerY },
-    ];
-  }
-  return [
-    { x: centerX, y },
-    { x: centerX, y: y + height },
-  ];
+  if (width >= height) return { x: x + width, y: y + height / 2 };
+  return { x: x + width / 2, y: y + height };
 }
 
-function endpointTrackScore(points: EndpointTrackPoint[]) {
-  if (points.length < 2) return 0;
-  let travel = 0;
-  for (let idx = 1; idx < points.length; idx += 1) {
-    travel += Math.hypot(points[idx].x - points[idx - 1].x, points[idx].y - points[idx - 1].y);
-  }
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  return travel + Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
-}
-
-function buildClubEndpointTrack(
-  frames: InferDebugFramesResponse["frames"],
-  meta: InferDebugFramesResponse["meta"],
+function strongestDetection(
+  frame: InferDebugFramesResponse["frames"][number],
+  label: string,
   threshold: number
-): EndpointTrackPoint[] {
-  const candidates: [EndpointTrackPoint[], EndpointTrackPoint[]] = [[], []];
-  frames.forEach((frame) => {
-    const club = frame.detections
-      .filter((det) => det.label === "club" && det.confidence >= threshold)
-      .sort((a, b) => b.confidence - a.confidence)[0];
-    if (!club) return;
-    const endpoints = clubBoxEndpoints(club, meta);
-    endpoints.forEach((point, idx) => {
-      candidates[idx].push({
-        ...point,
-        frame: frame.frame,
-        timeMs: frame.timeMs,
-        confidence: club.confidence,
-      });
-    });
-  });
-  return endpointTrackScore(candidates[0]) >= endpointTrackScore(candidates[1])
-    ? candidates[0]
-    : candidates[1];
+) {
+  return frame.detections
+    .filter((detection) => detection.label === label && detection.confidence >= threshold)
+    .sort((a, b) => b.confidence - a.confidence)[0];
 }
 
 function pathFromPoints(points: Point[]) {
   return points
-    .map((point, idx) => `${idx === 0 ? "M" : "L"} ${(point.x * 100).toFixed(2)} ${(point.y * 100).toFixed(2)}`)
+    .map(
+      (point, index) =>
+        `${index === 0 ? "M" : "L"} ${(point.x * 100).toFixed(2)} ${(point.y * 100).toFixed(2)}`
+    )
     .join(" ");
-}
-
-function displayGuidePoints(points: Point[]) {
-  return points.map((point, idx) => {
-    if (idx === 0 || idx === points.length - 1) return point;
-    const prev = points[idx - 1];
-    const next = points[idx + 1];
-    return {
-      x: point.x * 0.5 + (prev.x + next.x) * 0.25,
-      y: point.y * 0.5 + (prev.y + next.y) * 0.25,
-    };
-  });
-}
-
-function smoothPathFromPoints(points: Point[]) {
-  const guide = displayGuidePoints(points);
-  if (guide.length < 3) return pathFromPoints(guide);
-  const coord = (point: Point) => ({
-    x: point.x * 100,
-    y: point.y * 100,
-  });
-  const first = coord(guide[0]);
-  const segments = [`M ${first.x.toFixed(2)} ${first.y.toFixed(2)}`];
-  for (let idx = 0; idx < guide.length - 1; idx += 1) {
-    const p0 = coord(guide[Math.max(0, idx - 1)]);
-    const p1 = coord(guide[idx]);
-    const p2 = coord(guide[idx + 1]);
-    const p3 = coord(guide[Math.min(guide.length - 1, idx + 2)]);
-    const curve = 0.82;
-    const c1 = {
-      x: p1.x + ((p2.x - p0.x) * curve) / 6,
-      y: p1.y + ((p2.y - p0.y) * curve) / 6,
-    };
-    const c2 = {
-      x: p2.x - ((p3.x - p1.x) * curve) / 6,
-      y: p2.y - ((p3.y - p1.y) * curve) / 6,
-    };
-    segments.push(
-      `C ${c1.x.toFixed(2)} ${c1.y.toFixed(2)}, ${c2.x.toFixed(2)} ${c2.y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`
-    );
-  }
-  return segments.join(" ");
 }
 
 function extractEvents(analysis: InferDebugAnalysisResponse | null) {
   const events = analysis?.analysis?.events ?? {};
-  const valueFor = (name: "address" | "top" | "impact" | "finish") => {
+  const valueFor = (name: (typeof EVENT_KEYS)[number]) => {
     const direct = events[`${name}Ms`];
     const nested = events[name];
     if (typeof direct === "number") return direct;
-    if (nested && typeof nested === "object" && "timeMs" in nested && typeof nested.timeMs === "number") {
+    if (
+      nested &&
+      typeof nested === "object" &&
+      "timeMs" in nested &&
+      typeof nested.timeMs === "number"
+    ) {
       return nested.timeMs;
     }
     return null;
@@ -204,91 +131,186 @@ function extractEvents(analysis: InferDebugAnalysisResponse | null) {
   };
 }
 
-function nearestEventLabel(events: ReturnType<typeof extractEvents>, timeMs: number, toleranceMs: number) {
-  const matches = Object.entries(events)
-    .filter(([, value]) => typeof value === "number")
-    .map(([label, value]) => ({ label, delta: Math.abs(timeMs - Number(value)) }))
-    .filter((item) => item.delta <= toleranceMs)
-    .sort((a, b) => a.delta - b.delta);
-  return matches[0]?.label ?? null;
+function nearestFrame(frames: InferDebugFramesResponse["frames"], timeMs: number) {
+  return frames.reduce(
+    (best, frame) =>
+      Math.abs(frame.timeMs - timeMs) < Math.abs(best.timeMs - timeMs) ? frame : best,
+    frames[0]
+  );
+}
+
+function createDraftAnnotation(
+  jobId: string,
+  data: InferDebugFramesResponse,
+  analysis: InferDebugAnalysisResponse | null,
+  variant: "main" | "debug"
+): SwingTrackingAnnotation {
+  const analysisEvents = extractEvents(analysis);
+  const events = Object.fromEntries(
+    EVENT_KEYS.map((key) => {
+      const timeMs = analysisEvents[key];
+      if (timeMs == null || !data.frames.length) return [key, null];
+      const frame = nearestFrame(data.frames, timeMs);
+      return [key, { frame: frame.frame, timeMs: frame.timeMs, source: "analysis" as const }];
+    })
+  ) as SwingTrackingAnnotation["events"];
+  return {
+    schemaVersion: "swing-tracking-label-v1",
+    jobId,
+    viewpoint: "unknown",
+    handedness: "unknown",
+    status: "draft",
+    events,
+    frames: [],
+    notes: "",
+    source: {
+      variant,
+      analysisVersion: analysis?.analysis?.analysisVersion ?? null,
+      metaPath: data.metaPath,
+    },
+  };
+}
+
+function frameLabelMap(annotation: SwingTrackingAnnotation | null) {
+  return new Map((annotation?.frames ?? []).map((frame) => [frame.frame, frame]));
+}
+
+function upsertFrameLabel(
+  annotation: SwingTrackingAnnotation,
+  frame: InferDebugFramesResponse["frames"][number],
+  update: (current: SwingTrackingFrameLabel) => SwingTrackingFrameLabel
+) {
+  const map = frameLabelMap(annotation);
+  const current = map.get(frame.frame) ?? { frame: frame.frame, timeMs: frame.timeMs };
+  const next = update(current);
+  if (next.clubHead || next.clubHandle) map.set(frame.frame, next);
+  else map.delete(frame.frame);
+  return {
+    ...annotation,
+    frames: [...map.values()].sort((a, b) => a.frame - b.frame),
+  };
+}
+
+function formatMs(value: number | null | undefined) {
+  return value == null ? "—" : `${Math.round(value)} ms`;
+}
+
+function compactPoint(point?: SwingTrackingPoint) {
+  if (!point) return "미지정";
+  return `${point.x.toFixed(3)}, ${point.y.toFixed(3)}`;
+}
+
+function LayerToggle({
+  active,
+  color,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  color: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex w-full items-center justify-between border-b border-white/5 px-3 py-2 text-left text-xs transition ${
+        active ? "bg-white/[0.06] text-white" : "text-slate-500 hover:text-slate-300"
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+        {label}
+      </span>
+      <span>{active ? "ON" : "OFF"}</span>
+    </button>
+  );
 }
 
 export function InferDebugPage() {
   const [jobId, setJobId] = useState(getInitialJobId);
   const jobIdInputRef = useRef<HTMLInputElement>(null);
-  const [limit, setLimit] = useState(24);
   const [variant, setVariant] = useState<"main" | "debug">("main");
-  const [threshold, setThreshold] = useState(0.25);
-  const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
-  const [showAllLabels, setShowAllLabels] = useState(true);
-  const [overlayOptions, setOverlayOptions] = useState<OverlayOptions>({
-    boxes: true,
-    labels: true,
-    endpoints: true,
-    trajectory: true,
-    smoothGuide: true,
-    clubHeadPoints: true,
-    events: true,
-    pose: true,
-  });
+  const [threshold, setThreshold] = useState(0.2);
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
   const [analysis, setAnalysis] = useState<InferDebugAnalysisResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [annotation, setAnnotation] = useState<SwingTrackingAnnotation | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [activeTool, setActiveTool] = useState<LabelTool>("clubHead");
+  const [overlayOptions, setOverlayOptions] = useState<OverlayOptions>({
+    modelBoxes: true,
+    pose: true,
+    bboxGuide: true,
+    modelHeadPath: true,
+    labels: true,
+  });
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingDebug, setIsGeneratingDebug] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isRunningLab, setIsRunningLab] = useState(false);
   const [labReport, setLabReport] = useState<ClubPreprocessLabResponse | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const labels = useMemo(() => {
-    const found = new Set<string>();
-    data?.frames.forEach((frame) => {
-      frame.detections.forEach((det) => found.add(det.label));
-    });
-    return [...found].sort();
-  }, [data]);
+  const selectedFrame = data?.frames[selectedIndex] ?? null;
+  const labelsByFrame = useMemo(() => frameLabelMap(annotation), [annotation]);
+  const currentLabel = selectedFrame ? labelsByFrame.get(selectedFrame.frame) : undefined;
+  const analysisEvents = useMemo(() => extractEvents(analysis), [analysis]);
+
+  const modelHeadTrack = useMemo(() => {
+    if (!data) return [];
+    return data.frames
+      .map((frame) => strongestDetection(frame, "club_head", threshold))
+      .filter((detection): detection is DebugDetection => Boolean(detection))
+      .map((detection) => boxCenter(detection, data.meta));
+  }, [data, threshold]);
+
+  const bboxGuideTrack = useMemo(() => {
+    if (!data) return [];
+    return data.frames
+      .map((frame) => strongestDetection(frame, "club", threshold))
+      .filter((detection): detection is DebugDetection => Boolean(detection))
+      .map((detection) => clubBoxEndpoint(detection, data.meta));
+  }, [data, threshold]);
+
+  const labeledHeadTrack = useMemo(
+    () => (annotation?.frames ?? []).flatMap((frame) => (frame.clubHead ? [frame.clubHead] : [])),
+    [annotation]
+  );
 
   const summary = useMemo(() => {
     if (!data) return null;
-    const frames = data.frames.length;
-    const detections = data.frames.reduce((sum, frame) => sum + frame.detections.length, 0);
-    const handleFrames = data.frames.filter((frame) =>
-      frame.detections.some((det) => det.label === "club_handle")
-    ).length;
     const headFrames = data.frames.filter((frame) =>
-      frame.detections.some((det) => det.label === "club_head")
+      frame.detections.some((detection) => detection.label === "club_head")
     ).length;
-    return { frames, detections, handleFrames, headFrames };
+    const handleFrames = data.frames.filter((frame) =>
+      frame.detections.some((detection) => detection.label === "club_handle")
+    ).length;
+    const pairedFrames = data.frames.filter(
+      (frame) =>
+        frame.detections.some((detection) => detection.label === "club_head") &&
+        frame.detections.some((detection) => detection.label === "club_handle")
+    ).length;
+    return { headFrames, handleFrames, pairedFrames };
   }, [data]);
 
-  const poseSummary = useMemo(() => {
-    const frames = data?.frames.filter((frame) => frame.keypoints && Object.keys(frame.keypoints).length > 0).length ?? 0;
-    const wristFrames =
-      data?.frames.filter((frame) => {
-        const left = frame.keypoints?.left_wrist;
-        const right = frame.keypoints?.right_wrist;
-        return Boolean((left && left[2] >= 0.25) || (right && right[2] >= 0.25));
-      }).length ?? 0;
-    return { frames, wristFrames };
-  }, [data]);
+  const annotationSummary = useMemo(() => {
+    const frames = annotation?.frames ?? [];
+    return {
+      head: frames.filter((frame) => frame.clubHead).length,
+      handle: frames.filter((frame) => frame.clubHandle).length,
+      events: EVENT_KEYS.filter((key) => annotation?.events[key]).length,
+    };
+  }, [annotation]);
 
-  const endpointTrack = useMemo(() => {
-    if (!data) return [];
-    return buildClubEndpointTrack(data.frames, data.meta, threshold);
-  }, [data, threshold]);
-
-  const events = useMemo(() => extractEvents(analysis), [analysis]);
-
-  const eventToleranceMs = useMemo(() => {
-    if (!data || data.frames.length < 2) return 40;
-    const deltas = data.frames
-      .slice(1)
-      .map((frame, idx) => Math.abs(frame.timeMs - data.frames[idx].timeMs))
-      .filter((value) => Number.isFinite(value) && value > 0);
-    return Math.max(35, Math.min(90, (deltas[0] ?? 70) * 0.65));
-  }, [data]);
-
-  const load = async (force = false) => {
-    return loadVariant(variant, force);
+  const mutateAnnotation = (update: (current: SwingTrackingAnnotation) => SwingTrackingAnnotation) => {
+    setAnnotation((current) => (current ? update(current) : current));
+    setDirty(true);
+    setNotice(null);
   };
 
   const loadVariant = async (targetVariant: "main" | "debug", force = false) => {
@@ -299,568 +321,860 @@ export function InferDebugPage() {
     }
     setIsLoading(true);
     setError(null);
+    setNotice(null);
     setLabReport(null);
+    setIsPlaying(false);
     try {
-      const [next, nextAnalysis] = await Promise.all([
-        fetchInferDebugFrames(trimmed, { limit, force, variant: targetVariant }),
+      const [next, nextAnalysis, stored] = await Promise.all([
+        fetchInferDebugFrames(trimmed, { limit: 240, force, variant: targetVariant }),
         fetchInferDebugAnalysis(trimmed).catch(() => null),
+        fetchSwingTrackingAnnotation(trimmed),
       ]);
+      const nextAnnotation =
+        stored.annotation ?? createDraftAnnotation(trimmed, next, nextAnalysis, targetVariant);
       setData(next);
       setAnalysis(nextAnalysis);
+      setAnnotation(nextAnnotation);
       setVariant(targetVariant);
-      const nextLabels = new Set<string>();
-      next.frames.forEach((frame) => {
-        frame.detections.forEach((det) => nextLabels.add(det.label));
-      });
-      setSelectedLabels(nextLabels);
-      setShowAllLabels(true);
+      const impact = nextAnnotation.events.impact;
+      const initialIndex = impact
+        ? next.frames.reduce(
+            (bestIndex, frame, index) =>
+              Math.abs(frame.timeMs - impact.timeMs) <
+              Math.abs(next.frames[bestIndex].timeMs - impact.timeMs)
+                ? index
+                : bestIndex,
+            0
+          )
+        : 0;
+      setSelectedIndex(initialIndex);
+      setDirty(false);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("jobId", trimmed);
         window.history.replaceState(null, "", url);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "debug frame을 불러오지 못했습니다.");
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "실험 데이터를 불러오지 못했습니다.");
       setData(null);
       setAnalysis(null);
+      setAnnotation(null);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleLoad = (event: FormEvent) => {
+    event.preventDefault();
+    void loadVariant(variant, false);
+  };
+
   const handleGenerateDebugMeta = async () => {
-    const trimmed = jobId.trim();
-    if (!trimmed) {
-      setError("jobId를 입력하세요.");
-      return;
-    }
+    if (!jobId.trim()) return;
     setIsGeneratingDebug(true);
     setError(null);
     try {
-      await generateInferDebugMeta(trimmed);
+      await generateInferDebugMeta(jobId.trim());
       await loadVariant("debug", true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "debug meta를 생성하지 못했습니다.");
+    } catch (generateError) {
+      setError(generateError instanceof Error ? generateError.message : "debug meta 생성에 실패했습니다.");
     } finally {
       setIsGeneratingDebug(false);
     }
   };
 
-  const handleRunLab = async () => {
-    const trimmed = jobId.trim();
-    if (!trimmed) {
-      setError("먼저 jobId를 불러오세요.");
-      return;
+  const handleSave = async () => {
+    if (!annotation || !jobId.trim()) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const response = await saveSwingTrackingAnnotation(jobId.trim(), annotation);
+      if (response.annotation) setAnnotation(response.annotation);
+      setDirty(false);
+      setNotice("라벨을 저장했습니다.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "라벨 저장에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
     }
+  };
+
+  const handleRunLab = async () => {
+    if (!jobId.trim()) return;
     setIsRunningLab(true);
     setError(null);
     try {
-      setLabReport(await runClubPreprocessLab(trimmed));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "보정 실험을 실행하지 못했습니다.");
+      setLabReport(await runClubPreprocessLab(jobId.trim()));
+    } catch (labError) {
+      setError(labError instanceof Error ? labError.message : "보정 비교에 실패했습니다.");
     } finally {
       setIsRunningLab(false);
     }
   };
 
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    load(false);
+  const assignPoint = (key: "clubHead" | "clubHandle", point: SwingTrackingPoint) => {
+    if (!selectedFrame) return;
+    mutateAnnotation((current) =>
+      upsertFrameLabel(current, selectedFrame, (frame) => ({ ...frame, [key]: point }))
+    );
   };
 
-  const clearJobId = () => {
-    setJobId("");
-    setError(null);
-    requestAnimationFrame(() => jobIdInputRef.current?.focus());
+  const handleCanvasClick = (event: MouseEvent<HTMLButtonElement>) => {
+    if (!selectedFrame || !annotation) return;
+    if (activeTool === "erase") {
+      mutateAnnotation((current) =>
+        upsertFrameLabel(current, selectedFrame, (frame) => ({
+          frame: frame.frame,
+          timeMs: frame.timeMs,
+        }))
+      );
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const point = {
+      x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
+      source: "manual" as const,
+    };
+    assignPoint(activeTool, point);
   };
 
-  const toggleLabel = (label: string) => {
-    setShowAllLabels(false);
-    setSelectedLabels((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
+  const prefillCurrent = () => {
+    if (!selectedFrame || !data) return;
+    const head = strongestDetection(selectedFrame, "club_head", threshold);
+    const handle = strongestDetection(selectedFrame, "club_handle", threshold);
+    if (!head && !handle) {
+      setNotice("현재 threshold에서 사용할 검출점이 없습니다.");
+      return;
+    }
+    mutateAnnotation((current) =>
+      upsertFrameLabel(current, selectedFrame, (frame) => ({
+        ...frame,
+        ...(head ? { clubHead: { ...boxCenter(head, data.meta), source: "model" as const } } : {}),
+        ...(handle
+          ? { clubHandle: { ...boxCenter(handle, data.meta), source: "model" as const } }
+          : {}),
+      }))
+    );
+  };
+
+  const prefillAll = () => {
+    if (!data || !annotation) return;
+    const frames = data.frames.flatMap((frame) => {
+      const head = strongestDetection(frame, "club_head", threshold);
+      const handle = strongestDetection(frame, "club_handle", threshold);
+      if (!head && !handle) return [];
+      return [
+        {
+          frame: frame.frame,
+          timeMs: frame.timeMs,
+          ...(head ? { clubHead: { ...boxCenter(head, data.meta), source: "model" as const } } : {}),
+          ...(handle
+            ? { clubHandle: { ...boxCenter(handle, data.meta), source: "model" as const } }
+            : {}),
+        },
+      ];
     });
+    mutateAnnotation((current) => {
+      const existing = frameLabelMap(current);
+      frames.forEach((frame) => {
+        const old = existing.get(frame.frame);
+        existing.set(frame.frame, {
+          ...frame,
+          ...old,
+          clubHead: old?.clubHead ?? frame.clubHead,
+          clubHandle: old?.clubHandle ?? frame.clubHandle,
+        });
+      });
+      return { ...current, frames: [...existing.values()].sort((a, b) => a.frame - b.frame) };
+    });
+    setNotice(`${frames.length}개 프레임에 모델 검출 초안을 채웠습니다.`);
   };
 
-  const visibleDetections = (frame: InferDebugFramesResponse["frames"][number]) =>
-    frame.detections.filter((det) => {
-      if (det.confidence < threshold) return false;
-      if (showAllLabels) return true;
-      return selectedLabels.has(det.label);
-    });
+  const markEvent = (key: (typeof EVENT_KEYS)[number]) => {
+    if (!selectedFrame) return;
+    mutateAnnotation((current) => ({
+      ...current,
+      events: {
+        ...current.events,
+        [key]: {
+          frame: selectedFrame.frame,
+          timeMs: selectedFrame.timeMs,
+          source: "manual",
+        },
+      },
+    }));
+  };
+
+  const jumpToFrame = (frameNumber: number) => {
+    if (!data) return;
+    const index = data.frames.findIndex((frame) => frame.frame === frameNumber);
+    if (index >= 0) setSelectedIndex(index);
+  };
 
   const toggleOverlay = (key: keyof OverlayOptions) => {
-    setOverlayOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOverlayOptions((current) => ({ ...current, [key]: !current[key] }));
   };
 
+  useEffect(() => {
+    if (!isPlaying || !data) return;
+    const timer = window.setInterval(() => {
+      setSelectedIndex((current) => {
+        if (current >= data.frames.length - 1) {
+          setIsPlaying(false);
+          return current;
+        }
+        return current + 1;
+      });
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [isPlaying, data]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!data || event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setSelectedIndex((current) => Math.max(0, current - 1));
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setSelectedIndex((current) => Math.min(data.frames.length - 1, current + 1));
+      }
+      if (event.key === "1") setActiveTool("clubHead");
+      if (event.key === "2") setActiveTool("clubHandle");
+      if (event.key.toLowerCase() === "e") setActiveTool("erase");
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void handleSave();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  useEffect(() => {
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  const keypoint = (name: string) => {
+    const value = selectedFrame?.keypoints?.[name];
+    if (!value || value[2] < 0.25) return null;
+    return { x: value[0], y: value[1] };
+  };
+  const poseSegments: [Point | null, Point | null][] = [
+    [keypoint("left_shoulder"), keypoint("right_shoulder")],
+    [keypoint("left_hip"), keypoint("right_hip")],
+    [keypoint("left_shoulder"), keypoint("left_elbow")],
+    [keypoint("left_elbow"), keypoint("left_wrist")],
+    [keypoint("right_shoulder"), keypoint("right_elbow")],
+    [keypoint("right_elbow"), keypoint("right_wrist")],
+    [keypoint("left_shoulder"), keypoint("left_hip")],
+    [keypoint("right_shoulder"), keypoint("right_hip")],
+  ];
+  const visibleDetections =
+    selectedFrame?.detections.filter((detection) => detection.confidence >= threshold) ?? [];
+
   return (
-    <main className="min-h-screen bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4">
-        <header className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-              infer debug
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-              Service7 Frame Overlay
-            </h1>
+    <main className="min-h-screen bg-[#070b12] text-slate-100">
+      <div className="border-b border-white/10 bg-[#0b111b]/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="mx-auto flex max-w-[1800px] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center border border-cyan-300/30 bg-cyan-300/10 text-cyan-300">
+              <Crosshair className="size-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-cyan-300">
+                Swing Tracking Lab
+              </p>
+              <h1 className="text-lg font-semibold tracking-tight">클럽 궤적 검증 작업대</h1>
+            </div>
           </div>
-          <form className="grid gap-2 sm:grid-cols-[minmax(18rem,1fr)_6rem_7rem_auto_auto]" onSubmit={handleSubmit}>
-            <div className="relative">
+
+          <form className="flex flex-col gap-2 sm:flex-row" onSubmit={handleLoad}>
+            <div className="relative min-w-72">
               <Input
                 ref={jobIdInputRef}
                 value={jobId}
                 onChange={(event) => setJobId(event.target.value)}
                 placeholder="jobId"
                 aria-label="jobId"
-                className={jobId ? "pr-10" : undefined}
+                className="h-10 border-white/10 bg-black/30 pr-9"
               />
-              {jobId && (
+              {jobId ? (
                 <button
                   type="button"
-                  onClick={clearJobId}
-                  className="absolute right-1 top-1 grid size-7 place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  aria-label="Job ID 지우기"
-                  title="Job ID 지우기"
+                  onClick={() => setJobId("")}
+                  className="absolute right-2 top-2.5 text-slate-500 hover:text-white"
+                  aria-label="jobId 지우기"
                 >
-                  <X className="size-4" aria-hidden="true" />
+                  <X className="size-4" />
                 </button>
-              )}
+              ) : null}
             </div>
-            <Input
-              type="number"
-              min={4}
-              max={48}
-              value={limit}
-              onChange={(event) => setLimit(Number(event.target.value))}
-              aria-label="sample limit"
-            />
             <select
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               value={variant}
               onChange={(event) => setVariant(event.target.value === "debug" ? "debug" : "main")}
+              className="h-10 border border-white/10 bg-black/30 px-3 text-sm"
               aria-label="meta variant"
             >
-              <option value="main">main</option>
-              <option value="debug">debug</option>
+              <option value="main">main meta</option>
+              <option value="debug">debug meta</option>
             </select>
-            <Button fullWidth={false} className="px-4 py-2 text-sm" type="submit" isLoading={isLoading}>
+            <Button
+              type="submit"
+              fullWidth={false}
+              isLoading={isLoading}
+              className="h-10 px-5 py-0 text-sm"
+            >
               <span className="inline-flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Load
+                <Search className="size-4" /> 불러오기
               </span>
             </Button>
             <Button
+              type="button"
               fullWidth={false}
               variant="outline"
-              className="px-4 py-2 text-sm"
-              type="button"
-              disabled={isLoading || !data}
-              onClick={() => load(true)}
+              disabled={!data || isLoading}
+              onClick={() => void loadVariant(variant, true)}
+              className="h-10 px-3 py-0 text-sm"
+              aria-label="새로고침"
             >
-              <span className="inline-flex items-center gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </span>
-            </Button>
-            <Button
-              fullWidth={false}
-              variant="outline"
-              className="px-4 py-2 text-sm sm:col-start-4"
-              type="button"
-              disabled={isLoading || isGeneratingDebug}
-              isLoading={isGeneratingDebug}
-              loadingText="Generating..."
-              onClick={handleGenerateDebugMeta}
-            >
-              Debug Meta
-            </Button>
-            <Button
-              fullWidth={false}
-              className="px-4 py-2 text-sm sm:col-start-5"
-              type="button"
-              disabled={isLoading || isGeneratingDebug || isRunningLab || !jobId.trim()}
-              isLoading={isRunningLab}
-              loadingText="비교 중..."
-              onClick={handleRunLab}
-            >
-              보정 비교
+              <RefreshCw className="size-4" />
             </Button>
           </form>
-        </header>
+        </div>
+      </div>
 
-        {error && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-red-100">
+      <div className="mx-auto max-w-[1800px] p-4 sm:p-6">
+        {error ? (
+          <div className="mb-4 border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
             {error}
           </div>
-        )}
+        ) : null}
+        {notice ? (
+          <div className="mb-4 border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100">
+            {notice}
+          </div>
+        ) : null}
 
-        {data && summary && (
-          <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <Card className="rounded-lg">
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Detection Summary {data.variant ? `(${data.variant})` : ""}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-6">
-                {[
-                  ["Frames", summary.frames],
-                  ["Detections", summary.detections],
-                  ["Club Head", summary.headFrames],
-                  ["Club Handle", summary.handleFrames],
-                  ["Pose", data.body?.poseFrames ?? poseSummary.frames],
-                  ["Wrist", data.body?.wristFrames ?? poseSummary.wristFrames],
-                  ["Endpoint Pts", endpointTrack.length],
-                  ["Motion", String(analysis?.analysis?.debug?.motionSource ?? "n/a")],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-md border border-border bg-muted/40 p-3">
-                    <div className="text-xs text-muted-foreground">{label}</div>
-                    <div className="mt-1 truncate text-2xl font-semibold">{value}</div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Filter className="h-4 w-4" />
-                  Filters
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  Confidence {threshold.toFixed(2)}
-                </label>
-                <input
-                  className="w-full accent-primary"
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={threshold}
-                  onChange={(event) => setThreshold(Number(event.target.value))}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAllLabels(true)}
-                    className={`rounded-md border px-2 py-1 text-xs ${
-                      showAllLabels ? "border-primary bg-primary text-primary-foreground" : "border-border"
-                    }`}
-                  >
-                    all
-                  </button>
-                  {labels.map((label) => (
-                    <button
-                      type="button"
-                      key={label}
-                      onClick={() => toggleLabel(label)}
-                      className={`rounded-md border px-2 py-1 text-xs ${
-                        !showAllLabels && selectedLabels.has(label)
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="border-t border-border pt-3">
-                  <div className="mb-2 text-xs font-medium text-muted-foreground">Overlay Layers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      ["boxes", "bbox"],
-                      ["labels", "labels"],
-                      ["endpoints", "bbox endpoint"],
-                      ["trajectory", "raw bbox path"],
-                      ["smoothGuide", "smoothed bbox fit"],
-                      ["clubHeadPoints", "club_head point"],
-                      ["events", "events"],
-                      ["pose", "pose"],
-                    ].map(([key, label]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => toggleOverlay(key as keyof OverlayOptions)}
-                        className={`rounded-md border px-2 py-1 text-xs ${
-                          overlayOptions[key as keyof OverlayOptions]
-                            ? "border-cyan-300 bg-cyan-300 text-slate-950"
-                            : "border-border"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    청록은 <code>club</code> bbox의 장축 끝점이고, 초록은 모델이 직접 검출한 <code>club_head</code> 중심점입니다. 스무딩 선은 새 추적값이 아니라 원시 bbox 끝점을 시각 보정한 것입니다.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-
-        {(data || labReport) && (
-          <section className="rounded-lg border border-border bg-card p-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold">클럽 검출 보정 실험실</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  원본은 보존하고, 대비 보정·손목 ROI 보정본만 별도로 Hailo 검출해 비교합니다. 완료된 실험 묶음은 NAS 학습 데이터로 비동기 보관합니다.
-                </p>
-              </div>
-              {!labReport && (
-                <Button type="button" variant="outline" fullWidth={false} disabled={isRunningLab || !jobId.trim()} onClick={handleRunLab}>
-                  {isRunningLab ? "비교 중..." : "보정 비교 실행"}
-                </Button>
-              )}
+        {!data ? (
+          <section className="grid min-h-[70vh] place-items-center">
+            <div className="max-w-xl border border-white/10 bg-white/[0.025] p-8 text-center">
+              <Database className="mx-auto size-8 text-cyan-300" />
+              <h2 className="mt-4 text-xl font-semibold">검증할 스윙을 불러오세요</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                모델 검출과 pose를 초안으로 사용하고, 프레임별 club head·handle과 네 개의
+                이벤트를 사람이 확인합니다. 저장된 라벨은 운영 분석과 분리됩니다.
+              </p>
             </div>
-            {labReport && (
-              <div className="mt-4 space-y-3">
-                <div className={`rounded-md border px-3 py-2 text-sm ${labReport.report.decision === "candidate_for_visual_review" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100" : "border-border bg-muted/40 text-muted-foreground"}`}>
-                  {labReport.report.decision === "candidate_for_visual_review"
-                    ? "운영 후보: 수치 개선이 확인됐습니다. 오검출과 ROI 좌표 보정만 시각 검토하면 됩니다."
-                    : "운영 후보 없음: 이번 영상에서는 보정이 클럽 헤드·핸들 동시 검출을 충분히 개선하지 못했습니다."}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {Object.entries(labReport.report.results).map(([variantName, result]) => (
-                    <div key={variantName} className="rounded-md border border-border bg-muted/30 p-3">
-                      <p className="text-sm font-semibold">{variantName === "source" ? "원본" : variantName === "contrast" ? "대비 보정" : "손목 ROI"}</p>
-                      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <dt>헤드</dt><dd className="text-right text-foreground">{result.detectedFrames.club_head ?? 0}</dd>
-                        <dt>핸들</dt><dd className="text-right text-foreground">{result.detectedFrames.club_handle ?? 0}</dd>
-                        <dt>동시 검출</dt><dd className="text-right text-foreground">{result.pairedHeadHandleFrames}</dd>
-                        <dt>샤프트 근거</dt><dd className="text-right text-foreground">{result.shaftEvidenceScore.toFixed(3)}</dd>
-                      </dl>
-                    </div>
-                  ))}
-                </div>
-                {labReport.archive && (
-                  <p className="text-xs text-muted-foreground">
-                    NAS 보관: {labReport.archive.state === "pending" ? "업로드 대기" : labReport.archive.state}
-                    {labReport.archive.error ? ` · ${labReport.archive.error}` : ""}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">{labReport.report.guardrail}</p>
-              </div>
-            )}
           </section>
-        )}
+        ) : (
+          <>
+            <section className="mb-4 grid grid-cols-2 border border-white/10 bg-white/[0.025] md:grid-cols-4">
+              {[
+                ["프레임", `${data.frames.length} / ${data.meta.frames}`],
+                ["Head 검출", `${summary?.headFrames ?? 0}`],
+                ["Handle 검출", `${summary?.handleFrames ?? 0}`],
+                ["동시 검출", `${summary?.pairedFrames ?? 0}`],
+              ].map(([label, value]) => (
+                <div key={label} className="border-b border-r border-white/10 px-4 py-3 last:border-r-0 md:border-b-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                  <p className="mt-1 font-mono text-xl text-white">{value}</p>
+                </div>
+              ))}
+            </section>
 
-        {data && (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {data.frames.map((frame) => {
-              const detections = visibleDetections(frame);
-              const eventLabel = nearestEventLabel(events, frame.timeMs, eventToleranceMs);
-              const currentEndpoint = endpointTrack.find((point) => point.frame === frame.frame);
-              const trajectoryPath = pathFromPoints(endpointTrack);
-              const smoothTrajectoryPath = smoothPathFromPoints(endpointTrack);
-              const clubHeadPoints = detections
-                .filter((det) => det.label === "club_head")
-                .map((det) => boxCenter(det, data.meta));
-              const keypoint = (name: string) => {
-                const value = frame.keypoints?.[name];
-                if (!value || value.length < 2 || value[2] < 0.25) return null;
-                return { x: value[0], y: value[1], confidence: value[2] };
-              };
-              const poseSegments: [Point | null, Point | null][] = [
-                [keypoint("left_shoulder"), keypoint("right_shoulder")],
-                [keypoint("left_hip"), keypoint("right_hip")],
-                [keypoint("left_shoulder"), keypoint("left_elbow")],
-                [keypoint("left_elbow"), keypoint("left_wrist")],
-                [keypoint("right_shoulder"), keypoint("right_elbow")],
-                [keypoint("right_elbow"), keypoint("right_wrist")],
-                [keypoint("left_shoulder"), keypoint("left_hip")],
-                [keypoint("right_shoulder"), keypoint("right_hip")],
-              ];
-              const posePoints = [
-                "nose",
-                "left_shoulder",
-                "right_shoulder",
-                "left_elbow",
-                "right_elbow",
-                "left_wrist",
-                "right_wrist",
-                "left_hip",
-                "right_hip",
-              ]
-                .map((name) => ({ name, point: keypoint(name) }))
-                .filter((item): item is { name: string; point: Point & { confidence: number } } => Boolean(item.point));
-              return (
-                <article key={`${frame.index}-${frame.timeMs}`} className="overflow-hidden rounded-lg border border-border bg-card">
-                  <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs text-muted-foreground">
-                    <span>frame {frame.frame}</span>
-                    <span className="inline-flex items-center gap-2">
-                      {eventLabel && overlayOptions.events && (
-                        <span className="rounded-full bg-cyan-300 px-2 py-0.5 font-semibold text-slate-950">
-                          {eventLabel}
-                        </span>
-                      )}
-                      {formatMs(frame.timeMs)}
-                    </span>
+            <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_21rem]">
+              <aside className="space-y-4">
+                <div className="border border-white/10 bg-[#0d141f]">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dataset contract</p>
                   </div>
-                  <div className="relative bg-black">
-                    <img className="block w-full" src={frame.imageUrl} alt={`frame ${frame.frame}`} loading="lazy" />
-                    <svg
-                      className="pointer-events-none absolute inset-0 h-full w-full"
-                      viewBox="0 0 100 100"
-                      preserveAspectRatio="none"
-                      aria-hidden="true"
-                    >
-                      {overlayOptions.smoothGuide && smoothTrajectoryPath && (
-                        <g>
-                          <path
-                            d={smoothTrajectoryPath}
-                            fill="none"
-                            stroke="rgba(8, 47, 73, 0.42)"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2.25"
-                          />
-                          <path
-                            d={smoothTrajectoryPath}
-                            fill="none"
-                            stroke="rgba(103, 232, 249, 0.82)"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="0.95"
-                          />
-                          <path
-                            d={smoothTrajectoryPath}
-                            fill="none"
-                            stroke="rgba(236, 254, 255, 0.5)"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="0.24"
-                          />
-                        </g>
-                      )}
-                      {overlayOptions.trajectory && trajectoryPath && (
-                        <>
-                          <path
-                            d={trajectoryPath}
-                            fill="none"
-                            stroke="rgba(34, 211, 238, 0.32)"
-                            strokeDasharray="1.6 1.2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="0.7"
-                          />
-                          {endpointTrack.map((point) => (
-                            <circle
-                              key={`${point.frame}-${point.timeMs}`}
-                              cx={point.x * 100}
-                              cy={point.y * 100}
-                              r={point.frame === frame.frame ? 1.35 : 0.55}
-                              fill={point.frame === frame.frame ? "#22d3ee" : "rgba(34, 211, 238, 0.5)"}
-                              stroke={point.frame === frame.frame ? "#0f172a" : "none"}
-                              strokeWidth="0.35"
-                            />
-                          ))}
-                        </>
-                      )}
-                      {overlayOptions.endpoints && currentEndpoint && (
-                        <circle
-                          cx={currentEndpoint.x * 100}
-                          cy={currentEndpoint.y * 100}
-                          r="2.0"
-                          fill="#22d3ee"
-                          stroke="#020617"
-                          strokeWidth="0.45"
-                        />
-                      )}
-                      {overlayOptions.clubHeadPoints &&
-                        clubHeadPoints.map((point, idx) => (
-                          <circle
-                            key={`head-${idx}`}
-                            cx={point.x * 100}
-                            cy={point.y * 100}
-                            r="1.65"
-                            fill="#22c55e"
-                            stroke="#020617"
-                            strokeWidth="0.4"
-                          />
-                        ))}
-                      {overlayOptions.events && eventLabel && (
-                        <rect
-                          x="1.5"
-                          y="1.5"
-                          width="97"
-                          height="97"
-                          fill="none"
-                          stroke="#22d3ee"
-                          strokeDasharray="2 1.4"
-                          strokeWidth="0.8"
-                        />
-                      )}
-                      {overlayOptions.pose &&
-                        poseSegments.map(([from, to], idx) =>
-                          from && to ? (
-                            <line
-                              key={`pose-line-${idx}`}
-                              x1={from.x * 100}
-                              y1={from.y * 100}
-                              x2={to.x * 100}
-                              y2={to.y * 100}
-                              stroke="rgba(250, 204, 21, 0.72)"
-                              strokeLinecap="round"
-                              strokeWidth="0.7"
-                            />
-                          ) : null
-                        )}
-                      {overlayOptions.pose &&
-                        posePoints.map(({ name, point }) => (
-                          <circle
-                            key={`pose-${name}`}
-                            cx={point.x * 100}
-                            cy={point.y * 100}
-                            r={name.endsWith("wrist") ? 1.5 : 0.95}
-                            fill={name.endsWith("wrist") ? "#facc15" : "#fde68a"}
-                            stroke="#020617"
-                            strokeWidth="0.35"
-                          />
-                        ))}
-                    </svg>
-                    {overlayOptions.boxes && detections.map((det, idx) => {
-                      const color = labelColor(det.label);
+                  <div className="space-y-3 p-4">
+                    <label className="block text-xs text-slate-400">
+                      카메라 시점
+                      <select
+                        value={annotation?.viewpoint ?? "unknown"}
+                        onChange={(event) =>
+                          mutateAnnotation((current) => ({
+                            ...current,
+                            viewpoint: event.target.value as SwingTrackingAnnotation["viewpoint"],
+                          }))
+                        }
+                        className="mt-1 h-10 w-full border border-white/10 bg-black/30 px-3 text-sm text-white"
+                      >
+                        <option value="unknown">미지정</option>
+                        <option value="down_the_line">Down the line</option>
+                        <option value="face_on">Face on</option>
+                      </select>
+                    </label>
+                    <label className="block text-xs text-slate-400">
+                      타석
+                      <select
+                        value={annotation?.handedness ?? "unknown"}
+                        onChange={(event) =>
+                          mutateAnnotation((current) => ({
+                            ...current,
+                            handedness: event.target.value as SwingTrackingAnnotation["handedness"],
+                          }))
+                        }
+                        className="mt-1 h-10 w-full border border-white/10 bg-black/30 px-3 text-sm text-white"
+                      >
+                        <option value="unknown">미지정</option>
+                        <option value="right">오른손</option>
+                        <option value="left">왼손</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="border border-white/10 bg-[#0d141f]">
+                  <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Swing events</p>
+                    <span className="font-mono text-xs text-cyan-300">{annotationSummary.events}/4</span>
+                  </div>
+                  <div>
+                    {EVENT_KEYS.map((key) => {
+                      const event = annotation?.events[key];
+                      const delta =
+                        event && analysisEvents[key] != null
+                          ? event.timeMs - Number(analysisEvents[key])
+                          : null;
                       return (
-                        <div
-                          key={`${det.label}-${idx}`}
-                          className="pointer-events-none absolute border-2"
-                          style={{ ...frameBoxStyle(det.bbox, data.meta), borderColor: color }}
-                        >
-                          {overlayOptions.labels && (
-                            <span
-                              className="absolute left-0 top-0 max-w-full -translate-y-full truncate px-1 py-0.5 text-[10px] font-semibold text-black"
-                              style={{ backgroundColor: color }}
+                        <div key={key} className="border-b border-white/5 p-3 last:border-b-0">
+                          <div className="flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => event && jumpToFrame(event.frame)}
+                              className="text-left"
                             >
-                              {det.label} {det.confidence.toFixed(2)}
-                            </span>
-                          )}
+                              <span className="text-sm font-semibold text-white">{EVENT_LABELS[key]}</span>
+                              <span className="ml-2 font-mono text-xs text-slate-500">
+                                {event ? `F${event.frame}` : "—"}
+                              </span>
+                            </button>
+                            {delta != null ? (
+                              <span className={`font-mono text-[10px] ${Math.abs(delta) <= 100 ? "text-emerald-300" : "text-amber-300"}`}>
+                                AI {delta >= 0 ? "+" : ""}{Math.round(delta)}ms
+                              </span>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => markEvent(key)}
+                            className="mt-2 w-full border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-slate-300 hover:border-cyan-300/40 hover:text-white"
+                          >
+                            현재 F{selectedFrame?.frame} 지정
+                          </button>
                         </div>
                       );
                     })}
                   </div>
-                  <div className="flex flex-wrap gap-2 px-3 py-2 text-xs text-muted-foreground">
-                    {detections.length ? (
-                      detections.map((det, idx) => (
-                        <span key={`${det.label}-chip-${idx}`} className="rounded border border-border px-2 py-1">
-                          {det.label} {det.confidence.toFixed(2)}
-                        </span>
-                      ))
-                    ) : (
-                      <span>no detections</span>
-                    )}
+                </div>
+              </aside>
+
+              <section className="min-w-0 border border-white/10 bg-[#0d141f]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                  <div>
+                    <p className="font-mono text-sm text-white">
+                      Frame {selectedFrame?.frame} <span className="text-slate-500">/ {data.meta.frames - 1}</span>
+                    </p>
+                    <p className="mt-0.5 font-mono text-xs text-cyan-300">{formatMs(selectedFrame?.timeMs)}</p>
                   </div>
-                </article>
-              );
-            })}
-          </section>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIndex((current) => Math.max(0, current - 1))}
+                      className="grid size-9 place-items-center border border-white/10 hover:bg-white/10"
+                      aria-label="이전 프레임"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsPlaying((current) => !current)}
+                      className="grid size-9 place-items-center bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+                      aria-label={isPlaying ? "일시정지" : "재생"}
+                    >
+                      {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedIndex((current) => Math.min(data.frames.length - 1, current + 1))
+                      }
+                      className="grid size-9 place-items-center border border-white/10 hover:bg-white/10"
+                      aria-label="다음 프레임"
+                    >
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative mx-auto max-h-[72vh] w-fit overflow-hidden bg-black">
+                  {selectedFrame ? (
+                    <>
+                      <img
+                        src={selectedFrame.imageUrl}
+                        alt={`frame ${selectedFrame.frame}`}
+                        className="block max-h-[72vh] max-w-full object-contain"
+                      />
+                      <svg
+                        className="pointer-events-none absolute inset-0 h-full w-full"
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                        aria-hidden="true"
+                      >
+                        {overlayOptions.bboxGuide && bboxGuideTrack.length > 1 ? (
+                          <path
+                            d={pathFromPoints(bboxGuideTrack)}
+                            fill="none"
+                            stroke="#22d3ee"
+                            strokeDasharray="1.4 1.2"
+                            strokeWidth="0.55"
+                            opacity="0.62"
+                          />
+                        ) : null}
+                        {overlayOptions.modelHeadPath && modelHeadTrack.length > 1 ? (
+                          <path
+                            d={pathFromPoints(modelHeadTrack)}
+                            fill="none"
+                            stroke="#a3e635"
+                            strokeWidth="0.65"
+                            opacity="0.7"
+                          />
+                        ) : null}
+                        {overlayOptions.labels && labeledHeadTrack.length > 1 ? (
+                          <path
+                            d={pathFromPoints(labeledHeadTrack)}
+                            fill="none"
+                            stroke="#fb7185"
+                            strokeWidth="0.9"
+                          />
+                        ) : null}
+                        {overlayOptions.pose
+                          ? poseSegments.map(([start, end], index) =>
+                              start && end ? (
+                                <line
+                                  key={index}
+                                  x1={start.x * 100}
+                                  y1={start.y * 100}
+                                  x2={end.x * 100}
+                                  y2={end.y * 100}
+                                  stroke="#facc15"
+                                  strokeWidth="0.55"
+                                  opacity="0.75"
+                                />
+                              ) : null
+                            )
+                          : null}
+                        {overlayOptions.modelBoxes
+                          ? visibleDetections.map((detection, index) => {
+                              const [x, y, width, height] = normalizeBox(detection.bbox, data.meta);
+                              const color = LABEL_COLORS[detection.label] ?? "#e2e8f0";
+                              return (
+                                <g key={`${detection.label}-${index}`}>
+                                  <rect
+                                    x={x * 100}
+                                    y={y * 100}
+                                    width={width * 100}
+                                    height={height * 100}
+                                    fill="none"
+                                    stroke={color}
+                                    strokeWidth="0.45"
+                                  />
+                                  <text
+                                    x={x * 100}
+                                    y={Math.max(2, y * 100 - 0.8)}
+                                    fill={color}
+                                    fontSize="2"
+                                    fontWeight="700"
+                                  >
+                                    {detection.label} {detection.confidence.toFixed(2)}
+                                  </text>
+                                </g>
+                              );
+                            })
+                          : null}
+                        {overlayOptions.labels && currentLabel?.clubHead ? (
+                          <g>
+                            <circle
+                              cx={currentLabel.clubHead.x * 100}
+                              cy={currentLabel.clubHead.y * 100}
+                              r="1.7"
+                              fill="#fb7185"
+                              stroke="white"
+                              strokeWidth="0.45"
+                            />
+                            <text
+                              x={currentLabel.clubHead.x * 100 + 2.2}
+                              y={currentLabel.clubHead.y * 100}
+                              fill="#fb7185"
+                              fontSize="2.2"
+                              fontWeight="700"
+                            >
+                              HEAD GT
+                            </text>
+                          </g>
+                        ) : null}
+                        {overlayOptions.labels && currentLabel?.clubHandle ? (
+                          <g>
+                            <circle
+                              cx={currentLabel.clubHandle.x * 100}
+                              cy={currentLabel.clubHandle.y * 100}
+                              r="1.7"
+                              fill="#c084fc"
+                              stroke="white"
+                              strokeWidth="0.45"
+                            />
+                            <text
+                              x={currentLabel.clubHandle.x * 100 + 2.2}
+                              y={currentLabel.clubHandle.y * 100}
+                              fill="#c084fc"
+                              fontSize="2.2"
+                              fontWeight="700"
+                            >
+                              HANDLE GT
+                            </text>
+                          </g>
+                        ) : null}
+                      </svg>
+                      <button
+                        type="button"
+                        className={`absolute inset-0 h-full w-full ${
+                          activeTool === "erase" ? "cursor-not-allowed" : "cursor-crosshair"
+                        }`}
+                        onClick={handleCanvasClick}
+                        aria-label="프레임에 정답점 지정"
+                      />
+                      <div className="pointer-events-none absolute left-3 top-3 border border-white/10 bg-black/65 px-2 py-1 font-mono text-[10px] text-slate-300">
+                        {activeTool === "clubHead"
+                          ? "CLICK → CLUB HEAD"
+                          : activeTool === "clubHandle"
+                            ? "CLICK → CLUB HANDLE"
+                            : "CLICK → CLEAR FRAME"}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+
+                <div className="border-t border-white/10 p-4">
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, data.frames.length - 1)}
+                    value={selectedIndex}
+                    onChange={(event) => {
+                      setIsPlaying(false);
+                      setSelectedIndex(Number(event.target.value));
+                    }}
+                    className="w-full accent-cyan-300"
+                    aria-label="프레임 타임라인"
+                  />
+                  <div className="mt-2 flex justify-between font-mono text-[10px] text-slate-600">
+                    <span>F{data.frames[0]?.frame}</span>
+                    {EVENT_KEYS.map((key) => {
+                      const event = annotation?.events[key];
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          disabled={!event}
+                          onClick={() => event && jumpToFrame(event.frame)}
+                          className={event ? "text-cyan-300 hover:text-white" : ""}
+                        >
+                          {key.toUpperCase()} {event ? `F${event.frame}` : "—"}
+                        </button>
+                      );
+                    })}
+                    <span>F{data.frames.at(-1)?.frame}</span>
+                  </div>
+                </div>
+              </section>
+
+              <aside className="space-y-4">
+                <div className="border border-white/10 bg-[#0d141f]">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Label tool</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-px bg-white/10">
+                    {[
+                      ["clubHead", "1", "Head", "#fb7185"],
+                      ["clubHandle", "2", "Handle", "#c084fc"],
+                      ["erase", "E", "Clear", "#94a3b8"],
+                    ].map(([tool, shortcut, label, color]) => (
+                      <button
+                        key={tool}
+                        type="button"
+                        onClick={() => setActiveTool(tool as LabelTool)}
+                        className={`bg-[#0d141f] px-2 py-3 text-xs transition ${
+                          activeTool === tool ? "text-white ring-1 ring-inset ring-cyan-300" : "text-slate-500"
+                        }`}
+                      >
+                        <span
+                          className="mx-auto mb-1 block size-2 rounded-full"
+                          style={{ backgroundColor: color }}
+                        />
+                        {label}
+                        <span className="ml-1 text-[9px] text-slate-600">{shortcut}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-2 p-4 text-xs">
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span>Club head</span>
+                      <span className="font-mono text-rose-300">{compactPoint(currentLabel?.clubHead)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-400">
+                      <span>Club handle</span>
+                      <span className="font-mono text-purple-300">{compactPoint(currentLabel?.clubHandle)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={prefillCurrent}
+                      className="mt-2 flex w-full items-center justify-center gap-2 border border-white/10 bg-white/[0.04] px-3 py-2 text-slate-300 hover:text-white"
+                    >
+                      <WandSparkles className="size-3.5" /> 현재 검출 초안
+                    </button>
+                    <button
+                      type="button"
+                      onClick={prefillAll}
+                      className="flex w-full items-center justify-center gap-2 border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-cyan-200 hover:bg-cyan-300/10"
+                    >
+                      <CircleDot className="size-3.5" /> 전체 자동 pre-label
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border border-white/10 bg-[#0d141f]">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Evidence layers</p>
+                  </div>
+                  <LayerToggle active={overlayOptions.labels} color="#fb7185" label="Ground truth labels" onClick={() => toggleOverlay("labels")} />
+                  <LayerToggle active={overlayOptions.modelBoxes} color="#a3e635" label="Model detections" onClick={() => toggleOverlay("modelBoxes")} />
+                  <LayerToggle active={overlayOptions.modelHeadPath} color="#a3e635" label="Model head path" onClick={() => toggleOverlay("modelHeadPath")} />
+                  <LayerToggle active={overlayOptions.bboxGuide} color="#22d3ee" label="Club bbox guide" onClick={() => toggleOverlay("bboxGuide")} />
+                  <LayerToggle active={overlayOptions.pose} color="#facc15" label="Pose skeleton" onClick={() => toggleOverlay("pose")} />
+                  <div className="p-3 text-[11px] leading-5 text-slate-500">
+                    Bbox guide는 tracker 결과가 아니라 club 박스 장축 끝점입니다. 분홍색 라벨 경로만 사람이 확인한 정답입니다.
+                  </div>
+                </div>
+
+                <div className="border border-white/10 bg-[#0d141f] p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-white">Label coverage</p>
+                      <p className="mt-1 font-mono text-xs text-slate-500">
+                        H {annotationSummary.head} · G {annotationSummary.handle}
+                      </p>
+                    </div>
+                    <select
+                      value={annotation?.status ?? "draft"}
+                      onChange={(event) =>
+                        mutateAnnotation((current) => ({
+                          ...current,
+                          status: event.target.value as SwingTrackingAnnotation["status"],
+                        }))
+                      }
+                      className="h-8 border border-white/10 bg-black/30 px-2 text-xs"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="reviewed">Reviewed</option>
+                    </select>
+                  </div>
+                  <textarea
+                    value={annotation?.notes ?? ""}
+                    onChange={(event) =>
+                      mutateAnnotation((current) => ({ ...current, notes: event.target.value }))
+                    }
+                    placeholder="가림, 오검출, 촬영 특이사항"
+                    className="mt-3 min-h-20 w-full resize-y border border-white/10 bg-black/30 p-2 text-xs text-white outline-none focus:border-cyan-300/40"
+                  />
+                  <Button
+                    type="button"
+                    fullWidth
+                    onClick={() => void handleSave()}
+                    isLoading={isSaving}
+                    disabled={!annotation || !dirty}
+                    className="mt-3 flex h-10 items-center justify-center gap-2 py-0 text-sm"
+                  >
+                    {dirty ? <Save className="size-4" /> : <Check className="size-4" />}
+                    {dirty ? "라벨 저장" : "저장됨"}
+                  </Button>
+                  <p className="mt-2 text-center text-[10px] text-slate-600">⌘/Ctrl + S</p>
+                </div>
+
+                <div className="border border-white/10 bg-[#0d141f] p-4">
+                  <div className="flex items-center gap-2">
+                    <FlaskConical className="size-4 text-amber-300" />
+                    <p className="text-sm font-semibold">Preprocess lab</p>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    원본·대비 보정·손목 ROI 검출률을 비교합니다. 정답 라벨은 변경하지 않습니다.
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isGeneratingDebug}
+                      onClick={() => void handleGenerateDebugMeta()}
+                      className="border border-white/10 px-2 py-2 text-xs text-slate-300 hover:text-white disabled:opacity-50"
+                    >
+                      Debug meta
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isRunningLab}
+                      onClick={() => void handleRunLab()}
+                      className="border border-amber-300/20 bg-amber-300/5 px-2 py-2 text-xs text-amber-200 disabled:opacity-50"
+                    >
+                      {isRunningLab ? "비교 중…" : "보정 비교"}
+                    </button>
+                  </div>
+                </div>
+              </aside>
+            </section>
+
+            {labReport ? (
+              <section className="mt-4 border border-white/10 bg-[#0d141f] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold">Preprocess comparison</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {labReport.report.decision === "candidate_for_visual_review"
+                        ? "수치 개선 후보입니다. 라벨과 겹쳐 오검출 여부를 확인하세요."
+                        : "이번 영상에서는 운영 후보 수준의 개선이 없습니다."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLabReport(null)}
+                    className="text-slate-500 hover:text-white"
+                    aria-label="비교 결과 닫기"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  {Object.entries(labReport.report.results).map(([name, result]) => (
+                    <div key={name} className="border border-white/10 bg-black/20 p-3">
+                      <p className="text-xs font-semibold uppercase text-slate-300">{name}</p>
+                      <dl className="mt-2 grid grid-cols-2 gap-1 text-xs">
+                        <dt className="text-slate-500">Head</dt><dd className="text-right font-mono">{result.detectedFrames.club_head ?? 0}</dd>
+                        <dt className="text-slate-500">Handle</dt><dd className="text-right font-mono">{result.detectedFrames.club_handle ?? 0}</dd>
+                        <dt className="text-slate-500">Paired</dt><dd className="text-right font-mono">{result.pairedHeadHandleFrames}</dd>
+                      </dl>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </>
         )}
       </div>
     </main>

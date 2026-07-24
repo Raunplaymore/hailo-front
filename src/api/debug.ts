@@ -55,6 +55,7 @@ export type InferDebugAnalysisResponse = {
   jobId?: string;
   status?: string;
   analysis?: {
+    analysisVersion?: string | null;
     events?: Record<string, unknown> | null;
     metrics?: Record<string, unknown> | null;
     debug?: Record<string, unknown> | null;
@@ -90,6 +91,49 @@ export type ClubPreprocessLabResponse = {
     }>;
     guardrail: string;
   };
+};
+
+export type SwingTrackingPoint = {
+  x: number;
+  y: number;
+  source: "manual" | "model";
+};
+
+export type SwingTrackingFrameLabel = {
+  frame: number;
+  timeMs: number;
+  clubHead?: SwingTrackingPoint;
+  clubHandle?: SwingTrackingPoint;
+};
+
+export type SwingTrackingEventLabel = {
+  frame: number;
+  timeMs: number;
+  source: "manual" | "analysis";
+};
+
+export type SwingTrackingAnnotation = {
+  schemaVersion: "swing-tracking-label-v1";
+  jobId: string;
+  viewpoint: "unknown" | "down_the_line" | "face_on";
+  handedness: "unknown" | "right" | "left";
+  status: "draft" | "reviewed";
+  events: Record<"address" | "top" | "impact" | "finish", SwingTrackingEventLabel | null>;
+  frames: SwingTrackingFrameLabel[];
+  notes: string;
+  source: {
+    variant: "main" | "debug";
+    analysisVersion: string | null;
+    metaPath: string | null;
+  };
+  updatedAt?: string;
+};
+
+export type SwingTrackingAnnotationResponse = {
+  ok: boolean;
+  jobId: string;
+  annotation: SwingTrackingAnnotation | null;
+  annotationPath?: string;
 };
 
 const withBaseUrl = (url: string) => {
@@ -133,5 +177,21 @@ export async function runClubPreprocessLab(jobId: string) {
   return client.post<ClubPreprocessLabResponse>(
     `/api/labs/club-preprocess/${encodeURIComponent(jobId)}`,
     new Blob(["{}"], { type: "application/json" })
+  );
+}
+
+export async function fetchSwingTrackingAnnotation(jobId: string) {
+  return client.get<SwingTrackingAnnotationResponse>(
+    `/api/debug/infer/${encodeURIComponent(jobId)}/annotation`
+  );
+}
+
+export async function saveSwingTrackingAnnotation(
+  jobId: string,
+  annotation: SwingTrackingAnnotation
+) {
+  return client.post<SwingTrackingAnnotationResponse>(
+    `/api/debug/infer/${encodeURIComponent(jobId)}/annotation`,
+    new Blob([JSON.stringify(annotation)], { type: "application/json" })
   );
 }

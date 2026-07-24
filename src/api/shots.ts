@@ -240,6 +240,23 @@ const normalizeEventValidation = (raw: any): EventValidation | null => {
     metricAvailability: raw.metricAvailability && typeof raw.metricAvailability === "object"
       ? Object.fromEntries(Object.entries(raw.metricAvailability).map(([key, value]) => [key, String(value)]))
       : {},
+    metricEvidence: raw.metricEvidence && typeof raw.metricEvidence === "object"
+      ? Object.fromEntries(
+          Object.entries(raw.metricEvidence).map(([key, value]: [string, any]) => {
+            const status = value?.status === "confirmed"
+              ? "confirmed"
+              : value?.status === "reference"
+                ? "reference"
+                : "withheld";
+            return [key, {
+              status,
+              reasons: Array.isArray(value?.reasons) ? value.reasons.map(String) : [],
+              source: typeof value?.source === "string" ? value.source : null,
+              observedFrames: toOptionalNumber(value?.observedFrames),
+            }];
+          })
+        )
+      : {},
   };
 };
 
@@ -553,8 +570,6 @@ export const normalizeAnalysis = (
       const score =
         typeof value.confidence === "number"
           ? formatScore(value.confidence)
-          : typeof value.score === "number"
-          ? formatScore(value.score)
           : null;
       if (typeof label === "string" && score) return `${label} (${score})`;
       if (typeof label === "string") return label;
@@ -577,6 +592,22 @@ export const normalizeAnalysis = (
     raw?.coachFindings ?? raw?.coach_findings ?? raw?.debug?.coachFindings ?? raw?.debug?.coach_findings
   );
   const confidence = toOptionalNumber(raw?.confidence ?? metricsBlock?.confidence);
+  const rawAnalysisQuality = raw?.analysisQuality ?? metricsBlock?.analysisQuality;
+  const analysisQuality =
+    rawAnalysisQuality && typeof rawAnalysisQuality === "object" && toOptionalNumber(rawAnalysisQuality.score) != null
+      ? {
+          label: typeof rawAnalysisQuality.label === "string" ? rawAnalysisQuality.label : "observation_coverage",
+          score: toOptionalNumber(rawAnalysisQuality.score) ?? 0,
+          meaning: typeof rawAnalysisQuality.meaning === "string" ? rawAnalysisQuality.meaning : null,
+          components: rawAnalysisQuality.components && typeof rawAnalysisQuality.components === "object"
+            ? {
+                clubObservationCoverage: toOptionalNumber(rawAnalysisQuality.components.clubObservationCoverage),
+                eventPathCoverage: toOptionalNumber(rawAnalysisQuality.components.eventPathCoverage),
+                poseCoverage: toOptionalNumber(rawAnalysisQuality.components.poseCoverage),
+              }
+            : undefined,
+        }
+      : null;
   const overlay = normalizeOverlay(raw?.overlay ?? metricsBlock?.overlay);
   const rawProgress = raw?.progress ?? metricsBlock?.progress;
   const progress: AnalysisProgress | null =
@@ -637,6 +668,7 @@ export const normalizeAnalysis = (
     coachSummary: coachSummary?.map((item: any) => String(item)),
     coachFindings,
     confidence,
+    analysisQuality,
     overlay,
     eventValidation,
     progress,

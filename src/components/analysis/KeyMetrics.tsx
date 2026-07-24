@@ -20,17 +20,18 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
   const fusionPrimary = pickPrimaryMetric(analysis?.metrics.fusion);
   const bodyPrimary = pickPrimaryMetric(analysis?.metrics.body);
 
-  const tempoRatio = analysis?.metrics.tempo?.ratio ?? fallback;
-  const shaftPlane = formatMetricLabel(analysis?.metrics.shaftPlane) ?? analysis?.metrics.swingPlane ?? fallback;
-  const backswing = formatMetricLabel(analysis?.metrics.backswing) ?? fallback;
+  const tempoStatus = metricStatus(analysis, "tempo");
+  const shaftStatus = metricStatus(analysis, "shaft");
+  const backswingStatus = metricStatus(analysis, "backswing");
+  const impactStatus = metricStatus(analysis, "impactStability");
+  const tempoRatio = metricValue(analysis?.metrics.tempo?.ratio ?? fallback, tempoStatus);
+  const shaftPlane = metricValue(formatMetricLabel(analysis?.metrics.shaftPlane) ?? fallback, shaftStatus);
+  const backswing = metricValue(formatMetricLabel(analysis?.metrics.backswing) ?? fallback, backswingStatus);
   const quality = analysis ? analysisQuality(analysis) : null;
-  const impactStability =
-    analysis?.metrics.impactStability ??
-    formatMetricLabel(fusionPrimary) ??
-    formatMetricLabel(bodyPrimary) ??
-    fallback;
+  const legacyImpact =
+    analysis?.metrics.impactStability ?? formatMetricLabel(fusionPrimary) ?? formatMetricLabel(bodyPrimary) ?? fallback;
+  const impactStability = metricValue(legacyImpact, impactStatus, "평가 준비 중");
   const validationStatus = analysis?.eventValidation?.status;
-  const eventMetricsUsable = !validationStatus || validationStatus === "usable";
 
   return (
     <Card>
@@ -54,56 +55,73 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
             <p className="mt-1 text-xs leading-5 text-amber-100/80">{analysis?.eventValidation?.message ?? "클럽 추적과 pose 이벤트가 일치하지 않아 템포·임팩트·경로 코칭을 제공하지 않습니다."}</p>
           </div>
         ) : null}
-        {quality && eventMetricsUsable ? (
+        {quality ? (
           <p className="rounded-xl border border-border bg-muted/35 px-3 py-2 text-xs leading-5 text-muted-foreground">
             {quality.message}
           </p>
         ) : null}
-        {eventMetricsUsable ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <MetricCard label="Shaft Plane" value={shaftPlane} />
-            <MetricCard label="Tempo" value={tempoRatio} />
-            <MetricCard label="Backswing" value={backswing} />
-            <MetricCard label="Impact Stability" value={impactStability} />
-          </div>
-        ) : null}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <MetricCard label="샤프트 플레인" value={shaftPlane} status={shaftStatus} />
+          <MetricCard label="템포" value={tempoRatio} status={tempoStatus} />
+          <MetricCard label="백스윙" value={backswing} status={backswingStatus} />
+          <MetricCard label="임팩트 재현성" value={impactStability} status={impactStatus} />
+        </div>
       </CardContent>
     </Card>
   );
 }
 
 function analysisQuality(analysis: AnalysisResult) {
-  const overall = typeof analysis.confidence === "number" ? analysis.confidence : null;
+  const overall = analysis.analysisQuality?.score ??
+    (typeof analysis.confidence === "number" ? analysis.confidence : null);
   const tracking = analysis.metrics.trackingQuality?.score ?? analysis.metrics.trackingQuality?.confidence ?? null;
   const score = Math.min(overall ?? 1, tracking ?? 1);
-  const percentText = overall == null ? "" : ` 전체 신뢰도 ${Math.round(overall * 100)}%.`;
+  const percentText = overall == null ? "" : ` 관측 커버리지 ${Math.round(overall * 100)}%.`;
 
   if (score < 0.25) {
     return {
-      label: "참고용 분석",
+      label: "근거 제한",
       className: "border-slate-200 bg-slate-50 text-slate-800",
-      message: `트래킹 품질이 낮아 코칭은 우선순위 참고용으로 보세요.${percentText} 촬영 구도와 클럽 검출 품질을 먼저 확인하는 것이 좋습니다.`,
+      message: `관측 데이터가 부족합니다.${percentText} 이 수치는 정답 확률이 아니며 촬영·추적 범위를 뜻합니다.`,
     };
   }
   if (score < 0.5) {
     return {
-      label: "참고 가능",
+      label: "일부 근거",
       className: "border-yellow-200 bg-yellow-50 text-yellow-900",
-      message: `일부 지표는 사용할 수 있지만 세부 진단은 흔들릴 수 있습니다.${percentText} 코멘트는 반복 촬영에서 같은 패턴이 나오는지 확인하세요.`,
+      message: `일부 구간을 관측했습니다.${percentText} 각 지표의 참고·확정 상태를 따로 확인하세요.`,
     };
   }
   return {
-    label: "신뢰 가능",
+    label: "관측 충분",
     className: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    message: `추적 품질이 비교적 안정적입니다.${percentText} 코칭 우선순위와 드릴을 기준으로 반복 확인해도 됩니다.`,
+    message: `관측 범위는 비교적 충분합니다.${percentText} 다만 확정 여부는 각 지표의 근거 배지를 따릅니다.`,
   };
 }
 
 function formatMetricLabel(metric?: { label?: string | null; confidence?: number | null; score?: number | null }) {
   if (!metric?.label) return null;
-  const confidence = metric.confidence ?? metric.score;
+  const confidence = metric.confidence;
   if (confidence == null) return metric.label;
   return `${metric.label} (${Math.round(confidence * 100)}%)`;
+}
+
+function metricStatus(analysis: AnalysisResult | null | undefined, key: string) {
+  const status =
+    analysis?.eventValidation?.metricEvidence?.[key]?.status ??
+    analysis?.eventValidation?.metricAvailability?.[key];
+  if (status === "confirmed" || status === "reference" || status === "withheld") return status;
+  if (!analysis?.eventValidation) return undefined;
+  return analysis.eventValidation.status === "usable" ? "confirmed" : "withheld";
+}
+
+function metricValue(
+  value: string | number | null,
+  status?: "confirmed" | "reference" | "withheld",
+  withheldLabel = "보류",
+) {
+  if (status === "withheld") return withheldLabel;
+  return value;
 }
 
 function pickPrimaryMetric(group?: MetricGroup): GenericMetricPayload | undefined {
@@ -116,12 +134,27 @@ function pickPrimaryMetric(group?: MetricGroup): GenericMetricPayload | undefine
 type MetricCardProps = {
   label: string;
   value: string | number | null;
+  status?: "confirmed" | "reference" | "withheld";
 };
 
-function MetricCard({ label, value }: MetricCardProps) {
+function MetricCard({ label, value, status }: MetricCardProps) {
   return (
     <div className="min-w-0 rounded-xl border border-border bg-muted/50 px-3 py-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {status ? (
+          <span className={cn(
+            "rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
+            status === "confirmed"
+              ? "border-emerald-300/50 text-emerald-200"
+              : status === "reference"
+                ? "border-amber-300/50 text-amber-200"
+                : "border-slate-400/40 text-slate-300",
+          )}>
+            {status === "confirmed" ? "확정" : status === "reference" ? "참고" : "보류"}
+          </span>
+        ) : null}
+      </div>
       <p className="break-words text-base font-semibold text-foreground">
         {value ?? "-"}
       </p>

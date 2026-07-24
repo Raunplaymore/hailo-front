@@ -122,6 +122,12 @@ export type EventEvidenceQuality = {
   confidence?: number | null;
   source?: string | null;
 };
+export type MetricEvidence = {
+  status: "confirmed" | "reference" | "withheld";
+  reasons?: string[];
+  source?: string | null;
+  observedFrames?: number | null;
+};
 export type EventValidation = {
   status: "usable" | "partial" | "withheld";
   codes?: string[];
@@ -129,6 +135,18 @@ export type EventValidation = {
   message?: string | null;
   eventQuality?: Partial<Record<SwingEventKey, EventEvidenceQuality>>;
   metricAvailability?: Record<string, string>;
+  metricEvidence?: Record<string, MetricEvidence>;
+};
+
+export type AnalysisQuality = {
+  label: "observation_coverage" | string;
+  score: number;
+  meaning?: string | null;
+  components?: {
+    clubObservationCoverage?: number | null;
+    eventPathCoverage?: number | null;
+    poseCoverage?: number | null;
+  };
 };
 
 export type AnalysisResult = {
@@ -145,6 +163,7 @@ export type AnalysisResult = {
   coachSummary?: string[];
   coachFindings?: CoachFinding[];
   confidence?: number | null;
+  analysisQuality?: AnalysisQuality | null;
   overlay?: AnalysisOverlay | null;
   eventValidation?: EventValidation | null;
   progress?: AnalysisProgress | null;

@@ -168,6 +168,55 @@ try {
   assert.equal(partial.events.impact?.source, "pose_club_bracket");
   assert.equal(partial.metrics.tempo, undefined, "withheld tempo must not leak a stale ratio");
 
+  const v14 = normalizeAnalysis({
+    jobId: "v14-evidence",
+    status: "succeeded",
+    analysisVersion: "hailo-coach-service7-v14",
+    events: { addressMs: 0, topMs: 567, impactMs: 1167, finishMs: 1300 },
+    metrics: {
+      tempo: { backswingMs: 567, downswingMs: 600, ratio: 0.94, status: "reference" },
+      swingPlane: { label: "withheld", confidence: 0 },
+      impactStability: { label: "withheld", score: null },
+      ball: { launchDirection: "unknown", launchAngle: null, speedRelative: "unknown", status: "withheld" },
+    },
+    eventValidation: {
+      status: "usable",
+      metricAvailability: {
+        tempo: "reference",
+        impactStability: "withheld",
+        path: "withheld",
+        ball: "withheld",
+      },
+      metricEvidence: {
+        tempo: {
+          status: "reference",
+          reasons: ["POSE_EVENT_TIMING_REFERENCE_ONLY"],
+          source: "pose_phase_decoder",
+        },
+        impactStability: {
+          status: "withheld",
+          reasons: ["SINGLE_SWING_SPREAD_IS_NOT_REPEATABILITY"],
+        },
+      },
+    },
+    analysisQuality: {
+      label: "observation_coverage",
+      score: 0.48,
+      meaning: "정답 확률이 아닙니다.",
+      components: {
+        clubObservationCoverage: 0.31,
+        eventPathCoverage: 0.78,
+        poseCoverage: 1,
+      },
+    },
+  }, "v14-evidence", "succeeded");
+  assert.equal(v14.eventValidation?.metricEvidence?.tempo?.status, "reference");
+  assert.deepEqual(v14.eventValidation?.metricEvidence?.impactStability?.reasons, [
+    "SINGLE_SWING_SPREAD_IS_NOT_REPEATABILITY",
+  ]);
+  assert.equal(v14.analysisQuality?.score, 0.48);
+  assert.equal(v14.metrics.impactStability, "withheld");
+
   console.log("analysis normalization check passed");
 } finally {
   await rm(tempDir, { recursive: true, force: true });

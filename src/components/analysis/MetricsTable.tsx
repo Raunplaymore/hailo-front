@@ -51,7 +51,7 @@ const formatAngle = (value?: number | null) => (value == null ? "-" : `${value.t
 const formatPercent = (value?: number | null) => (value == null ? "-" : `${Math.round(value * 100)}%`);
 const formatMetricLabel = (metric?: { label?: string | null; confidence?: number | null; score?: number | null }) => {
   if (!metric?.label) return "-";
-  const value = metric.confidence ?? metric.score;
+  const value = metric.confidence;
   return value == null ? metric.label : `${metric.label} (${formatPercent(value)})`;
 };
 
@@ -163,6 +163,16 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   const clubMetrics = toMetricEntries(analysis?.metrics.club);
   const fusionMetrics = toMetricEntries(analysis?.metrics.fusion);
   const pending = analysis?.pending ?? PENDING_FALLBACK;
+  const metricAvailability = analysis?.eventValidation?.metricAvailability ?? {};
+  const availability = (key: string) => {
+    const value = analysis?.eventValidation?.metricEvidence?.[key]?.status ?? metricAvailability[key];
+    return value === "confirmed" || value === "reference" || value === "withheld" ? value : undefined;
+  };
+  const tempoAvailability = availability("tempo");
+  const ballAvailability = availability("ball");
+  const shaftAvailability = availability("shaft");
+  const backswingAvailability = availability("backswing");
+  const qualityScore = analysis?.analysisQuality?.score ?? analysis?.confidence;
 
   return (
     <Card>
@@ -191,16 +201,28 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
         <CollapsibleMetricSection
           title="Tempo"
           summary={compactDetail([
+            availabilityLabel(tempoAvailability),
             tempo?.ratio ? `${tempo.ratio}:1` : null,
             tempo?.downswingMs != null ? `DS ${formatMs(tempo.downswingMs)}` : null,
             tempo?.backswingMs != null ? `BS ${formatMs(tempo.backswingMs)}` : null,
           ]) || "분석 대기"}
         >
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <MetricCard label="비율" value={tempo?.ratio ?? "-"} />
-            <MetricCard label="다운스윙 시간" value={formatMs(tempo?.downswingMs)} />
-            <MetricCard label="백스윙 시간" value={formatMs(tempo?.backswingMs)} />
-          </div>
+          {tempoAvailability === "withheld" ? (
+            <WithheldNotice text="이벤트 근거가 부족해 템포 수치를 제공하지 않습니다." />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <MetricCard label="비율" value={tempo?.ratio ?? "-"} />
+                <MetricCard label="다운스윙 시간" value={formatMs(tempo?.downswingMs)} />
+                <MetricCard label="백스윙 시간" value={formatMs(tempo?.backswingMs)} />
+              </div>
+              {tempoAvailability === "reference" ? (
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  시간 구간의 참고값입니다. 이 비율만으로 전환 순서나 손·하체 선행을 판정하지 않습니다.
+                </p>
+              ) : null}
+            </>
+          )}
         </CollapsibleMetricSection>
 
         <CollapsibleMetricSection
@@ -219,31 +241,40 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
 
         <CollapsibleMetricSection
           title="Ball"
-          summary={compactDetail([ball?.launchDirection, ball?.speedRelative, formatAngle(ball?.launchAngle)]) || "공 추적 없음"}
+          summary={ballAvailability === "withheld"
+            ? "보류 · 공 비행 추적 미검증"
+            : compactDetail([ball?.launchDirection, ball?.speedRelative, formatAngle(ball?.launchAngle)]) || "공 추적 없음"}
         >
-          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
-            <MetricCard label="Launch Direction" value={ball?.launchDirection ? ball.launchDirection : "-"} />
-            <MetricCard label="Launch Angle" value={formatAngle(ball?.launchAngle)} />
-            <MetricCard label="Speed Relative" value={ball?.speedRelative ? ball.speedRelative : "-"} />
-          </div>
+          {ballAvailability === "withheld" ? (
+            <WithheldNotice text="연속적인 공 identity와 카메라 좌표 보정이 검증되기 전에는 출발 방향·각도·속도를 표시하지 않습니다." />
+          ) : (
+            <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
+              <MetricCard label="Launch Direction" value={ball?.launchDirection ? ball.launchDirection : "-"} />
+              <MetricCard label="Launch Angle" value={formatAngle(ball?.launchAngle)} />
+              <MetricCard label="Speed Relative" value={ball?.speedRelative ? ball.speedRelative : "-"} />
+            </div>
+          )}
         </CollapsibleMetricSection>
 
         <CollapsibleMetricSection
           title="Service7 전신/클럽 진단"
           summary={compactDetail([
-            `Shaft ${formatMetricLabel(shaftPlane)}`,
-            `Backswing ${formatMetricLabel(backswing)}`,
+            `Shaft ${metricAvailabilitySummary(shaftAvailability, formatMetricLabel(shaftPlane))}`,
+            `Backswing ${metricAvailabilitySummary(backswingAvailability, formatMetricLabel(backswing))}`,
             `Tracking ${formatMetricLabel(trackingQuality)}`,
           ])}
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <MetricCard label="Shaft Plane" value={formatMetricLabel(shaftPlane)} />
-            <MetricCard label="Shaft Angle" value={formatAngle(shaftPlane?.angleDeg)} />
-            <MetricCard label="Backswing" value={formatMetricLabel(backswing)} />
-            <MetricCard label="Readiness" value={formatMetricLabel(readiness)} />
-            <MetricCard label="Tracking Quality" value={formatMetricLabel(trackingQuality)} />
-            <MetricCard label="Overall Confidence" value={formatPercent(analysis?.confidence)} />
+            <MetricCard label="Shaft Plane" value={shaftAvailability === "withheld" ? "보류" : formatMetricLabel(shaftPlane)} />
+            <MetricCard label="Shaft Angle" value={shaftAvailability === "withheld" ? "보류" : formatAngle(shaftPlane?.angleDeg)} />
+            <MetricCard label="Backswing" value={backswingAvailability === "withheld" ? "보류" : formatMetricLabel(backswing)} />
+            <MetricCard label="촬영 준비 상태" value={formatMetricLabel(readiness)} />
+            <MetricCard label="클럽 관측 상태" value={formatMetricLabel(trackingQuality)} />
+            <MetricCard label="관측 커버리지" value={formatPercent(qualityScore)} />
           </div>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            관측 커버리지는 영상에서 pose와 클럽을 얼마나 확보했는지 나타내며, 코칭 정답 확률이 아닙니다.
+          </p>
           {trackingQuality && (
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
               <MetricCard label="Club Head Frames" value={trackingQuality.clubHeadFrames ?? "-"} />
@@ -304,6 +335,27 @@ function MetricCard({ label, value }: MetricCardProps) {
   );
 }
 
+function availabilityLabel(status?: string) {
+  if (status === "confirmed") return "확정";
+  if (status === "reference") return "참고";
+  if (status === "withheld") return "보류";
+  return null;
+}
+
+function metricAvailabilitySummary(status: string | undefined, value: string) {
+  if (status === "withheld") return "보류";
+  return compactDetail([availabilityLabel(status), value]);
+}
+
+function WithheldNotice({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-slate-400/30 bg-slate-400/10 px-3 py-2 text-xs leading-5 text-muted-foreground">
+      <p className="font-semibold text-foreground">현재 판정 보류</p>
+      <p className="mt-1">{text}</p>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: JobStatus }) {
   return (
     <span
@@ -326,7 +378,7 @@ function toMetricEntries(group?: MetricGroup) {
 
 function formatGroupMetricValue(metric: GenericMetricPayload) {
   if (metric.label) {
-    const strength = metric.confidence ?? metric.score;
+    const strength = metric.confidence;
     return strength == null ? metric.label : `${metric.label} (${Math.round(strength * 100)}%)`;
   }
   if (typeof metric.ratio === "number" || typeof metric.ratio === "string") {
@@ -336,18 +388,18 @@ function formatGroupMetricValue(metric: GenericMetricPayload) {
     return compactDetail([ratio, downswing, backswing]) || ratio;
   }
   if (Array.isArray(metric.evidence) && metric.evidence.length > 0) {
-    const strength = metric.confidence ?? metric.score;
+    const strength = metric.confidence;
     const prefix = strength == null ? "" : `${Math.round(strength * 100)}% · `;
     return `${prefix}${metric.evidence.slice(0, 3).join(", ")}`;
   }
   if (typeof metric.sampleCount === "number") {
-    const strength = metric.confidence ?? metric.score;
+    const strength = metric.confidence;
     return compactDetail([
       `${metric.sampleCount} samples`,
       strength == null ? null : `${Math.round(strength * 100)}%`,
     ]);
   }
-  if (typeof metric.score === "number") return `${Math.round(metric.score * 100)}%`;
+  if (typeof metric.score === "number") return `점수 ${metric.score.toFixed(2)}`;
   if (typeof metric.confidence === "number") return `${Math.round(metric.confidence * 100)}%`;
   return "-";
 }

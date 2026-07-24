@@ -195,9 +195,8 @@ function CoachSummaryList({
                 <p className={cn("break-words [overflow-wrap:anywhere] text-sm text-foreground", compact ? "leading-5" : "leading-6")}>{summaryText}</p>
               </summary>
               <div className="border-t px-3 pb-3 pt-2">
-                <p className="break-words [overflow-wrap:anywhere] text-sm leading-6 text-foreground">{parsed.main}</p>
                 {action ? (
-                  <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
                     <p className="text-xs font-semibold text-emerald-900">수정 방향</p>
                     <p className="mt-1 break-words [overflow-wrap:anywhere] text-sm leading-6 text-emerald-950">{action}</p>
                   </div>

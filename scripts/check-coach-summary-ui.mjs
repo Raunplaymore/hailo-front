@@ -23,6 +23,7 @@ assert.match(source, /function PrimaryEvidenceDetails\(/, "CoachSummary must col
 assert.match(source, /판정 근거 보기/, "CoachSummary must hide detailed evidence behind a compact disclosure.");
 assert.match(source, /finding\.action/, "Structured coach finding action must be preserved separately from evidence text.");
 assert.match(source, /수정 방향/, "CoachSummary must show the correction direction separately in expanded details.");
+assert.doesNotMatch(source, /<div className="border-t px-3 pb-3 pt-2">\s*<p[^>]*>\{parsed\.main\}<\/p>/, "Expanded findings must not repeat the summary sentence before their details.");
 assert.match(source, /summary\?: string \| null/, "CoachSummary must accept the analysis summary to avoid a duplicate summary card.");
 assert.match(source, /코치 액션/, "CoachSummary should focus the compact panel on actionable coaching.");
 

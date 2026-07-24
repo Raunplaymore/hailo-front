@@ -107,6 +107,28 @@ function compactText(value: string, maxLength = 96): string {
   return `${normalized.slice(0, maxLength - 1).trim()}…`;
 }
 
+function instructionTokens(value: string): Set<string> {
+  return new Set(
+    value
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter(Boolean)
+  );
+}
+
+function areInstructionsRedundant(first: string, second: string): boolean {
+  const left = instructionTokens(first);
+  const right = instructionTokens(second);
+  if (left.size === 0 || right.size === 0) return false;
+  const intersection = [...left].filter((token) => right.has(token)).length;
+  const union = new Set([...left, ...right]).size;
+  const overlap = intersection / Math.min(left.size, right.size);
+  const jaccard = intersection / union;
+  return overlap >= 0.8 && jaccard >= 0.7;
+}
+
 const FINDING_TITLES: Record<string, string> = {
   tempo_rushed_transition: "전환이 너무 급해요",
   sequence_rushed_proxy: "다운스윙은 몸부터 시작해요",
@@ -169,11 +191,17 @@ function EvidenceDetails({ item }: { item: CoachSummaryItem }) {
 }
 
 function PracticeSteps({ item }: { item: CoachSummaryItem }) {
-  const steps = [
+  const candidates = [
     { label: "스윙에서 느낄 것", value: actionText(item) },
     { label: "연습 방법", value: item.parsed.drill },
     { label: "확인할 것", value: item.parsed.checkpoint },
   ].filter((step): step is { label: string; value: string } => Boolean(step.value));
+  const steps = candidates.filter(
+    (step, index) =>
+      !candidates
+        .slice(0, index)
+        .some((previous) => areInstructionsRedundant(previous.value, step.value))
+  );
 
   if (steps.length === 0) return null;
 
@@ -208,7 +236,11 @@ function PrimaryPracticePlan({ item }: { item: CoachSummaryItem }) {
         {reference ? <span className="rounded-full border border-slate-200 bg-white/75 px-2.5 py-1 text-xs font-semibold text-slate-700">참고해서 보기</span> : null}
       </div>
       <h3 className="mt-3 text-lg font-bold tracking-tight text-emerald-950">{findingTitle(item)}</h3>
-      <p className="mt-1 text-sm leading-6 text-emerald-900">첫 번째 드릴만 천천히 반복해 보세요.</p>
+      <p className="mt-1 text-sm leading-6 text-emerald-900">
+        {item.parsed.drill
+          ? "아래 연습 하나만 천천히 반복해 보세요."
+          : "아래 한 가지 기준만 다음 스윙에서 확인해 보세요."}
+      </p>
       <div className="mt-3"><PracticeSteps item={item} /></div>
       {reference ? <p className="mt-3 text-xs leading-5 text-emerald-900/80">{reference}</p> : null}
     </section>

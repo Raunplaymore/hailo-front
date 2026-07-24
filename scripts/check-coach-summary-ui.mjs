@@ -16,6 +16,9 @@ assert.match(source, /function isReferenceSignal\(/, "CoachSummary must centrali
 assert.match(source, /Boolean\(caution\)/, "Reference guidance must account for finding caution text.");
 assert.match(source, /confidence\s*!==\s*null\s*&&\s*confidence\s*<\s*0\.35/, "Reference guidance must account for low-confidence findings.");
 assert.match(source, /function PrimaryPracticePlan\(/, "CoachSummary must render a focused primary practice plan.");
+assert.match(source, /function areInstructionsRedundant\(/, "CoachSummary must detect semantically repeated action and checkpoint text.");
+assert.match(source, /jaccard >= 0\.7/, "Repeated coaching steps must use a conservative token-similarity threshold.");
+assert.match(source, /slice\(0, index\)/, "Practice steps must remove later instructions that repeat an earlier step.");
 assert.match(source, /이번 스윙에서 하나만/, "CoachSummary must encourage one focused change at a time.");
 assert.match(source, /스윙에서 느낄 것/, "Primary coaching must separate the swing cue from supporting detail.");
 assert.match(source, /연습 방법/, "Primary coaching must make the drill label easy to scan.");

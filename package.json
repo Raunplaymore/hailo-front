@@ -8,6 +8,7 @@
     "build": "vite build",
     "check:analysis": "node scripts/check-analysis-normalization.mjs",
     "check:coach-ui": "node scripts/check-coach-summary-ui.mjs",
+    "check:tracking-lab": "node scripts/check-tracking-lab-ui.mjs",
     "check:coach-release": "node scripts/check-coach-release.mjs",
     "coach:release-summary": "node scripts/coach-release-summary.mjs",
     "coach:new-runtime-verification": "node scripts/new-coach-runtime-verification.mjs",

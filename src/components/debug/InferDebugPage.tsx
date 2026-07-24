@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Trash2,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -49,7 +50,7 @@ const LABEL_COLORS: Record<string, string> = {
 };
 
 type Point = { x: number; y: number };
-type LabelTool = "clubHead" | "clubHandle" | "erase";
+type LabelTool = "clubHead" | "clubHandle";
 type OverlayOptions = {
   modelBoxes: boolean;
   pose: boolean;
@@ -158,7 +159,7 @@ function createDraftAnnotation(
     schemaVersion: "swing-tracking-label-v1",
     jobId,
     viewpoint: "unknown",
-    handedness: "unknown",
+    handedness: "right",
     status: "draft",
     events,
     frames: [],
@@ -183,7 +184,16 @@ function upsertFrameLabel(
   const map = frameLabelMap(annotation);
   const current = map.get(frame.frame) ?? { frame: frame.frame, timeMs: frame.timeMs };
   const next = update(current);
-  if (next.clubHead || next.clubHandle) map.set(frame.frame, next);
+  if (
+    next.clubHead ||
+    next.clubHandle ||
+    next.clubHeadVisibility === "occluded" ||
+    next.clubHeadVisibility === "out_of_frame" ||
+    next.clubHandleVisibility === "occluded" ||
+    next.clubHandleVisibility === "out_of_frame"
+  ) {
+    map.set(frame.frame, next);
+  }
   else map.delete(frame.frame);
   return {
     ...annotation,
@@ -198,6 +208,13 @@ function formatMs(value: number | null | undefined) {
 function compactPoint(point?: SwingTrackingPoint) {
   if (!point) return "미지정";
   return `${point.x.toFixed(3)}, ${point.y.toFixed(3)}`;
+}
+
+function visibilityLabel(visibility?: SwingTrackingFrameLabel["clubHeadVisibility"]) {
+  if (visibility === "occluded") return "가림";
+  if (visibility === "out_of_frame") return "화면 밖";
+  if (visibility === "visible") return "표시됨";
+  return "미지정";
 }
 
 function LayerToggle({
@@ -303,6 +320,8 @@ export function InferDebugPage() {
     return {
       head: frames.filter((frame) => frame.clubHead).length,
       handle: frames.filter((frame) => frame.clubHandle).length,
+      headHidden: frames.filter((frame) => frame.clubHeadVisibility === "occluded" || frame.clubHeadVisibility === "out_of_frame").length,
+      handleHidden: frames.filter((frame) => frame.clubHandleVisibility === "occluded" || frame.clubHandleVisibility === "out_of_frame").length,
       events: EVENT_KEYS.filter((key) => annotation?.events[key]).length,
     };
   }, [annotation]);
@@ -330,8 +349,12 @@ export function InferDebugPage() {
         fetchInferDebugAnalysis(trimmed).catch(() => null),
         fetchSwingTrackingAnnotation(trimmed),
       ]);
-      const nextAnnotation =
+      const loadedAnnotation =
         stored.annotation ?? createDraftAnnotation(trimmed, next, nextAnalysis, targetVariant);
+      const nextAnnotation =
+        loadedAnnotation.handedness === "unknown"
+          ? { ...loadedAnnotation, handedness: "right" as const }
+          : loadedAnnotation;
       setData(next);
       setAnalysis(nextAnalysis);
       setAnnotation(nextAnnotation);
@@ -348,7 +371,7 @@ export function InferDebugPage() {
           )
         : 0;
       setSelectedIndex(initialIndex);
-      setDirty(false);
+      setDirty(loadedAnnotation.handedness === "unknown");
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("jobId", trimmed);
@@ -414,22 +437,18 @@ export function InferDebugPage() {
 
   const assignPoint = (key: "clubHead" | "clubHandle", point: SwingTrackingPoint) => {
     if (!selectedFrame) return;
+    const visibilityKey = key === "clubHead" ? "clubHeadVisibility" : "clubHandleVisibility";
     mutateAnnotation((current) =>
-      upsertFrameLabel(current, selectedFrame, (frame) => ({ ...frame, [key]: point }))
+      upsertFrameLabel(current, selectedFrame, (frame) => ({
+        ...frame,
+        [key]: point,
+        [visibilityKey]: "visible",
+      }))
     );
   };
 
   const handleCanvasClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (!selectedFrame || !annotation) return;
-    if (activeTool === "erase") {
-      mutateAnnotation((current) =>
-        upsertFrameLabel(current, selectedFrame, (frame) => ({
-          frame: frame.frame,
-          timeMs: frame.timeMs,
-        }))
-      );
-      return;
-    }
     const rect = event.currentTarget.getBoundingClientRect();
     const point = {
       x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
@@ -437,6 +456,30 @@ export function InferDebugPage() {
       source: "manual" as const,
     };
     assignPoint(activeTool, point);
+  };
+
+  const setPointVisibility = (
+    key: "clubHead" | "clubHandle",
+    visibility: "occluded" | "out_of_frame"
+  ) => {
+    if (!selectedFrame) return;
+    mutateAnnotation((current) =>
+      upsertFrameLabel(current, selectedFrame, (frame) =>
+        key === "clubHead"
+          ? { ...frame, clubHead: undefined, clubHeadVisibility: visibility }
+          : { ...frame, clubHandle: undefined, clubHandleVisibility: visibility }
+      )
+    );
+  };
+
+  const clearCurrentFrameLabels = () => {
+    if (!selectedFrame) return;
+    mutateAnnotation((current) =>
+      upsertFrameLabel(current, selectedFrame, (frame) => ({
+        frame: frame.frame,
+        timeMs: frame.timeMs,
+      }))
+    );
   };
 
   const prefillCurrent = () => {
@@ -450,9 +493,17 @@ export function InferDebugPage() {
     mutateAnnotation((current) =>
       upsertFrameLabel(current, selectedFrame, (frame) => ({
         ...frame,
-        ...(head ? { clubHead: { ...boxCenter(head, data.meta), source: "model" as const } } : {}),
+        ...(head
+          ? {
+              clubHead: { ...boxCenter(head, data.meta), source: "model" as const },
+              clubHeadVisibility: "visible" as const,
+            }
+          : {}),
         ...(handle
-          ? { clubHandle: { ...boxCenter(handle, data.meta), source: "model" as const } }
+          ? {
+              clubHandle: { ...boxCenter(handle, data.meta), source: "model" as const },
+              clubHandleVisibility: "visible" as const,
+            }
           : {}),
       }))
     );
@@ -468,9 +519,17 @@ export function InferDebugPage() {
         {
           frame: frame.frame,
           timeMs: frame.timeMs,
-          ...(head ? { clubHead: { ...boxCenter(head, data.meta), source: "model" as const } } : {}),
+          ...(head
+            ? {
+                clubHead: { ...boxCenter(head, data.meta), source: "model" as const },
+                clubHeadVisibility: "visible" as const,
+              }
+            : {}),
           ...(handle
-            ? { clubHandle: { ...boxCenter(handle, data.meta), source: "model" as const } }
+            ? {
+                clubHandle: { ...boxCenter(handle, data.meta), source: "model" as const },
+                clubHandleVisibility: "visible" as const,
+              }
             : {}),
         },
       ];
@@ -543,7 +602,6 @@ export function InferDebugPage() {
       }
       if (event.key === "1") setActiveTool("clubHead");
       if (event.key === "2") setActiveTool("clubHandle");
-      if (event.key.toLowerCase() === "e") setActiveTool("erase");
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void handleSave();
@@ -596,8 +654,8 @@ export function InferDebugPage() {
             </div>
           </div>
 
-          <form className="flex flex-col gap-2 sm:flex-row" onSubmit={handleLoad}>
-            <div className="relative min-w-72">
+          <form className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto" onSubmit={handleLoad}>
+            <div className="relative w-full sm:min-w-72">
               <Input
                 ref={jobIdInputRef}
                 value={jobId}
@@ -690,8 +748,8 @@ export function InferDebugPage() {
               ))}
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[18rem_minmax(0,1fr)_21rem]">
-              <aside className="space-y-4">
+            <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[17rem_minmax(0,1fr)_20rem]">
+              <aside className="order-2 grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:grid-cols-2 2xl:order-1 2xl:col-span-1 2xl:block 2xl:space-y-4">
                 <div className="border border-white/10 bg-[#0d141f]">
                   <div className="border-b border-white/10 px-4 py-3">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Dataset contract</p>
@@ -717,7 +775,7 @@ export function InferDebugPage() {
                     <label className="block text-xs text-slate-400">
                       타석
                       <select
-                        value={annotation?.handedness ?? "unknown"}
+                        value={annotation?.handedness === "left" ? "left" : "right"}
                         onChange={(event) =>
                           mutateAnnotation((current) => ({
                             ...current,
@@ -726,7 +784,6 @@ export function InferDebugPage() {
                         }
                         className="mt-1 h-10 w-full border border-white/10 bg-black/30 px-3 text-sm text-white"
                       >
-                        <option value="unknown">미지정</option>
                         <option value="right">오른손</option>
                         <option value="left">왼손</option>
                       </select>
@@ -779,7 +836,7 @@ export function InferDebugPage() {
                 </div>
               </aside>
 
-              <section className="min-w-0 border border-white/10 bg-[#0d141f]">
+              <section className="order-1 min-w-0 border border-white/10 bg-[#0d141f] lg:col-start-1 lg:row-start-1 2xl:order-2 2xl:col-start-2">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
                   <div>
                     <p className="font-mono text-sm text-white">
@@ -919,7 +976,7 @@ export function InferDebugPage() {
                               fontSize="2.2"
                               fontWeight="700"
                             >
-                              HEAD GT
+                              CLUB HEAD GT
                             </text>
                           </g>
                         ) : null}
@@ -940,25 +997,21 @@ export function InferDebugPage() {
                               fontSize="2.2"
                               fontWeight="700"
                             >
-                              HANDLE GT
+                              GRIP GT
                             </text>
                           </g>
                         ) : null}
                       </svg>
                       <button
                         type="button"
-                        className={`absolute inset-0 h-full w-full ${
-                          activeTool === "erase" ? "cursor-not-allowed" : "cursor-crosshair"
-                        }`}
+                        className="absolute inset-0 h-full w-full cursor-crosshair"
                         onClick={handleCanvasClick}
                         aria-label="프레임에 정답점 지정"
                       />
                       <div className="pointer-events-none absolute left-3 top-3 border border-white/10 bg-black/65 px-2 py-1 font-mono text-[10px] text-slate-300">
                         {activeTool === "clubHead"
-                          ? "CLICK → CLUB HEAD"
-                          : activeTool === "clubHandle"
-                            ? "CLICK → CLUB HANDLE"
-                            : "CLICK → CLEAR FRAME"}
+                          ? "CLICK → GOLF CLUB HEAD"
+                          : "CLICK → GRIP CENTER"}
                       </div>
                     </>
                   ) : null}
@@ -998,16 +1051,15 @@ export function InferDebugPage() {
                 </div>
               </section>
 
-              <aside className="space-y-4">
+              <aside className="order-3 grid gap-4 sm:grid-cols-2 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:block lg:space-y-4 2xl:col-start-3">
                 <div className="border border-white/10 bg-[#0d141f]">
                   <div className="border-b border-white/10 px-4 py-3">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Label tool</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-px bg-white/10">
+                  <div className="grid grid-cols-2 gap-px bg-white/10">
                     {[
-                      ["clubHead", "1", "Head", "#fb7185"],
-                      ["clubHandle", "2", "Handle", "#c084fc"],
-                      ["erase", "E", "Clear", "#94a3b8"],
+                      ["clubHead", "1", "클럽 헤드", "#fb7185"],
+                      ["clubHandle", "2", "그립 중심", "#c084fc"],
                     ].map(([tool, shortcut, label, color]) => (
                       <button
                         key={tool}
@@ -1027,13 +1079,63 @@ export function InferDebugPage() {
                     ))}
                   </div>
                   <div className="space-y-2 p-4 text-xs">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span>Club head</span>
-                      <span className="font-mono text-rose-300">{compactPoint(currentLabel?.clubHead)}</span>
+                    <div className="border border-rose-300/15 bg-rose-300/[0.03] p-3">
+                      <div className="flex items-center justify-between gap-2 text-slate-300">
+                        <span className="font-semibold">클럽 헤드</span>
+                        <span className="font-mono text-rose-300">
+                          {currentLabel?.clubHead
+                            ? compactPoint(currentLabel.clubHead)
+                            : visibilityLabel(currentLabel?.clubHeadVisibility)}
+                        </span>
+                      </div>
+                      <p className="mt-1 leading-5 text-slate-500">
+                        사람 머리가 아니라 실제 골프채 헤드의 중앙
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPointVisibility("clubHead", "occluded")}
+                          className="border border-white/10 px-2 py-1.5 text-slate-400 hover:text-white"
+                        >
+                          가림
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPointVisibility("clubHead", "out_of_frame")}
+                          className="border border-white/10 px-2 py-1.5 text-slate-400 hover:text-white"
+                        >
+                          화면 밖
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span>Club handle</span>
-                      <span className="font-mono text-purple-300">{compactPoint(currentLabel?.clubHandle)}</span>
+                    <div className="border border-purple-300/15 bg-purple-300/[0.03] p-3">
+                      <div className="flex items-center justify-between gap-2 text-slate-300">
+                        <span className="font-semibold">그립 중심</span>
+                        <span className="font-mono text-purple-300">
+                          {currentLabel?.clubHandle
+                            ? compactPoint(currentLabel.clubHandle)
+                            : visibilityLabel(currentLabel?.clubHandleVisibility)}
+                        </span>
+                      </div>
+                      <p className="mt-1 leading-5 text-slate-500">
+                        양손이 잡고 있는 그립 부분의 중앙
+                      </p>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPointVisibility("clubHandle", "occluded")}
+                          className="border border-white/10 px-2 py-1.5 text-slate-400 hover:text-white"
+                        >
+                          가림
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPointVisibility("clubHandle", "out_of_frame")}
+                          className="border border-white/10 px-2 py-1.5 text-slate-400 hover:text-white"
+                        >
+                          화면 밖
+                        </button>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -1048,6 +1150,14 @@ export function InferDebugPage() {
                       className="flex w-full items-center justify-center gap-2 border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-cyan-200 hover:bg-cyan-300/10"
                     >
                       <CircleDot className="size-3.5" /> 전체 자동 pre-label
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearCurrentFrameLabels}
+                      disabled={!currentLabel}
+                      className="flex w-full items-center justify-center gap-2 border border-rose-300/20 px-3 py-2 text-rose-200 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <Trash2 className="size-3.5" /> 현재 프레임 라벨 삭제
                     </button>
                   </div>
                 </div>
@@ -1071,7 +1181,8 @@ export function InferDebugPage() {
                     <div>
                       <p className="text-sm font-semibold text-white">Label coverage</p>
                       <p className="mt-1 font-mono text-xs text-slate-500">
-                        H {annotationSummary.head} · G {annotationSummary.handle}
+                        Head {annotationSummary.head} (+{annotationSummary.headHidden} 상태) · Grip{" "}
+                        {annotationSummary.handle} (+{annotationSummary.handleHidden} 상태)
                       </p>
                     </div>
                     <select

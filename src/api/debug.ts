@@ -99,11 +99,15 @@ export type SwingTrackingPoint = {
   source: "manual" | "model";
 };
 
+export type SwingTrackingVisibility = "visible" | "occluded" | "out_of_frame" | "unknown";
+
 export type SwingTrackingFrameLabel = {
   frame: number;
   timeMs: number;
   clubHead?: SwingTrackingPoint;
   clubHandle?: SwingTrackingPoint;
+  clubHeadVisibility?: SwingTrackingVisibility;
+  clubHandleVisibility?: SwingTrackingVisibility;
 };
 
 export type SwingTrackingEventLabel = {

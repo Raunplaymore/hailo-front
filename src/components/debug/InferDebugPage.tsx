@@ -45,6 +45,12 @@ const EVENT_LABELS = {
   impact: "Impact",
   finish: "Finish",
 };
+const EVENT_SHORTCUTS: Record<(typeof EVENT_KEYS)[number], string> = {
+  address: "Q",
+  top: "W",
+  impact: "E",
+  finish: "R",
+};
 const LABEL_COLORS: Record<string, string> = {
   club_head: "#a3e635",
   club_handle: "#38bdf8",
@@ -696,6 +702,15 @@ export function InferDebugPage() {
       }
       if (event.key === "1") setActiveTool("clubHead");
       if (event.key === "2") setActiveTool("clubHandle");
+      if (!event.metaKey && !event.ctrlKey && !event.altKey) {
+        const eventKey = EVENT_KEYS.find(
+          (key) => EVENT_SHORTCUTS[key].toLowerCase() === event.key.toLowerCase()
+        );
+        if (eventKey) {
+          event.preventDefault();
+          markEvent(eventKey);
+        }
+      }
       if (event.key.toLowerCase() === "f") setFocusMode((current) => !current);
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
@@ -1023,6 +1038,9 @@ export function InferDebugPage() {
                               className="text-left"
                             >
                               <span className="text-sm font-semibold text-white">{EVENT_LABELS[key]}</span>
+                              <span className="ml-2 border border-cyan-300/20 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">
+                                {EVENT_SHORTCUTS[key]}
+                              </span>
                               <span className="ml-2 font-mono text-xs text-slate-500">
                                 {event ? `F${event.frame}` : "—"}
                               </span>
@@ -1038,7 +1056,7 @@ export function InferDebugPage() {
                             onClick={() => markEvent(key)}
                             className="mt-2 w-full border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-slate-300 hover:border-cyan-300/40 hover:text-white"
                           >
-                            현재 F{selectedFrame?.frame} 지정
+                            현재 F{selectedFrame?.frame} 지정 · {EVENT_SHORTCUTS[key]}
                           </button>
                         </div>
                       );

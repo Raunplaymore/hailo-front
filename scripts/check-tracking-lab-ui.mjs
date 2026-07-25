@@ -35,5 +35,9 @@ assert.match(source, /현재 프레임 라벨 삭제/, "Deleting labels must be 
 assert.match(source, /저장 \{annotationCatalog\?\.count/, "The saved swing count must be visible.");
 assert.match(source, /Dataset progress/, "The 30-swing dataset target must be shown.");
 assert.match(source, /저장된 스윙/, "Saved swings must be available as a reopenable list.");
+assert.match(source, /const \[focusMode, setFocusMode\] = useState\(true\)/, "Labeling focus must default on.");
+assert.match(source, /!focusMode && overlayOptions\.modelHeadPath/, "Focus mode must hide model paths.");
+assert.match(source, /!focusMode && overlayOptions\.labels && labeledHeadTrack/, "Focus mode must hide the ground-truth path.");
+assert.match(source, /포커스 ON에서는 선·박스·스켈레톤을 숨기고/, "The focus behavior must be explained.");
 
 console.log("tracking lab responsive UI check passed");

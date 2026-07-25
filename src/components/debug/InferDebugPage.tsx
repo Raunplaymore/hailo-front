@@ -260,6 +260,7 @@ export function InferDebugPage() {
     useState<SwingTrackingAnnotationListResponse | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [activeTool, setActiveTool] = useState<LabelTool>("clubHead");
+  const [focusMode, setFocusMode] = useState(true);
   const [overlayOptions, setOverlayOptions] = useState<OverlayOptions>({
     modelBoxes: true,
     pose: true,
@@ -624,6 +625,7 @@ export function InferDebugPage() {
       }
       if (event.key === "1") setActiveTool("clubHead");
       if (event.key === "2") setActiveTool("clubHandle");
+      if (event.key.toLowerCase() === "f") setFocusMode((current) => !current);
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void handleSave();
@@ -947,6 +949,18 @@ export function InferDebugPage() {
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
+                      onClick={() => setFocusMode((current) => !current)}
+                      className={`mr-2 h-9 border px-3 text-xs ${
+                        focusMode
+                          ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-200"
+                          : "border-white/10 text-slate-400"
+                      }`}
+                      aria-pressed={focusMode}
+                    >
+                      포커스 {focusMode ? "ON" : "OFF"} <span className="ml-1 text-[9px] opacity-60">F</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setSelectedIndex((current) => Math.max(0, current - 1))}
                       className="grid size-9 place-items-center border border-white/10 hover:bg-white/10"
                       aria-label="이전 프레임"
@@ -988,7 +1002,7 @@ export function InferDebugPage() {
                         preserveAspectRatio="none"
                         aria-hidden="true"
                       >
-                        {overlayOptions.bboxGuide && bboxGuideTrack.length > 1 ? (
+                        {!focusMode && overlayOptions.bboxGuide && bboxGuideTrack.length > 1 ? (
                           <path
                             d={pathFromPoints(bboxGuideTrack)}
                             fill="none"
@@ -998,7 +1012,7 @@ export function InferDebugPage() {
                             opacity="0.62"
                           />
                         ) : null}
-                        {overlayOptions.modelHeadPath && modelHeadTrack.length > 1 ? (
+                        {!focusMode && overlayOptions.modelHeadPath && modelHeadTrack.length > 1 ? (
                           <path
                             d={pathFromPoints(modelHeadTrack)}
                             fill="none"
@@ -1007,7 +1021,7 @@ export function InferDebugPage() {
                             opacity="0.7"
                           />
                         ) : null}
-                        {overlayOptions.labels && labeledHeadTrack.length > 1 ? (
+                        {!focusMode && overlayOptions.labels && labeledHeadTrack.length > 1 ? (
                           <path
                             d={pathFromPoints(labeledHeadTrack)}
                             fill="none"
@@ -1015,7 +1029,7 @@ export function InferDebugPage() {
                             strokeWidth="0.9"
                           />
                         ) : null}
-                        {overlayOptions.pose
+                        {!focusMode && overlayOptions.pose
                           ? poseSegments.map(([start, end], index) =>
                               start && end ? (
                                 <line
@@ -1031,7 +1045,7 @@ export function InferDebugPage() {
                               ) : null
                             )
                           : null}
-                        {overlayOptions.modelBoxes
+                        {!focusMode && overlayOptions.modelBoxes
                           ? visibleDetections.map((detection, index) => {
                               const [x, y, width, height] = normalizeBox(detection.bbox, data.meta);
                               const color = LABEL_COLORS[detection.label] ?? "#e2e8f0";
@@ -1059,7 +1073,7 @@ export function InferDebugPage() {
                               );
                             })
                           : null}
-                        {overlayOptions.labels && currentLabel?.clubHead ? (
+                        {(focusMode || overlayOptions.labels) && currentLabel?.clubHead ? (
                           <g>
                             <circle
                               cx={currentLabel.clubHead.x * 100}
@@ -1080,7 +1094,7 @@ export function InferDebugPage() {
                             </text>
                           </g>
                         ) : null}
-                        {overlayOptions.labels && currentLabel?.clubHandle ? (
+                        {(focusMode || overlayOptions.labels) && currentLabel?.clubHandle ? (
                           <g>
                             <circle
                               cx={currentLabel.clubHandle.x * 100}
@@ -1266,13 +1280,20 @@ export function InferDebugPage() {
                   <div className="border-b border-white/10 px-4 py-3">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Evidence layers</p>
                   </div>
+                  <LayerToggle
+                    active={focusMode}
+                    color="#67e8f9"
+                    label="Labeling focus"
+                    onClick={() => setFocusMode((current) => !current)}
+                  />
                   <LayerToggle active={overlayOptions.labels} color="#fb7185" label="Ground truth labels" onClick={() => toggleOverlay("labels")} />
                   <LayerToggle active={overlayOptions.modelBoxes} color="#a3e635" label="Model detections" onClick={() => toggleOverlay("modelBoxes")} />
                   <LayerToggle active={overlayOptions.modelHeadPath} color="#a3e635" label="Model head path" onClick={() => toggleOverlay("modelHeadPath")} />
                   <LayerToggle active={overlayOptions.bboxGuide} color="#22d3ee" label="Club bbox guide" onClick={() => toggleOverlay("bboxGuide")} />
                   <LayerToggle active={overlayOptions.pose} color="#facc15" label="Pose skeleton" onClick={() => toggleOverlay("pose")} />
                   <div className="p-3 text-[11px] leading-5 text-slate-500">
-                    Bbox guide는 tracker 결과가 아니라 club 박스 장축 끝점입니다. 분홍색 라벨 경로만 사람이 확인한 정답입니다.
+                    포커스 ON에서는 선·박스·스켈레톤을 숨기고 현재 정답점만 표시합니다. F키로 빠르게 비교할 수 있습니다.
+                    Bbox guide는 tracker 결과가 아니라 club 박스 장축 끝점입니다.
                   </div>
                 </div>
 

@@ -21,11 +21,13 @@ import {
   DebugDetection,
   fetchInferDebugAnalysis,
   fetchInferDebugFrames,
+  fetchInferDebugFramesProgress,
   fetchSwingTrackingAnnotation,
   fetchSwingTrackingAnnotations,
   generateInferDebugMeta,
   InferDebugAnalysisResponse,
   InferDebugFramesResponse,
+  InferDebugFramesProgressResponse,
   runClubPreprocessLab,
   saveSwingTrackingAnnotation,
   SwingTrackingAnnotation,
@@ -252,6 +254,7 @@ export function InferDebugPage() {
   const [jobId, setJobId] = useState(getInitialJobId);
   const jobIdInputRef = useRef<HTMLInputElement>(null);
   const loadRequestRef = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
   const [variant, setVariant] = useState<"main" | "debug">("main");
   const [threshold, setThreshold] = useState(0.2);
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
@@ -270,6 +273,8 @@ export function InferDebugPage() {
     labels: true,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [frameProgress, setFrameProgress] =
+    useState<InferDebugFramesProgressResponse | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingDebug, setIsGeneratingDebug] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -360,6 +365,9 @@ export function InferDebugPage() {
       setError("jobId를 입력하세요.");
       return;
     }
+    loadAbortRef.current?.abort();
+    const abortController = new AbortController();
+    loadAbortRef.current = abortController;
     const requestId = ++loadRequestRef.current;
     setJobId(trimmed);
     setIsLoading(true);
@@ -367,9 +375,47 @@ export function InferDebugPage() {
     setNotice(null);
     setLabReport(null);
     setIsPlaying(false);
+    setFrameProgress({
+      ok: true,
+      jobId: trimmed,
+      variant: targetVariant,
+      status: "preparing",
+      completed: 0,
+      total: 0,
+      percent: 0,
+    });
+    let progressPollInFlight = false;
+    const pollProgress = async () => {
+      if (progressPollInFlight || abortController.signal.aborted) return;
+      progressPollInFlight = true;
+      try {
+        const progress = await fetchInferDebugFramesProgress(trimmed, {
+          limit: 240,
+          variant: targetVariant,
+          signal: abortController.signal,
+        });
+        if (
+          requestId === loadRequestRef.current &&
+          progress.status !== "idle"
+        ) {
+          setFrameProgress(progress);
+        }
+      } catch {
+        // The main frame request owns the error state. Progress polling is best-effort.
+      } finally {
+        progressPollInFlight = false;
+      }
+    };
+    const progressTimer = window.setInterval(() => void pollProgress(), 300);
+    void pollProgress();
     try {
       const [next, nextAnalysis, stored] = await Promise.all([
-        fetchInferDebugFrames(trimmed, { limit: 240, force, variant: targetVariant }),
+        fetchInferDebugFrames(trimmed, {
+          limit: 240,
+          force,
+          variant: targetVariant,
+          signal: abortController.signal,
+        }),
         fetchInferDebugAnalysis(trimmed).catch(() => null),
         fetchSwingTrackingAnnotation(trimmed),
       ]);
@@ -404,12 +450,18 @@ export function InferDebugPage() {
       }
     } catch (loadError) {
       if (requestId !== loadRequestRef.current) return;
+      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
       setError(loadError instanceof Error ? loadError.message : "실험 데이터를 불러오지 못했습니다.");
       setData(null);
       setAnalysis(null);
       setAnnotation(null);
     } finally {
-      if (requestId === loadRequestRef.current) setIsLoading(false);
+      window.clearInterval(progressTimer);
+      if (requestId === loadRequestRef.current) {
+        setIsLoading(false);
+        setFrameProgress(null);
+        if (loadAbortRef.current === abortController) loadAbortRef.current = null;
+      }
     }
   };
 
@@ -610,6 +662,13 @@ export function InferDebugPage() {
     void refreshAnnotationCatalog();
   }, []);
 
+  useEffect(
+    () => () => {
+      loadAbortRef.current?.abort();
+    },
+    []
+  );
+
   useEffect(() => {
     if (!isPlaying || !data) return;
     const timer = window.setInterval(() => {
@@ -724,6 +783,11 @@ export function InferDebugPage() {
               type="submit"
               fullWidth={false}
               isLoading={isLoading}
+              loadingText={
+                frameProgress?.total
+                  ? `처리 ${frameProgress.percent}%`
+                  : "준비 중..."
+              }
               className="h-10 px-5 py-0 text-sm"
             >
               <span className="inline-flex items-center gap-2">
@@ -746,6 +810,31 @@ export function InferDebugPage() {
       </div>
 
       <div className="mx-auto max-w-[1800px] p-4 sm:p-6">
+        {isLoading && frameProgress ? (
+          <div className="mb-4 border border-cyan-300/20 bg-cyan-300/10 px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-4 text-sm">
+              <span className="text-cyan-50">
+                {frameProgress.status === "preparing"
+                  ? "프레임 준비 중"
+                  : "검증 프레임 생성 중"}
+              </span>
+              <span className="font-mono text-cyan-200">
+                {frameProgress.total > 0
+                  ? `${frameProgress.completed}/${frameProgress.total} · ${frameProgress.percent}%`
+                  : "0%"}
+              </span>
+            </div>
+            <div className="h-2 overflow-hidden bg-black/40">
+              <div
+                className="h-full bg-cyan-300 transition-[width] duration-300"
+                style={{ width: `${frameProgress.percent}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-cyan-100/60">
+              페이지를 닫거나 다른 Job을 불러오면 진행 중인 서버 작업도 취소됩니다.
+            </p>
+          </div>
+        ) : null}
         {error ? (
           <div className="mb-4 border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-100">
             {error}

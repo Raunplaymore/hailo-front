@@ -42,6 +42,19 @@ export type InferDebugFramesResponse = {
   frames: DebugFrame[];
 };
 
+export type InferDebugFramesProgressResponse = {
+  ok: boolean;
+  jobId: string;
+  variant: "main" | "debug" | string;
+  status: "idle" | "preparing" | "processing" | "succeeded" | "cancelled" | "failed";
+  completed: number;
+  total: number;
+  percent: number;
+  currentFrame?: number | null;
+  startedAt?: string;
+  updatedAt?: string;
+};
+
 export type DebugMetaResponse = {
   ok: boolean;
   jobId: string;
@@ -164,7 +177,12 @@ const withBaseUrl = (url: string) => {
 
 export async function fetchInferDebugFrames(
   jobId: string,
-  options: { limit?: number; force?: boolean; variant?: "main" | "debug" } = {}
+  options: {
+    limit?: number;
+    force?: boolean;
+    variant?: "main" | "debug";
+    signal?: AbortSignal;
+  } = {}
 ) {
   const params = new URLSearchParams();
   if (options.limit) params.set("limit", String(options.limit));
@@ -172,7 +190,8 @@ export async function fetchInferDebugFrames(
   if (options.variant) params.set("variant", options.variant);
   const suffix = params.toString() ? `?${params.toString()}` : "";
   const response = await client.get<InferDebugFramesResponse>(
-    `/api/debug/infer/${encodeURIComponent(jobId)}/frames${suffix}`
+    `/api/debug/infer/${encodeURIComponent(jobId)}/frames${suffix}`,
+    { signal: options.signal }
   );
   return {
     ...response,
@@ -181,6 +200,20 @@ export async function fetchInferDebugFrames(
       imageUrl: withBaseUrl(frame.imageUrl),
     })),
   };
+}
+
+export async function fetchInferDebugFramesProgress(
+  jobId: string,
+  options: { limit?: number; variant?: "main" | "debug"; signal?: AbortSignal } = {}
+) {
+  const params = new URLSearchParams();
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.variant) params.set("variant", options.variant);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return client.get<InferDebugFramesProgressResponse>(
+    `/api/debug/infer/${encodeURIComponent(jobId)}/frames/progress${suffix}`,
+    { signal: options.signal }
+  );
 }
 
 export async function generateInferDebugMeta(jobId: string) {

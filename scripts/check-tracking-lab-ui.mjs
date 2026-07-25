@@ -39,5 +39,9 @@ assert.match(source, /const \[focusMode, setFocusMode\] = useState\(true\)/, "La
 assert.match(source, /!focusMode && overlayOptions\.modelHeadPath/, "Focus mode must hide model paths.");
 assert.match(source, /!focusMode && overlayOptions\.labels && labeledHeadTrack/, "Focus mode must hide the ground-truth path.");
 assert.match(source, /포커스 ON에서는 선·박스·스켈레톤을 숨기고/, "The focus behavior must be explained.");
+assert.match(source, /const loadRequestRef = useRef\(0\)/, "Overlapping job loads must be ordered.");
+assert.match(source, /requestId !== loadRequestRef\.current/, "Stale job responses must be ignored.");
+assert.match(source, /saveSwingTrackingAnnotation\(annotation\.jobId, annotation\)/, "Saves must use the loaded annotation jobId.");
+assert.match(source, /Job 불일치/, "A visible job mismatch guard must block saving.");
 
 console.log("tracking lab responsive UI check passed");

@@ -251,6 +251,7 @@ function LayerToggle({
 export function InferDebugPage() {
   const [jobId, setJobId] = useState(getInitialJobId);
   const jobIdInputRef = useRef<HTMLInputElement>(null);
+  const loadRequestRef = useRef(0);
   const [variant, setVariant] = useState<"main" | "debug">("main");
   const [threshold, setThreshold] = useState(0.2);
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
@@ -282,6 +283,10 @@ export function InferDebugPage() {
   const labelsByFrame = useMemo(() => frameLabelMap(annotation), [annotation]);
   const currentLabel = selectedFrame ? labelsByFrame.get(selectedFrame.frame) : undefined;
   const analysisEvents = useMemo(() => extractEvents(analysis), [analysis]);
+  const loadedJobMismatch = Boolean(
+    annotation &&
+      (jobId.trim() !== annotation.jobId || (data?.jobId && data.jobId !== annotation.jobId))
+  );
 
   const modelHeadTrack = useMemo(() => {
     if (!data) return [];
@@ -355,6 +360,7 @@ export function InferDebugPage() {
       setError("jobId를 입력하세요.");
       return;
     }
+    const requestId = ++loadRequestRef.current;
     setJobId(trimmed);
     setIsLoading(true);
     setError(null);
@@ -367,6 +373,7 @@ export function InferDebugPage() {
         fetchInferDebugAnalysis(trimmed).catch(() => null),
         fetchSwingTrackingAnnotation(trimmed),
       ]);
+      if (requestId !== loadRequestRef.current) return;
       const loadedAnnotation =
         stored.annotation ?? createDraftAnnotation(trimmed, next, nextAnalysis, targetVariant);
       const nextAnnotation =
@@ -396,12 +403,13 @@ export function InferDebugPage() {
         window.history.replaceState(null, "", url);
       }
     } catch (loadError) {
+      if (requestId !== loadRequestRef.current) return;
       setError(loadError instanceof Error ? loadError.message : "실험 데이터를 불러오지 못했습니다.");
       setData(null);
       setAnalysis(null);
       setAnnotation(null);
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestRef.current) setIsLoading(false);
     }
   };
 
@@ -425,11 +433,15 @@ export function InferDebugPage() {
   };
 
   const handleSave = async () => {
-    if (!annotation || !jobId.trim()) return;
+    if (!annotation || !data) return;
+    if (loadedJobMismatch) {
+      setError("입력한 Job과 화면에 로드된 Job이 달라 저장을 차단했습니다. 먼저 불러오기를 완료하세요.");
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
-      const response = await saveSwingTrackingAnnotation(jobId.trim(), annotation);
+      const response = await saveSwingTrackingAnnotation(annotation.jobId, annotation);
       if (response.annotation) setAnnotation(response.annotation);
       await refreshAnnotationCatalog();
       setDirty(false);
@@ -742,6 +754,14 @@ export function InferDebugPage() {
         {notice ? (
           <div className="mb-4 border border-cyan-300/20 bg-cyan-300/10 px-4 py-3 text-sm text-cyan-100">
             {notice}
+          </div>
+        ) : null}
+        {loadedJobMismatch && !isLoading ? (
+          <div className="mb-4 border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+            입력 Job과 현재 화면의 Job이 다릅니다. 잘못된 영상에 저장되지 않도록 라벨 저장을 차단했습니다.
+            <span className="ml-2 font-mono text-xs text-amber-200/70">
+              loaded: {annotation?.jobId}
+            </span>
           </div>
         ) : null}
 
@@ -1333,11 +1353,19 @@ export function InferDebugPage() {
                     fullWidth
                     onClick={() => void handleSave()}
                     isLoading={isSaving}
-                    disabled={!annotation || !dirty}
+                    disabled={!annotation || !dirty || loadedJobMismatch || isLoading}
                     className="mt-3 flex h-10 items-center justify-center gap-2 py-0 text-sm"
                   >
-                    {dirty ? <Save className="size-4" /> : <Check className="size-4" />}
-                    {dirty ? "라벨 저장" : "저장됨"}
+                    {loadedJobMismatch ? (
+                      <>
+                        <X className="size-4" /> Job 불일치
+                      </>
+                    ) : (
+                      <>
+                        {dirty ? <Save className="size-4" /> : <Check className="size-4" />}
+                        {dirty ? "라벨 저장" : "저장됨"}
+                      </>
+                    )}
                   </Button>
                   <p className="mt-2 text-center text-[10px] text-slate-600">⌘/Ctrl + S</p>
                 </div>

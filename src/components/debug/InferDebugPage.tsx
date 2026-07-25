@@ -51,6 +51,12 @@ const EVENT_SHORTCUTS: Record<(typeof EVENT_KEYS)[number], string> = {
   impact: "E",
   finish: "R",
 };
+const EVENT_SHORTCUT_CODES: Record<(typeof EVENT_KEYS)[number], string> = {
+  address: "KeyQ",
+  top: "KeyW",
+  impact: "KeyE",
+  finish: "KeyR",
+};
 const LABEL_COLORS: Record<string, string> = {
   club_head: "#a3e635",
   club_handle: "#38bdf8",
@@ -704,7 +710,7 @@ export function InferDebugPage() {
       if (event.key === "2") setActiveTool("clubHandle");
       if (!event.metaKey && !event.ctrlKey && !event.altKey) {
         const eventKey = EVENT_KEYS.find(
-          (key) => EVENT_SHORTCUTS[key].toLowerCase() === event.key.toLowerCase()
+          (key) => EVENT_SHORTCUT_CODES[key] === event.code
         );
         if (eventKey) {
           event.preventDefault();
@@ -1056,7 +1062,7 @@ export function InferDebugPage() {
                             onClick={() => markEvent(key)}
                             className="mt-2 w-full border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-slate-300 hover:border-cyan-300/40 hover:text-white"
                           >
-                            현재 F{selectedFrame?.frame} 지정 · {EVENT_SHORTCUTS[key]}
+                            현재 F{selectedFrame?.frame} 지정 후 저장 · {EVENT_SHORTCUTS[key]}
                           </button>
                         </div>
                       );

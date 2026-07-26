@@ -806,7 +806,8 @@ function MainApp() {
     try {
       const res = await startAutoRecord(
         cameraSettings.baseUrl,
-        cameraSettings.token || undefined
+        cameraSettings.token || undefined,
+        { club: settings.club }
       );
       const status = res.status;
       setAutoRecordStatus(status);
@@ -945,8 +946,29 @@ function MainApp() {
     if (status.state === "idle") {
       const filename = status.lastRecordingFilename || status.recordingFilename;
       if (filename && lastAutoFilenameRef.current !== filename) {
+        if (status.finalizing) {
+          setSessionState("stopping");
+          return;
+        }
+        if (status.videoReady !== true) {
+          const message = status.lastError || "녹화 영상이 생성되지 않았거나 비어 있습니다.";
+          setSessionError(message);
+          setSessionState("failed");
+          updateSessionMap(filename, { status: "failed", errorMessage: message });
+          await handleStopPreview(true);
+          return;
+        }
+        if (!status.lastRecordingMetaPath || !status.analysisRequested) {
+          const message = "녹화 후처리 또는 분석 요청이 완료되지 않았습니다.";
+          setSessionError(message);
+          setSessionState("failed");
+          updateSessionMap(filename, { status: "failed", errorMessage: message });
+          await handleStopPreview(true);
+          return;
+        }
         lastAutoFilenameRef.current = filename;
         const metaPath = status.lastRecordingMetaPath ?? null;
+        const analysisJobId = status.jobId || filename.replace(/\.[^.]+$/, "");
         const videoUrl = resolveCameraFileUrl(
           cameraSettings.baseUrl,
           `/uploads/${encodeURIComponent(filename)}`,
@@ -960,33 +982,25 @@ function MainApp() {
           videoUrl,
           metaPath: metaPath ?? undefined,
         });
-        try {
-          const analysis = await createAnalysisJobFromFile(filename, { metaPath });
-          setSessionAnalysisJobId(analysis.jobId);
-          setSessionAnalysisStatus(analysis.status ?? "queued");
-          setSessionState("analyzing");
-          updateSessionMap(filename, {
-            status: "analyzing",
-            analysisJobId: analysis.jobId,
-          });
-          setSelectedSession({
-            id: analysis.jobId ?? filename,
-            filename,
-            createdAt: new Date().toISOString(),
-            status: "analyzing",
-            videoUrl,
-            jobId: analysis.jobId,
-            analysisJobId: analysis.jobId,
-            metaPath: metaPath ?? undefined,
-          });
-          await handleStopPreview(true);
-          refreshSessions();
-          } catch (err) {
-            const message = err instanceof Error ? err.message : "분석을 시작하지 못했습니다.";
-            setSessionAnalysisError(message);
-            setSessionState("failed");
-            updateSessionMap(filename, { status: "failed", errorMessage: message });
-          }
+        setSessionAnalysisJobId(analysisJobId);
+        setSessionAnalysisStatus("queued");
+        setSessionState("analyzing");
+        updateSessionMap(filename, {
+          status: "analyzing",
+          analysisJobId,
+        });
+        setSelectedSession({
+          id: analysisJobId,
+          filename,
+          createdAt: new Date().toISOString(),
+          status: "analyzing",
+          videoUrl,
+          jobId: analysisJobId,
+          analysisJobId,
+          metaPath: metaPath ?? undefined,
+        });
+        await handleStopPreview(true);
+        refreshSessions();
         } else {
           setSessionState("idle");
           setLiveBoxes([]);

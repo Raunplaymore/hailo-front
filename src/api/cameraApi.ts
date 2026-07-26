@@ -255,14 +255,17 @@ export const getAutoRecordStatus = async (
 
 export const startAutoRecord = async (
   baseUrl: string,
-  token?: string
+  token?: string,
+  options?: { club?: string }
 ): Promise<AutoRecordStatusResponse> => {
   const normalized = ensureBaseUrl(baseUrl);
   const res = await fetch(`${normalized}/api/camera/auto-record/start`, {
     method: "POST",
     headers: {
+      "Content-Type": "application/json",
       ...authHeaders(token),
     },
+    body: JSON.stringify(options ?? {}),
   });
   const json = (await res.json()) as AutoRecordStatusResponse;
   if (!res.ok || json.ok === false) {

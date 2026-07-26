@@ -96,6 +96,11 @@ export type AutoRecordStatus = {
   lastRecordingFilename?: string | null;
   lastRecordingMetaPath?: string | null;
   lastError: string | null;
+  jobId?: string | null;
+  videoReady?: boolean;
+  videoSize?: number;
+  finalizing?: boolean;
+  analysisRequested?: boolean;
 };
 
 export type AutoRecordStatusResponse = {

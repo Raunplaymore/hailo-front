@@ -7,6 +7,7 @@ import {
   Crosshair,
   Database,
   FlaskConical,
+  Image as ImageIcon,
   Pause,
   Play,
   RefreshCw,
@@ -174,7 +175,7 @@ function createDraftAnnotation(
   return {
     schemaVersion: "swing-tracking-label-v1",
     jobId,
-    viewpoint: "unknown",
+    viewpoint: "down_the_line",
     handedness: "right",
     status: "draft",
     events,
@@ -929,18 +930,34 @@ export function InferDebugPage() {
                         if (dirty && !window.confirm("저장하지 않은 현재 라벨을 버리고 이동할까요?")) return;
                         void loadVariant("main", false, item.jobId);
                       }}
-                      className="min-w-0 border border-white/10 bg-black/20 px-3 py-2 text-left hover:border-cyan-300/30 hover:bg-cyan-300/5"
+                      className="min-w-0 border border-white/10 bg-black/20 p-2 text-left hover:border-cyan-300/30 hover:bg-cyan-300/5"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-white">#{index + 1}</span>
-                        <span className={item.status === "reviewed" ? "text-[10px] text-emerald-300" : "text-[10px] text-amber-300"}>
-                          {item.status === "reviewed" ? "검토 완료" : "초안"}
-                        </span>
+                      <div className="flex min-w-0 gap-2">
+                        <div className="relative grid aspect-[4/3] w-20 shrink-0 place-items-center overflow-hidden border border-white/10 bg-black/30 text-slate-600">
+                          <ImageIcon className="size-4" aria-hidden="true" />
+                          {item.thumbnailUrl && (
+                            <img
+                              src={item.thumbnailUrl}
+                              alt={`저장된 스윙 ${index + 1} 미리보기`}
+                              loading="lazy"
+                              className="absolute inset-0 size-full object-cover"
+                              onError={(event) => event.currentTarget.remove()}
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-white">#{index + 1}</span>
+                            <span className={item.status === "reviewed" ? "text-[10px] text-emerald-300" : "text-[10px] text-amber-300"}>
+                              {item.status === "reviewed" ? "검토 완료" : "초안"}
+                            </span>
+                          </div>
+                          <p className="mt-1 truncate font-mono text-[10px] text-slate-400">{item.jobId}</p>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            라벨 {item.labeledFrames}F · 이벤트 {item.events}/4
+                          </p>
+                        </div>
                       </div>
-                      <p className="mt-1 truncate font-mono text-[10px] text-slate-400">{item.jobId}</p>
-                      <p className="mt-1 text-[10px] text-slate-500">
-                        라벨 {item.labeledFrames}F · 이벤트 {item.events}/4
-                      </p>
                     </button>
                   ))}
                 </div>

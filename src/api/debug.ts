@@ -161,6 +161,7 @@ export type SwingTrackingAnnotationListItem = {
   labeledFrames: number;
   events: number;
   updatedAt: string | null;
+  thumbnailUrl?: string | null;
 };
 
 export type SwingTrackingAnnotationListResponse = {
@@ -241,9 +242,16 @@ export async function fetchSwingTrackingAnnotation(jobId: string) {
 }
 
 export async function fetchSwingTrackingAnnotations() {
-  return client.get<SwingTrackingAnnotationListResponse>(
+  const response = await client.get<SwingTrackingAnnotationListResponse>(
     "/api/debug/swing-tracking/annotations"
   );
+  return {
+    ...response,
+    annotations: response.annotations.map((annotation) => ({
+      ...annotation,
+      thumbnailUrl: annotation.thumbnailUrl ? withBaseUrl(annotation.thumbnailUrl) : null,
+    })),
+  };
 }
 
 export async function saveSwingTrackingAnnotation(

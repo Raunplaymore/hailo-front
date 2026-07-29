@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn, formatMediaTitle } from "@/lib/utils";
-import { Cloud, Eye, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
+import { Cloud, Eye, Image as ImageIcon, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { API_BASE } from "../../api/client";
 import { Shot } from "../../types/shots";
 
@@ -121,9 +121,25 @@ export function ShotList({
               return (
                 <li
                   key={shot.id}
-                  className="flex w-full min-w-0 max-w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
+                  className="flex w-full min-w-0 max-w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm sm:flex-row sm:flex-wrap"
                 >
-                  <div className="min-w-0 space-y-1">
+                  <div className="relative grid aspect-video w-full shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-muted/55 text-muted-foreground sm:w-40 sm:aspect-[4/3]">
+                    <ImageIcon className="h-6 w-6" aria-hidden="true" />
+                    {shot.thumbnailUrl && (
+                      <img
+                        src={shot.thumbnailUrl}
+                        alt={`${displayTitle} 썸네일`}
+                        loading="lazy"
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(event) => event.currentTarget.remove()}
+                      />
+                    )}
+                    <span className="absolute bottom-1.5 left-1.5 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium text-foreground backdrop-blur-sm">
+                      미리보기
+                    </span>
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-1">
                     {onTitleClick ? (
                       <button
                         type="button"
@@ -200,7 +216,7 @@ export function ShotList({
                     )}
                   </div>
 
-                  <div className="mt-1 flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-3">
+                  <div className="mt-1 flex w-full flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-3">
                     <Button
                       type="button"
                       onClick={() => onSelect(shot)}

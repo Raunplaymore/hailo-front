@@ -203,6 +203,7 @@ export type Shot = {
   createdAt: string;
   sourceType: SourceType;
   videoUrl: string;
+  thumbnailUrl?: string | null;
   metaPath?: string | null;
   originalName?: string;
   analyzed?: boolean;

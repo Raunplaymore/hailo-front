@@ -53,6 +53,7 @@ type FilesDetailRes = {
     size?: number;
     modifiedAt?: string;
     metaPath?: string | null;
+    thumbnailUrl?: string | null;
     analysis?: any;
     progress?: any;
     errorCode?: string | null;
@@ -681,6 +682,7 @@ const withVideoUrl = (shot: Shot): Shot => {
     ...shot,
     filename,
     videoUrl: resolveMediaUrl(shot.videoUrl, filename),
+    thumbnailUrl: shot.thumbnailUrl ? resolveMediaUrl(shot.thumbnailUrl, filename) : null,
   };
 };
 
@@ -706,6 +708,7 @@ const mapToShot = (item: any): Shot => {
     jobId,
     sourceType: (item?.sourceType as SourceType) ?? "upload",
     videoUrl: resolveUrl(item) || item?.url,
+    thumbnailUrl: item?.thumbnailUrl ?? item?.thumbnail_url ?? null,
     metaPath: item?.metaPath ?? item?.meta_path ?? null,
     originalName: resolveOriginalName(item) || undefined,
     createdAt: item?.createdAt ?? item?.uploadedAt ?? new Date().toISOString(),
@@ -742,6 +745,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
           progress: f.progress,
           size: f.size,
           modifiedAt: f.modifiedAt,
+          thumbnailUrl: f.thumbnailUrl,
           errorCode: f.errorCode,
           errorMessage: f.errorMessage,
           nasArchive: f.nasArchive,

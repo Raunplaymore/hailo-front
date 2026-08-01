@@ -39,21 +39,24 @@ import {
 import { Button } from "../Button";
 import { Input } from "../ui/input";
 
-const EVENT_KEYS = ["address", "top", "impact", "finish"] as const;
+const EVENT_KEYS = ["address", "takeaway", "top", "impact", "finish"] as const;
 const EVENT_LABELS = {
   address: "Address",
+  takeaway: "Takeaway",
   top: "Top",
   impact: "Impact",
   finish: "Finish",
 };
 const EVENT_SHORTCUTS: Record<(typeof EVENT_KEYS)[number], string> = {
   address: "Q",
+  takeaway: "T",
   top: "W",
   impact: "E",
   finish: "R",
 };
 const EVENT_SHORTCUT_CODES: Record<(typeof EVENT_KEYS)[number], string> = {
   address: "KeyQ",
+  takeaway: "KeyT",
   top: "KeyW",
   impact: "KeyE",
   finish: "KeyR",
@@ -143,6 +146,7 @@ function extractEvents(analysis: InferDebugAnalysisResponse | null) {
   };
   return {
     address: valueFor("address"),
+    takeaway: valueFor("takeaway"),
     top: valueFor("top"),
     impact: valueFor("impact"),
     finish: valueFor("finish"),
@@ -173,7 +177,7 @@ function createDraftAnnotation(
     })
   ) as SwingTrackingAnnotation["events"];
   return {
-    schemaVersion: "swing-tracking-label-v1",
+    schemaVersion: "swing-tracking-label-v2",
     jobId,
     viewpoint: "down_the_line",
     handedness: "right",
@@ -439,11 +443,22 @@ export function InferDebugPage() {
         loadedAnnotation.handedness === "unknown"
           ? { ...loadedAnnotation, handedness: "right" as const }
           : loadedAnnotation;
+      const normalizedAnnotation = {
+        ...nextAnnotation,
+        schemaVersion: "swing-tracking-label-v2" as const,
+        events: {
+          address: nextAnnotation.events.address ?? null,
+          takeaway: nextAnnotation.events.takeaway ?? null,
+          top: nextAnnotation.events.top ?? null,
+          impact: nextAnnotation.events.impact ?? null,
+          finish: nextAnnotation.events.finish ?? null,
+        },
+      };
       setData(next);
       setAnalysis(nextAnalysis);
-      setAnnotation(nextAnnotation);
+      setAnnotation(normalizedAnnotation);
       setVariant(targetVariant);
-      const impact = nextAnnotation.events.impact;
+      const impact = normalizedAnnotation.events.impact;
       const initialIndex = impact
         ? next.frames.reduce(
             (bestIndex, frame, index) =>
@@ -455,7 +470,7 @@ export function InferDebugPage() {
           )
         : 0;
       setSelectedIndex(initialIndex);
-      setDirty(loadedAnnotation.handedness === "unknown");
+      setDirty(loadedAnnotation.handedness === "unknown" || loadedAnnotation.schemaVersion !== "swing-tracking-label-v2");
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("jobId", trimmed);
@@ -1043,7 +1058,7 @@ export function InferDebugPage() {
                 <div className="border border-white/10 bg-[#0d141f]">
                   <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Swing events</p>
-                    <span className="font-mono text-xs text-cyan-300">{annotationSummary.events}/4</span>
+                    <span className="font-mono text-xs text-cyan-300">{annotationSummary.events}/5</span>
                   </div>
                   <div>
                     {EVENT_KEYS.map((key) => {

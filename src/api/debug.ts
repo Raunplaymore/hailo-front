@@ -130,12 +130,12 @@ export type SwingTrackingEventLabel = {
 };
 
 export type SwingTrackingAnnotation = {
-  schemaVersion: "swing-tracking-label-v1";
+  schemaVersion: "swing-tracking-label-v1" | "swing-tracking-label-v2";
   jobId: string;
   viewpoint: "unknown" | "down_the_line" | "face_on";
   handedness: "unknown" | "right" | "left";
   status: "draft" | "reviewed";
-  events: Record<"address" | "top" | "impact" | "finish", SwingTrackingEventLabel | null>;
+  events: Record<"address" | "takeaway" | "top" | "impact" | "finish", SwingTrackingEventLabel | null>;
   frames: SwingTrackingFrameLabel[];
   notes: string;
   source: {

@@ -151,6 +151,11 @@ export type SwingTrackingAnnotationResponse = {
   jobId: string;
   annotation: SwingTrackingAnnotation | null;
   annotationPath?: string;
+  archive?: {
+    state: "pending" | "not_scheduled" | "disabled";
+    archiveJobId?: string;
+    error?: string;
+  };
 };
 
 export type SwingTrackingAnnotationListItem = {

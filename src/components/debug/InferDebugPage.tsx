@@ -525,7 +525,11 @@ export function InferDebugPage() {
       if (response.annotation) setAnnotation(response.annotation);
       await refreshAnnotationCatalog();
       setDirty(false);
-      setNotice("라벨을 저장했습니다.");
+      setNotice(
+        response.archive?.state === "pending"
+          ? "라벨을 저장했고 NAS 아카이브를 요청했습니다."
+          : "라벨을 저장했습니다."
+      );
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "라벨 저장에 실패했습니다.");
     } finally {

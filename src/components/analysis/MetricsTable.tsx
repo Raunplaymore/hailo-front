@@ -17,6 +17,7 @@ type MetricsTableProps = {
 
 const EVENT_LABELS: Record<SwingEventKey, string> = {
   address: "Address",
+  takeaway: "Takeaway",
   top: "Top",
   impact: "Impact",
   finish: "Finish",

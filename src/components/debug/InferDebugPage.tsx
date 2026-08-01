@@ -969,7 +969,7 @@ export function InferDebugPage() {
                           </div>
                           <p className="mt-1 truncate font-mono text-[10px] text-slate-400">{item.jobId}</p>
                           <p className="mt-1 text-[10px] text-slate-500">
-                            라벨 {item.labeledFrames}F · 이벤트 {item.events}/4
+                            라벨 {item.labeledFrames}F · 이벤트 {item.events}/5
                           </p>
                         </div>
                       </div>

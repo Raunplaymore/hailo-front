@@ -2,7 +2,7 @@ export type SourceType = "upload" | "camera";
 
 export type JobStatus = "idle" | "queued" | "running" | "succeeded" | "failed" | "not-analyzed";
 
-export type SwingEventKey = "address" | "top" | "impact" | "finish";
+export type SwingEventKey = "address" | "takeaway" | "top" | "impact" | "finish";
 
 export type SwingEventTiming = {
   /** 해당 이벤트까지 경과 시간(ms) */

@@ -162,7 +162,7 @@ const normalizeEvents = (
   events: any,
   eventQuality: EventValidation["eventQuality"] = {}
 ): Partial<Record<SwingEventKey, SwingEventTiming>> => {
-  const keys: SwingEventKey[] = ["address", "top", "impact", "finish"];
+  const keys: SwingEventKey[] = ["address", "takeaway", "top", "impact", "finish"];
   if (!events || typeof events !== "object") return {};
 
   const toMsValue = (key: SwingEventKey) => {
@@ -214,7 +214,7 @@ const normalizeEventValidation = (raw: any): EventValidation | null => {
     : raw.status === "partial"
       ? "partial"
       : "usable";
-  const eventQuality = (["address", "top", "impact", "finish"] as SwingEventKey[]).reduce(
+  const eventQuality = (["address", "takeaway", "top", "impact", "finish"] as SwingEventKey[]).reduce(
     (acc, key) => {
       const value = raw.eventQuality?.[key];
       if (!value || typeof value !== "object") return acc;

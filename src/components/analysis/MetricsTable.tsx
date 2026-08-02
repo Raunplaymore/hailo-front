@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { AnalysisResult, GenericMetricPayload, JobStatus, MetricGroup, SwingEventKey } from "../../types/shots";
+import { AnalysisResult, DtlClubPointsV2Sidecar, GenericMetricPayload, JobStatus, MetricGroup, SwingEventKey } from "../../types/shots";
 
 type MetricsTableProps = {
   analysis?: AnalysisResult | null;
@@ -148,6 +148,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
               />
             </div>
           ) : null}
+          <DtlClubPointsV2Section sidecar={analysis.dtlClubPointsV2} />
         </CardContent>
       </Card>
     );
@@ -287,6 +288,8 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
           )}
         </CollapsibleMetricSection>
 
+        <DtlClubPointsV2Section sidecar={analysis?.dtlClubPointsV2} />
+
         {bodyMetrics.length > 0 && (
           <MetricGroupSection title="Body Metrics" description="pose 기반 전신 분석 결과" metrics={bodyMetrics} />
         )}
@@ -341,6 +344,54 @@ function availabilityLabel(status?: string) {
   if (status === "reference") return "참고";
   if (status === "withheld") return "보류";
   return null;
+}
+
+function DtlClubPointsV2Section({ sidecar }: { sidecar?: DtlClubPointsV2Sidecar | null }) {
+  if (!sidecar) return null;
+  const isComplete = sidecar.status === "succeeded";
+  const isFailed = sidecar.status === "failed";
+  const eventStatus = availabilityLabel(sidecar.takeaway?.status ?? undefined) ?? "보류";
+  const summary = isComplete
+    ? compactDetail([
+        `Head ${sidecar.trackingQuality?.clubHeadFrames ?? "-"}F`,
+        `Handle ${sidecar.trackingQuality?.clubHandleFrames ?? "-"}F`,
+        formatMs(sidecar.processingMs),
+      ])
+    : isFailed
+      ? "분석 실패"
+      : sidecar.status === "running"
+        ? "백그라운드 분석 중"
+        : "백그라운드 분석 대기";
+
+  return (
+    <CollapsibleMetricSection title="DTL V2 클럽 추적" summary={summary} defaultOpen={isComplete}>
+      {isComplete ? (
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <MetricCard label="상태" value="완료" />
+            <MetricCard label="Club Head Frames" value={sidecar.trackingQuality?.clubHeadFrames ?? "-"} />
+            <MetricCard label="Handle Frames" value={sidecar.trackingQuality?.clubHandleFrames ?? "-"} />
+            <MetricCard label="관측 커버리지" value={formatPercent(sidecar.trackingQuality?.score)} />
+            <MetricCard label="V2 Takeaway" value={formatMs(sidecar.takeaway?.timeMs)} />
+            <MetricCard label="이벤트 근거" value={eventStatus} />
+          </div>
+          <p className="mt-2 text-xs leading-5 text-muted-foreground">
+            {sidecar.takeaway?.appliedToPrimary
+              ? "기존 Takeaway가 없어 V2의 reference 이벤트를 보조값으로 적용했습니다."
+              : "V2는 Service7 결과를 대체하지 않는 클럽 전용 보조 추적이며, 기존 Takeaway는 유지합니다."}
+          </p>
+        </>
+      ) : isFailed ? (
+        <div className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-xs leading-5 text-red-100">
+          DTL V2 클럽 추적을 완료하지 못했습니다.{sidecar.error ? ` ${sidecar.error}` : ""}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-sky-300/30 bg-sky-300/10 px-3 py-2 text-xs leading-5 text-sky-100">
+          V2 클럽 head·handle 보조 추적을 백그라운드에서 처리하고 있습니다. 완료되면 자동으로 갱신됩니다.
+        </div>
+      )}
+    </CollapsibleMetricSection>
+  );
 }
 
 function metricAvailabilitySummary(status: string | undefined, value: string) {

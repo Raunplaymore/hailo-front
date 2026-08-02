@@ -71,7 +71,21 @@ export type InferDebugAnalysisResponse = {
     analysisVersion?: string | null;
     events?: Record<string, unknown> | null;
     metrics?: Record<string, unknown> | null;
-    debug?: Record<string, unknown> | null;
+    debug?: {
+      dtlClubPointsV2?: {
+        status?: string;
+        processingMs?: number | null;
+        trackingQuality?: {
+          frames?: number | null;
+          clubHeadFrames?: number | null;
+          clubHandleFrames?: number | null;
+          score?: number | null;
+        } | null;
+        takeaway?: { timeMs?: number | null; status?: string | null; appliedToPrimary?: boolean } | null;
+        error?: string | null;
+      } | null;
+      [key: string]: unknown;
+    } | null;
   } | null;
 };
 

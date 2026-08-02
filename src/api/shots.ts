@@ -7,6 +7,7 @@ import {
   BallMetrics,
   BackswingMetrics,
   CoachFinding,
+  DtlClubPointsV2Sidecar,
   EventEvidenceQuality,
   EventTimingMetrics,
   EventValidation,
@@ -610,6 +611,26 @@ export const normalizeAnalysis = (
         }
       : null;
   const overlay = normalizeOverlay(raw?.overlay ?? metricsBlock?.overlay);
+  const rawDtlClubPointsV2 = raw?.debug?.dtlClubPointsV2 ?? raw?.dtlClubPointsV2;
+  const dtlClubPointsV2: DtlClubPointsV2Sidecar | null =
+    rawDtlClubPointsV2 && typeof rawDtlClubPointsV2 === "object"
+      ? {
+          status: typeof rawDtlClubPointsV2.status === "string" ? rawDtlClubPointsV2.status : "queued",
+          model: typeof rawDtlClubPointsV2.model === "string" ? rawDtlClubPointsV2.model : null,
+          processingMs: toOptionalNumber(rawDtlClubPointsV2.processingMs ?? rawDtlClubPointsV2.processing_ms),
+          takeaway:
+            rawDtlClubPointsV2.takeaway && typeof rawDtlClubPointsV2.takeaway === "object"
+              ? {
+                  timeMs: toOptionalNumber(rawDtlClubPointsV2.takeaway.timeMs ?? rawDtlClubPointsV2.takeaway.time_ms),
+                  status: typeof rawDtlClubPointsV2.takeaway.status === "string" ? rawDtlClubPointsV2.takeaway.status : null,
+                  appliedToPrimary: rawDtlClubPointsV2.takeaway.appliedToPrimary === true,
+                }
+              : null,
+          trackingQuality: normalizeTrackingQuality(rawDtlClubPointsV2.trackingQuality ?? rawDtlClubPointsV2.tracking_quality) ?? null,
+          error: typeof rawDtlClubPointsV2.error === "string" ? rawDtlClubPointsV2.error : null,
+          completedAt: typeof rawDtlClubPointsV2.completedAt === "string" ? rawDtlClubPointsV2.completedAt : null,
+        }
+      : null;
   const rawProgress = raw?.progress ?? metricsBlock?.progress;
   const progress: AnalysisProgress | null =
     rawProgress && typeof rawProgress === "object"
@@ -673,6 +694,7 @@ export const normalizeAnalysis = (
     overlay,
     eventValidation,
     progress,
+    dtlClubPointsV2,
   };
 };
 

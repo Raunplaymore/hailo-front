@@ -226,6 +226,13 @@ function formatMs(value: number | null | undefined) {
   return value == null ? "—" : `${Math.round(value)} ms`;
 }
 
+function sidecarStatusLabel(status?: string) {
+  if (status === "succeeded") return "완료";
+  if (status === "running") return "분석 중";
+  if (status === "failed") return "실패";
+  return "대기";
+}
+
 function compactPoint(point?: SwingTrackingPoint) {
   if (!point) return "미지정";
   return `${point.x.toFixed(3)}, ${point.y.toFixed(3)}`;
@@ -305,6 +312,7 @@ export function InferDebugPage() {
   const labelsByFrame = useMemo(() => frameLabelMap(annotation), [annotation]);
   const currentLabel = selectedFrame ? labelsByFrame.get(selectedFrame.frame) : undefined;
   const analysisEvents = useMemo(() => extractEvents(analysis), [analysis]);
+  const dtlClubPointsV2 = analysis?.analysis?.debug?.dtlClubPointsV2 ?? null;
   const loadedJobMismatch = Boolean(
     annotation &&
       (jobId.trim() !== annotation.jobId || (data?.jobId && data.jobId !== annotation.jobId))
@@ -1015,6 +1023,41 @@ export function InferDebugPage() {
                 </div>
               ))}
             </section>
+
+            {dtlClubPointsV2 ? (
+              <section className="mb-4 border border-cyan-300/20 bg-cyan-300/[0.04]">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-300/15 px-4 py-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">DTL V2 Club Tracking</p>
+                    <p className="mt-1 text-xs text-slate-400">Service7을 교체하지 않는 head·handle 보조 추적 결과</p>
+                  </div>
+                  <span className="border border-cyan-300/30 px-2 py-1 text-xs font-semibold text-cyan-100">
+                    {sidecarStatusLabel(dtlClubPointsV2.status)}
+                  </span>
+                </div>
+                {dtlClubPointsV2.status === "succeeded" ? (
+                  <div className="grid grid-cols-2 md:grid-cols-4">
+                    {[
+                      ["Head", `${dtlClubPointsV2.trackingQuality?.clubHeadFrames ?? "—"}F`],
+                      ["Handle", `${dtlClubPointsV2.trackingQuality?.clubHandleFrames ?? "—"}F`],
+                      ["V2 Takeaway", formatMs(dtlClubPointsV2.takeaway?.timeMs)],
+                      ["처리 시간", formatMs(dtlClubPointsV2.processingMs)],
+                    ].map(([label, value]) => (
+                      <div key={label} className="border-b border-r border-cyan-300/10 px-4 py-3 last:border-r-0 md:border-b-0">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                        <p className="mt-1 font-mono text-lg text-white">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-4 py-3 text-sm text-slate-300">
+                    {dtlClubPointsV2.status === "failed"
+                      ? `보조 추적 실패${dtlClubPointsV2.error ? `: ${dtlClubPointsV2.error}` : ""}`
+                      : "V2 클럽 보조 추적을 처리하고 있습니다. 완료 후 이 화면을 다시 불러오면 결과가 표시됩니다."}
+                  </p>
+                )}
+              </section>
+            ) : null}
 
             <section className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] 2xl:grid-cols-[17rem_minmax(0,1fr)_20rem]">
               <aside className="order-2 grid gap-4 sm:grid-cols-2 lg:col-span-2 lg:grid-cols-2 2xl:order-1 2xl:col-span-1 2xl:block 2xl:space-y-4">

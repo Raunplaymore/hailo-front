@@ -149,6 +149,21 @@ export type AnalysisQuality = {
   };
 };
 
+/** V2 club-point HEF sidecar result. It never replaces the primary Service7 analysis. */
+export type DtlClubPointsV2Sidecar = {
+  status: "queued" | "running" | "succeeded" | "failed" | string;
+  model?: string | null;
+  processingMs?: number | null;
+  takeaway?: {
+    timeMs?: number | null;
+    status?: "confirmed" | "reference" | "withheld" | string | null;
+    appliedToPrimary?: boolean;
+  } | null;
+  trackingQuality?: TrackingQualityMetrics | null;
+  error?: string | null;
+  completedAt?: string | null;
+};
+
 export type AnalysisResult = {
   jobId: string;
   status: JobStatus;
@@ -167,6 +182,7 @@ export type AnalysisResult = {
   overlay?: AnalysisOverlay | null;
   eventValidation?: EventValidation | null;
   progress?: AnalysisProgress | null;
+  dtlClubPointsV2?: DtlClubPointsV2Sidecar | null;
 };
 
 export type CoachFinding = {

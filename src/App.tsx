@@ -1633,6 +1633,7 @@ function MainApp() {
                 videoUrl={selectedVideoUrl}
                 events={analysis?.events}
                 overlay={analysis?.overlay}
+                dtlClubPointsV2={analysis?.dtlClubPointsV2}
                 isModalOpen={showVideoModal}
               />
             </div>
@@ -1881,6 +1882,7 @@ function MainApp() {
               videoUrl={selectedVideoUrl}
               events={analysis?.events}
               overlay={analysis?.overlay}
+              dtlClubPointsV2={analysis?.dtlClubPointsV2}
             />
           </div>
         </div>

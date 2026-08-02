@@ -8,13 +8,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { AnalysisOverlay, AnalysisResult, SwingEventKey } from "../../types/shots";
+import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
 import { AnalysisVideoPlayer } from "./AnalysisVideoPlayer";
 
 type AnalysisPlayerProps = {
   videoUrl?: string;
   events?: AnalysisResult["events"];
   overlay?: AnalysisOverlay | null;
+  dtlClubPointsV2?: DtlClubPointsV2Sidecar | null;
   isModalOpen?: boolean;
 };
 
@@ -46,7 +47,7 @@ const LEFT_JOINT_COLOR = "#38bdf8";
 const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
 
-export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: AnalysisPlayerProps) {
+export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isModalOpen }: AnalysisPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
@@ -181,6 +182,7 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
               const event = events?.[key];
               const disabled = !event;
               const isReference = event?.quality === "reference";
+              const v2Takeaway = key === "takeaway" ? dtlClubPointsV2?.takeaway : null;
               return (
                 <button
                   key={key}
@@ -200,13 +202,63 @@ export function AnalysisPlayer({ videoUrl, events, overlay, isModalOpen }: Analy
                   <span className="text-sm">
                     {event ? `${Math.round(event.timeMs)} ms${isReference ? " · 참고" : ""}` : "-"}
                   </span>
+                  {v2Takeaway?.timeMs != null ? (
+                    <span className="mt-0.5 block text-[11px] font-medium text-cyan-100/80">
+                      V2 club {Math.round(v2Takeaway.timeMs)} ms · {v2Takeaway.status === "confirmed" ? "확정" : "참고"}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
           </div>
         </div>
+
+        <ClubTrackingEvidence sidecar={dtlClubPointsV2} />
       </CardContent>
     </Card>
+  );
+}
+
+function ClubTrackingEvidence({ sidecar }: { sidecar?: DtlClubPointsV2Sidecar | null }) {
+  if (!sidecar) return null;
+  const isComplete = sidecar.status === "succeeded";
+  const isFailed = sidecar.status === "failed";
+
+  return (
+    <section className="rounded-xl border border-cyan-300/25 bg-cyan-400/[0.07] px-3 py-2.5" aria-label="DTL V2 클럽 추적 근거">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold text-cyan-100">DTL V2 클럽 추적</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">Head·Handle로 확인한 보조 근거이며 Service7 이벤트를 교체하지 않습니다.</p>
+        </div>
+        <span className={cn(
+          "rounded-full border px-2 py-1 text-[11px] font-semibold",
+          isComplete ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100" : isFailed ? "border-red-300/40 bg-red-400/10 text-red-100" : "border-cyan-300/35 text-cyan-100",
+        )}>
+          {isComplete ? "완료" : isFailed ? "실패" : sidecar.status === "running" ? "분석 중" : "대기"}
+        </span>
+      </div>
+      {isComplete ? (
+        <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <EvidenceValue label="Head" value={`${sidecar.trackingQuality?.clubHeadFrames ?? "-"}F`} />
+          <EvidenceValue label="Handle" value={`${sidecar.trackingQuality?.clubHandleFrames ?? "-"}F`} />
+          <EvidenceValue label="V2 Takeaway" value={sidecar.takeaway?.timeMs == null ? "-" : `${Math.round(sidecar.takeaway.timeMs)} ms`} />
+        </div>
+      ) : (
+        <p className="mt-2 text-xs leading-5 text-cyan-100/80">
+          {isFailed ? "V2 보조 추적을 완료하지 못했습니다." : "클럽 head·handle 보조 추적을 백그라운드에서 처리하고 있습니다."}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function EvidenceValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-cyan-300/15 bg-black/10 px-2 py-1.5">
+      <p className="truncate text-[10px] text-cyan-100/65">{label}</p>
+      <p className="truncate text-sm font-semibold text-cyan-50">{value}</p>
+    </div>
   );
 }
 

@@ -35,6 +35,10 @@ assert.match(source, /현재 프레임 라벨 삭제/, "Deleting labels must be 
 assert.match(source, /저장 \{annotationCatalog\?\.count/, "The saved swing count must be visible.");
 assert.match(source, /Dataset progress/, "The 30-swing dataset target must be shown.");
 assert.match(source, /저장된 스윙/, "Saved swings must be available as a reopenable list.");
+assert.match(source, /const \[annotationSearch, setAnnotationSearch\] = useState\(""\)/, "Saved swings must have local search state.");
+assert.match(source, /item\.jobId\.toLowerCase\(\)\.includes\(query\)/, "Saved swing search must match partial Job IDs case-insensitively.");
+assert.match(source, /aria-label="저장된 스윙 Job ID 검색"/, "Saved swing search must have an accessible label.");
+assert.match(source, /일치하는 Job이 없습니다/, "Saved swing search must explain an empty result.");
 assert.match(source, /const \[focusMode, setFocusMode\] = useState\(true\)/, "Labeling focus must default on.");
 assert.match(source, /!focusMode && overlayOptions\.modelHeadPath/, "Focus mode must hide model paths.");
 assert.match(source, /!focusMode && overlayOptions\.labels && labeledHeadTrack/, "Focus mode must hide the ground-truth path.");

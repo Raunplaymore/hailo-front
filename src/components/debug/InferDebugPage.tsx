@@ -286,6 +286,7 @@ export function InferDebugPage() {
   const [annotation, setAnnotation] = useState<SwingTrackingAnnotation | null>(null);
   const [annotationCatalog, setAnnotationCatalog] =
     useState<SwingTrackingAnnotationListResponse | null>(null);
+  const [annotationSearch, setAnnotationSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [activeTool, setActiveTool] = useState<LabelTool>("clubHead");
   const [focusMode, setFocusMode] = useState(true);
@@ -365,6 +366,14 @@ export function InferDebugPage() {
       events: EVENT_KEYS.filter((key) => annotation?.events[key]).length,
     };
   }, [annotation]);
+
+  const filteredAnnotations = useMemo(() => {
+    const query = annotationSearch.trim().toLowerCase();
+    if (!query) return annotationCatalog?.annotations ?? [];
+    return (annotationCatalog?.annotations ?? []).filter((item) =>
+      item.jobId.toLowerCase().includes(query)
+    );
+  }, [annotationCatalog, annotationSearch]);
 
   const mutateAnnotation = (update: (current: SwingTrackingAnnotation) => SwingTrackingAnnotation) => {
     setAnnotation((current) => (current ? update(current) : current));
@@ -937,8 +946,15 @@ export function InferDebugPage() {
             </div>
 
             <div className="min-w-0">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-300">저장된 스윙</p>
+              <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-slate-300">저장된 스윙</p>
+                  {annotationCatalog?.annotations.length ? (
+                    <span className="font-mono text-[10px] text-slate-500">
+                      {filteredAnnotations.length}/{annotationCatalog.annotations.length}
+                    </span>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   onClick={() => void refreshAnnotationCatalog()}
@@ -948,49 +964,82 @@ export function InferDebugPage() {
                 </button>
               </div>
               {annotationCatalog?.annotations.length ? (
-                <div className="grid max-h-36 gap-2 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
-                  {annotationCatalog.annotations.map((item, index) => (
+                <div className="relative mb-2">
+                  <Search
+                    className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-slate-500"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    type="search"
+                    value={annotationSearch}
+                    onChange={(event) => setAnnotationSearch(event.target.value)}
+                    placeholder="Job ID 검색"
+                    aria-label="저장된 스윙 Job ID 검색"
+                    className="h-9 border-white/10 bg-black/30 pl-8 pr-9 font-mono text-xs"
+                  />
+                  {annotationSearch ? (
                     <button
-                      key={item.jobId}
                       type="button"
-                      onClick={() => {
-                        if (dirty && !window.confirm("저장하지 않은 현재 라벨을 버리고 이동할까요?")) return;
-                        void loadVariant("main", false, item.jobId);
-                      }}
-                      className="min-w-0 border border-white/10 bg-black/20 p-2 text-left hover:border-cyan-300/30 hover:bg-cyan-300/5"
+                      onClick={() => setAnnotationSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                      aria-label="저장된 스윙 검색어 지우기"
                     >
-                      <div className="flex min-w-0 gap-2">
-                        <div className="relative grid aspect-[4/3] w-20 shrink-0 place-items-center overflow-hidden border border-white/10 bg-black/30 text-slate-600">
-                          <ImageIcon className="size-4" aria-hidden="true" />
-                          {item.thumbnailUrl && (
-                            <img
-                              src={item.thumbnailUrl}
-                              alt={`저장된 스윙 ${index + 1} 미리보기`}
-                              loading="lazy"
-                              className="absolute inset-0 size-full object-cover"
-                              onError={(event) => event.currentTarget.remove()}
-                            />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-semibold text-white">#{index + 1}</span>
-                            <span className={item.status === "reviewed" ? "text-[10px] text-emerald-300" : "text-[10px] text-amber-300"}>
-                              {item.status === "reviewed" ? "검토 완료" : "초안"}
-                            </span>
-                          </div>
-                          <p className="mt-1 truncate font-mono text-[10px] text-slate-400">{item.jobId}</p>
-                          <p className="mt-1 text-[10px] text-slate-500">
-                            라벨 {item.labeledFrames}F · 이벤트 {item.events}/5
-                          </p>
-                        </div>
-                      </div>
+                      <X className="size-3.5" />
                     </button>
-                  ))}
+                  ) : null}
+                </div>
+              ) : null}
+              {filteredAnnotations.length ? (
+                <div className="grid max-h-36 gap-2 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredAnnotations.map((item) => {
+                    const index = annotationCatalog?.annotations.findIndex(
+                      (annotationItem) => annotationItem.jobId === item.jobId
+                    ) ?? -1;
+                    return (
+                      <button
+                        key={item.jobId}
+                        type="button"
+                        onClick={() => {
+                          if (dirty && !window.confirm("저장하지 않은 현재 라벨을 버리고 이동할까요?")) return;
+                          void loadVariant("main", false, item.jobId);
+                        }}
+                        className="min-w-0 border border-white/10 bg-black/20 p-2 text-left hover:border-cyan-300/30 hover:bg-cyan-300/5"
+                      >
+                        <div className="flex min-w-0 gap-2">
+                          <div className="relative grid aspect-[4/3] w-20 shrink-0 place-items-center overflow-hidden border border-white/10 bg-black/30 text-slate-600">
+                            <ImageIcon className="size-4" aria-hidden="true" />
+                            {item.thumbnailUrl && (
+                              <img
+                                src={item.thumbnailUrl}
+                                alt={`저장된 스윙 ${index + 1} 미리보기`}
+                                loading="lazy"
+                                className="absolute inset-0 size-full object-cover"
+                                onError={(event) => event.currentTarget.remove()}
+                              />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-white">#{index + 1}</span>
+                              <span className={item.status === "reviewed" ? "text-[10px] text-emerald-300" : "text-[10px] text-amber-300"}>
+                                {item.status === "reviewed" ? "검토 완료" : "초안"}
+                              </span>
+                            </div>
+                            <p className="mt-1 truncate font-mono text-[10px] text-slate-400">{item.jobId}</p>
+                            <p className="mt-1 text-[10px] text-slate-500">
+                              라벨 {item.labeledFrames}F · 이벤트 {item.events}/5
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="grid h-20 place-items-center border border-dashed border-white/10 text-xs text-slate-600">
-                  아직 저장된 스윙이 없습니다.
+                  {annotationCatalog?.annotations.length
+                    ? `“${annotationSearch.trim()}”에 일치하는 Job이 없습니다.`
+                    : "아직 저장된 스윙이 없습니다."}
                 </div>
               )}
             </div>

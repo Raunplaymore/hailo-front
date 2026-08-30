@@ -6,7 +6,7 @@ import { CoachSummary } from "../analysis/CoachSummary";
 import { KeyMetrics } from "../analysis/KeyMetrics";
 import { Button } from "../Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
-import type { AnalysisResult, JobStatus } from "../../types/shots";
+import type { AnalysisResult, JobStatus, SwingEventKey } from "../../types/shots";
 
 type LibraryJob = {
   jobId: string;
@@ -99,6 +99,7 @@ export function LibraryApp() {
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<LibraryJob[]>([]);
   const [selected, setSelected] = useState<LibraryDetail | null>(null);
+  const [coachEvidenceFocus, setCoachEvidenceFocus] = useState<{ event: SwingEventKey; requestId: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<PeriodFilter>("all");
   const [pageSize, setPageSize] = useState(12);
@@ -258,10 +259,11 @@ export function LibraryApp() {
               videoUrl={`/api/library/jobs/${encodeURIComponent(selected.jobId)}/video`}
               events={selectedAnalysis?.events}
               overlay={selectedAnalysis?.overlay}
+              evidenceFocus={coachEvidenceFocus}
             />
           ) : <p className="rounded-xl border border-dashed bg-muted/40 p-4 text-sm text-muted-foreground">원본 영상은 없고 분석 결과만 보관되어 있습니다.</p>}
           {selectedAnalysis ? <KeyMetrics analysis={selectedAnalysis} status={selectedAnalysis.status} /> : null}
-          {selectedAnalysis ? <CoachSummary summary={selectedAnalysis.summary} comments={selectedAnalysis.coachSummary} findings={selectedAnalysis.coachFindings} /> : (
+          {selectedAnalysis ? <CoachSummary summary={selectedAnalysis.summary} comments={selectedAnalysis.coachSummary} findings={selectedAnalysis.coachFindings} events={selectedAnalysis.events} onWatchEvidence={(event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 }))} /> : (
             <Card><CardContent className="p-4 text-sm text-muted-foreground">이 기록은 이전 형식으로 보관되어 상세 코칭을 표시할 수 없습니다.</CardContent></Card>
           )}
           <Card className="border-destructive/30">

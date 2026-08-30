@@ -13,7 +13,7 @@ import { useUpload } from "./hooks/useUpload";
 import { useShots } from "./hooks/useShots";
 import { useAnalysis } from "./hooks/useAnalysis";
 import { useToast } from "./hooks/use-toast";
-import { JobStatus, Shot } from "./types/shots";
+import { JobStatus, Shot, SwingEventKey } from "./types/shots";
 import { SettingsForm, UploadSettings } from "./components/settings/SettingsForm";
 import { API_BASE } from "./api/client";
 import { CameraSettings, CameraSettingsValue } from "./components/camera/CameraSettings";
@@ -143,6 +143,7 @@ function MainApp() {
   const [retryingArchiveId, setRetryingArchiveId] = useState<string | null>(null);
   const [openShotIds, setOpenShotIds] = useState<Set<string>>(new Set());
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [coachEvidenceFocus, setCoachEvidenceFocus] = useState<{ event: SwingEventKey; requestId: number } | null>(null);
   const [settings, setSettings] = useState<UploadSettings>({
     club: "driver",
     lens: DEFAULT_LENS,
@@ -1603,6 +1604,8 @@ function MainApp() {
                 }
                 comments={analysis?.coachSummary ?? []}
                 findings={analysis?.coachFindings ?? []}
+                events={analysis?.events}
+                onWatchEvidence={(event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 }))}
               />
 
               <details className="border shadow-sm group rounded-2xl border-border bg-card">
@@ -1635,6 +1638,7 @@ function MainApp() {
                 overlay={analysis?.overlay}
                 dtlClubPointsV2={analysis?.dtlClubPointsV2}
                 isModalOpen={showVideoModal}
+                evidenceFocus={coachEvidenceFocus}
               />
             </div>
           </div>

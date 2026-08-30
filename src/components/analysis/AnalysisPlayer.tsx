@@ -17,6 +17,7 @@ type AnalysisPlayerProps = {
   overlay?: AnalysisOverlay | null;
   dtlClubPointsV2?: DtlClubPointsV2Sidecar | null;
   isModalOpen?: boolean;
+  evidenceFocus?: { event: SwingEventKey; requestId: number } | null;
 };
 
 const EVENT_LABELS: Record<SwingEventKey, string> = {
@@ -47,7 +48,7 @@ const LEFT_JOINT_COLOR = "#38bdf8";
 const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
 
-export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isModalOpen }: AnalysisPlayerProps) {
+export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isModalOpen, evidenceFocus }: AnalysisPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
@@ -122,6 +123,11 @@ export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isM
       apply();
     }
   };
+
+  useEffect(() => {
+    if (!evidenceFocus) return;
+    handleSeek(evidenceFocus.event);
+  }, [evidenceFocus?.requestId]);
 
   return (
     <Card className="min-w-0">

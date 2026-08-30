@@ -6,13 +6,41 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { CoachFinding } from "@/types/shots";
+import { Video } from "lucide-react";
+import type { CoachFinding, SwingEventKey } from "@/types/shots";
 
 type CoachSummaryProps = {
   summary?: string | null;
   comments?: string[];
   findings?: CoachFinding[];
+  events?: Partial<Record<SwingEventKey, { timeMs: number }>>;
+  onWatchEvidence?: (event: SwingEventKey) => void;
 };
+
+function evidenceEvent(item: CoachSummaryItem): SwingEventKey | null {
+  if (item.category === "backswing") return "top";
+  if (item.category === "shaft_plane") return "impact";
+  return null;
+}
+
+function EvidenceJump({ item, events, onWatchEvidence }: {
+  item: CoachSummaryItem;
+  events?: CoachSummaryProps["events"];
+  onWatchEvidence?: CoachSummaryProps["onWatchEvidence"];
+}) {
+  const event = evidenceEvent(item);
+  if (!event || events?.[event]?.timeMs == null || !onWatchEvidence) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onWatchEvidence(event)}
+      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-300 bg-white/80 px-3 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+    >
+      <Video className="size-4" aria-hidden="true" />
+      영상에서 확인
+    </button>
+  );
+}
 
 type ParsedComment = {
   priority: string | null;
@@ -220,7 +248,11 @@ function PracticeSteps({ item }: { item: CoachSummaryItem }) {
   );
 }
 
-function PrimaryPracticePlan({ item }: { item: CoachSummaryItem }) {
+function PrimaryPracticePlan({ item, events, onWatchEvidence }: {
+  item: CoachSummaryItem;
+  events?: CoachSummaryProps["events"];
+  onWatchEvidence?: CoachSummaryProps["onWatchEvidence"];
+}) {
   const severityText = item.severity ? SEVERITY_LABELS[item.severity] ?? item.severity : null;
   const reference = referenceMessage(item);
   return (
@@ -242,6 +274,7 @@ function PrimaryPracticePlan({ item }: { item: CoachSummaryItem }) {
           : "아래 한 가지 기준만 다음 스윙에서 확인해 보세요."}
       </p>
       <div className="mt-3"><PracticeSteps item={item} /></div>
+      <div className="mt-3"><EvidenceJump item={item} events={events} onWatchEvidence={onWatchEvidence} /></div>
       {reference ? <p className="mt-3 text-xs leading-5 text-emerald-900/80">{reference}</p> : null}
     </section>
   );
@@ -331,7 +364,7 @@ function QualityNotices({ items }: { items: CoachSummaryItem[] }) {
   );
 }
 
-export function CoachSummary({ summary, comments, findings }: CoachSummaryProps) {
+export function CoachSummary({ summary, comments, findings, events, onWatchEvidence }: CoachSummaryProps) {
   const structured: CoachSummaryItem[] = findings?.length
     ? findings.map((finding) => ({
         key: finding.key ?? undefined,
@@ -388,7 +421,7 @@ export function CoachSummary({ summary, comments, findings }: CoachSummaryProps)
             </div>
           ) : (
             <div className="space-y-3">
-              {primaryItem ? <PrimaryPracticePlan item={primaryItem} /> : (
+              {primaryItem ? <PrimaryPracticePlan item={primaryItem} events={events} onWatchEvidence={onWatchEvidence} /> : (
                 <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3">
                   <p className="text-sm font-semibold text-emerald-950">새로 바꿀 동작은 없습니다.</p>
                   <p className="mt-1 text-sm leading-6 text-emerald-900">

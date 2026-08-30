@@ -25,6 +25,10 @@ assert.match(source, /연습 방법/, "Primary coaching must make the drill labe
 assert.match(source, /확인할 것/, "Primary coaching must make the checkpoint label easy to scan.");
 assert.match(source, /function EvidenceDetails\(/, "CoachSummary must collapse evidence separately from practice steps.");
 assert.match(source, /왜 이 조언이 나왔나요\?/, "CoachSummary must use plain language for the evidence disclosure.");
+assert.match(source, /영상에서 확인/, "Actionable evidence must offer a direct jump to the matching video event.");
+assert.match(source, /item\.category === "backswing"/, "Backswing advice must map only to the measured top event.");
+assert.match(source, /item\.category === "shaft_plane"/, "Shaft-plane advice must map only to the measured impact event.");
+assert.match(playerSource, /evidenceFocus\.event/, "AnalysisPlayer must seek to a requested coaching evidence event.");
 assert.match(source, /finding\.action/, "Structured coach finding action must be preserved separately from evidence text.");
 assert.match(source, /finding\.evidence/, "Structured evidence must remain available in the collapsed disclosure.");
 assert.match(source, /finding\.interpretation/, "Structured interpretation must remain available in the collapsed disclosure.");

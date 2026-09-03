@@ -198,6 +198,7 @@ export type CoachFinding = {
   checkpoint?: string | null;
   caution?: string | null;
   theory?: string | null;
+  evidenceLevel?: "confirmed" | "reference" | "scope" | string | null;
 };
 
 export type NasArchiveState = "disabled" | "pending" | "uploading" | "retrying" | "stored" | "failed";

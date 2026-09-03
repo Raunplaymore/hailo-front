@@ -256,7 +256,11 @@ export const getAutoRecordStatus = async (
 export const startAutoRecord = async (
   baseUrl: string,
   token?: string,
-  options?: { club?: string }
+  options?: {
+    club?: string;
+    viewpoint?: "down_the_line" | "face_on";
+    handedness?: "right" | "left";
+  }
 ): Promise<AutoRecordStatusResponse> => {
   const normalized = ensureBaseUrl(baseUrl);
   const res = await fetch(`${normalized}/api/camera/auto-record/start`, {

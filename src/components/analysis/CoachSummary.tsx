@@ -60,6 +60,7 @@ type CoachSummaryItem = {
   theory: string | null;
   confidence: number | null;
   severity: string | null;
+  evidenceLevel: string | null;
 };
 
 const PRIORITY_CLASSES: Record<string, string> = {
@@ -71,6 +72,8 @@ const PRIORITY_CLASSES: Record<string, string> = {
   "스윙 경로": "border-violet-200 bg-violet-50 text-violet-900",
   "촬영 품질": "border-slate-200 bg-slate-50 text-slate-700",
   "범위 제한": "border-slate-200 bg-slate-50 text-slate-700",
+  "분석 범위": "border-slate-200 bg-slate-50 text-slate-700",
+  "개선 후보": "border-amber-200 bg-amber-50 text-amber-900",
   "유지": "border-emerald-200 bg-emerald-50 text-emerald-900",
 };
 
@@ -117,8 +120,8 @@ function confidenceLabel(confidence: number | null): string | null {
   return `신뢰도 ${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}%`;
 }
 
-function isReferenceSignal(confidence: number | null, caution: string | null): boolean {
-  return Boolean(caution) || (confidence !== null && confidence < 0.35);
+function isReferenceSignal(confidence: number | null, caution: string | null, evidenceLevel?: string | null): boolean {
+  return evidenceLevel === "reference" || Boolean(caution) || (confidence !== null && confidence < 0.35);
 }
 
 function lowConfidenceNotice(confidence: number | null, caution: string | null): string | null {
@@ -159,6 +162,8 @@ function areInstructionsRedundant(first: string, second: string): boolean {
 
 const FINDING_TITLES: Record<string, string> = {
   tempo_rushed_transition: "전환이 너무 급해요",
+  tempo_reference_candidate: "전환 리듬을 다시 확인해요",
+  shoulder_turn_reference_candidate: "몸통 회전 여유를 확인해요",
   sequence_rushed_proxy: "다운스윙은 몸부터 시작해요",
   impact_unstable: "임팩트를 더 일정하게 만들어요",
   head_unstable: "상체 중심을 안정적으로 유지해요",
@@ -176,15 +181,12 @@ function actionText(item: CoachSummaryItem): string {
   return item.action ?? item.parsed.main;
 }
 
-function referenceMessage(item: CoachSummaryItem): string | null {
-  if (!isReferenceSignal(item.confidence, item.caution)) return null;
-  return "이번 영상만으로 단정하기 어려워요. 다음 2~3회 스윙에서도 같은 느낌이 보이는지 확인해 보세요.";
-}
-
 function EvidenceDetails({ item }: { item: CoachSummaryItem }) {
   const confidenceText = confidenceLabel(item.confidence);
   const notice = lowConfidenceNotice(item.confidence, item.caution);
-  const reference = referenceMessage(item);
+  const reference = isReferenceSignal(item.confidence, item.caution, item.evidenceLevel)
+    ? "이번 영상의 개선 후보입니다. 같은 신호가 반복되는지 확인하면서 적용하세요."
+    : null;
   const evidence = [
     item.evidence ? { label: "영상에서 보인 점", value: item.evidence } : null,
     item.interpretation ? { label: "이렇게 해석했어요", value: item.interpretation } : null,
@@ -254,7 +256,9 @@ function PrimaryPracticePlan({ item, events, onWatchEvidence }: {
   onWatchEvidence?: CoachSummaryProps["onWatchEvidence"];
 }) {
   const severityText = item.severity ? SEVERITY_LABELS[item.severity] ?? item.severity : null;
-  const reference = referenceMessage(item);
+  const reference = isReferenceSignal(item.confidence, item.caution, item.evidenceLevel)
+    ? "확정 진단이 아닌 개선 후보입니다. 무리하지 말고 다음 스윙과 비교하세요."
+    : null;
   return (
     <section className="rounded-2xl border border-emerald-200 bg-emerald-50/75 p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -377,6 +381,7 @@ export function CoachSummary({ summary, comments, findings, events, onWatchEvide
         theory: finding.theory ?? null,
         confidence: typeof finding.confidence === "number" ? finding.confidence : null,
         severity: finding.severity ?? null,
+        evidenceLevel: finding.evidenceLevel ?? null,
       }))
     : [];
   const fallback: CoachSummaryItem[] = structured.length > 0 ? [] : (comments ?? []).map((comment) => ({
@@ -390,6 +395,7 @@ export function CoachSummary({ summary, comments, findings, events, onWatchEvide
     theory: null,
     confidence: null,
     severity: null,
+    evidenceLevel: null,
   }));
   const rawList = structured.length > 0 ? structured : fallback;
   const hasTempoTransitionFinding = rawList.some((item) => item.key === "tempo_rushed_transition");
@@ -408,7 +414,7 @@ export function CoachSummary({ summary, comments, findings, events, onWatchEvide
         <CardHeader className="p-4 pb-2">
           <CardTitle className="text-lg">코치 액션</CardTitle>
           <CardDescription>
-            검증된 교정 포인트가 여러 개면 하나를 먼저 보여주고, 나머지는 접어서 제공합니다.
+            확정 교정과 근거가 있는 개선 후보를 구분해 하나씩 제공합니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0">
@@ -423,9 +429,9 @@ export function CoachSummary({ summary, comments, findings, events, onWatchEvide
             <div className="space-y-3">
               {primaryItem ? <PrimaryPracticePlan item={primaryItem} events={events} onWatchEvidence={onWatchEvidence} /> : (
                 <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3">
-                  <p className="text-sm font-semibold text-emerald-950">새로 바꿀 동작은 없습니다.</p>
+                  <p className="text-sm font-semibold text-emerald-950">확인된 범위에서는 새 교정 항목이 없습니다.</p>
                   <p className="mt-1 text-sm leading-6 text-emerald-900">
-                    이번 영상에서는 검증된 교정 항목보다 유지할 점만 확인되었습니다.
+                    유지점은 확인된 항목에만 해당하며 스윙 전체 평가가 아닙니다.
                   </p>
                 </div>
               )}

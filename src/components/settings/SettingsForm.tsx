@@ -3,6 +3,8 @@ import { Button } from "../Button";
 
 export type UploadSettings = {
   club?: string;
+  viewpoint?: "down_the_line" | "face_on";
+  handedness?: "right" | "left";
   lens?: string;
   fps?: number;
   roi?: string;
@@ -50,6 +52,30 @@ export function SettingsForm({ value, lensOptions = [], lensError, onChange, onS
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
+        <label className="grid gap-1 text-sm text-muted-foreground">
+          촬영 시점
+          <select
+            value={value.viewpoint ?? "down_the_line"}
+            onChange={(e) => handleChange("viewpoint", e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+          >
+            <option value="down_the_line">다운 더 라인</option>
+            <option value="face_on">정면</option>
+          </select>
+        </label>
+
+        <label className="grid gap-1 text-sm text-muted-foreground">
+          타석 방향
+          <select
+            value={value.handedness ?? "right"}
+            onChange={(e) => handleChange("handedness", e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+          >
+            <option value="right">오른손</option>
+            <option value="left">왼손</option>
+          </select>
+        </label>
+
         <label className="grid gap-1 text-sm text-muted-foreground">
           FPS (선택)
           <input

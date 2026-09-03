@@ -31,6 +31,8 @@ export function useUpload(hookOptions?: UseUploadOptions) {
     sourceType: "upload" | "camera" = "upload",
     uploadOptions?: {
       club?: string;
+      viewpoint?: "down_the_line" | "face_on";
+      handedness?: "right" | "left";
       fps?: number;
       roi?: string;
       cam_distance?: number;

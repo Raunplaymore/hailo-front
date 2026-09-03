@@ -146,6 +146,8 @@ function MainApp() {
   const [coachEvidenceFocus, setCoachEvidenceFocus] = useState<{ event: SwingEventKey; requestId: number } | null>(null);
   const [settings, setSettings] = useState<UploadSettings>({
     club: "driver",
+    viewpoint: "down_the_line",
+    handedness: "right",
     lens: DEFAULT_LENS,
   });
   const [lensOptions, setLensOptions] = useState<string[]>([]);
@@ -808,7 +810,11 @@ function MainApp() {
       const res = await startAutoRecord(
         cameraSettings.baseUrl,
         cameraSettings.token || undefined,
-        { club: settings.club }
+        {
+          club: settings.club,
+          viewpoint: settings.viewpoint,
+          handedness: settings.handedness,
+        }
       );
       const status = res.status;
       setAutoRecordStatus(status);

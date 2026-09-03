@@ -505,6 +505,7 @@ const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefine
       checkpoint: typeof item.checkpoint === "string" ? item.checkpoint : null,
       caution: typeof item.caution === "string" ? item.caution : null,
       theory: typeof item.theory === "string" ? item.theory : null,
+      evidenceLevel: typeof item.evidenceLevel === "string" ? item.evidenceLevel : null,
     }));
   return findings.length > 0 ? findings : undefined;
 };
@@ -837,6 +838,8 @@ export const createAnalysisJob = async (
   sourceType: SourceType = "upload",
   options?: {
     club?: string;
+    viewpoint?: "down_the_line" | "face_on";
+    handedness?: "right" | "left";
     fps?: number;
     roi?: string;
     cam_distance?: number;
@@ -853,6 +856,8 @@ export const createAnalysisJob = async (
     fd.append("video", file);
     fd.append("sourceType", sourceType);
     if (options?.club) fd.append("club", options.club);
+    if (options?.viewpoint) fd.append("viewpoint", options.viewpoint);
+    if (options?.handedness) fd.append("handedness", options.handedness);
     if (options?.fps != null) fd.append("fps", String(options.fps));
     if (options?.roi) fd.append("roi", options.roi);
     if (options?.cam_distance != null) fd.append("cam_distance", String(options.cam_distance));

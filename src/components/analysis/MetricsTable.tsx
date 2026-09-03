@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { formatGolfMetric } from "@/lib/golfMetricLabels";
 import { AnalysisResult, DtlClubPointsV2Sidecar, GenericMetricPayload, JobStatus, MetricGroup, SwingEventKey } from "../../types/shots";
 
 type MetricsTableProps = {
@@ -158,6 +159,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   const eventTiming = analysis?.metrics.eventTiming;
   const ball = analysis?.metrics.ball;
   const shaftPlane = analysis?.metrics.shaftPlane;
+  const clubPath = analysis?.metrics.swingPlaneDetail;
   const backswing = analysis?.metrics.backswing;
   const readiness = analysis?.metrics.readiness;
   const trackingQuality = analysis?.metrics.trackingQuality;
@@ -173,6 +175,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   const tempoAvailability = availability("tempo");
   const ballAvailability = availability("ball");
   const shaftAvailability = availability("shaft");
+  const pathAvailability = availability("path");
   const backswingAvailability = availability("backswing");
   const qualityScore = analysis?.analysisQuality?.score ?? analysis?.confidence;
 
@@ -259,23 +262,24 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
         </CollapsibleMetricSection>
 
         <CollapsibleMetricSection
-          title="Service7 전신/클럽 진단"
+          title="스윙 동작과 클럽 진단"
           summary={compactDetail([
-            `Shaft ${metricAvailabilitySummary(shaftAvailability, formatMetricLabel(shaftPlane))}`,
-            `Backswing ${metricAvailabilitySummary(backswingAvailability, formatMetricLabel(backswing))}`,
-            `Tracking ${formatMetricLabel(trackingQuality)}`,
+            `샤프트 ${metricAvailabilitySummary(shaftAvailability, formatGolfMetric(shaftPlane, "shaftPlane"))}`,
+            `경로 ${metricAvailabilitySummary(pathAvailability, formatGolfMetric(clubPath, "clubPath"))}`,
+            `백스윙 ${metricAvailabilitySummary(backswingAvailability, formatGolfMetric(backswing, "backswing"))}`,
           ])}
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <MetricCard label="Shaft Plane" value={shaftAvailability === "withheld" ? "보류" : formatMetricLabel(shaftPlane)} />
-            <MetricCard label="Shaft Angle" value={shaftAvailability === "withheld" ? "보류" : formatAngle(shaftPlane?.angleDeg)} />
-            <MetricCard label="Backswing" value={backswingAvailability === "withheld" ? "보류" : formatMetricLabel(backswing)} />
+            <MetricCard label="샤프트 기울기" value={shaftAvailability === "withheld" ? "판정 보류" : formatGolfMetric(shaftPlane, "shaftPlane") ?? "-"} />
+            <MetricCard label="샤프트 각도" value={shaftAvailability === "withheld" ? "판정 보류" : formatAngle(shaftPlane?.angleDeg)} />
+            <MetricCard label="클럽 진행 경로" value={pathAvailability === "withheld" ? "판정 보류" : formatGolfMetric(clubPath, "clubPath") ?? "-"} />
+            <MetricCard label="백스윙 크기" value={backswingAvailability === "withheld" ? "판정 보류" : formatGolfMetric(backswing, "backswing") ?? "-"} />
             <MetricCard label="촬영 준비 상태" value={formatMetricLabel(readiness)} />
             <MetricCard label="클럽 관측 상태" value={formatMetricLabel(trackingQuality)} />
             <MetricCard label="관측 커버리지" value={formatPercent(qualityScore)} />
           </div>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            관측 커버리지는 영상에서 pose와 클럽을 얼마나 확보했는지 나타내며, 코칭 정답 확률이 아닙니다.
+            샤프트 기울기는 클럽이 눕거나 세워진 정도입니다. 클럽 진행 경로의 인→아웃·아웃→인은 공 근처를 지나는 방향이며 별도 판정입니다. 관측 커버리지는 코칭 정답 확률이 아닙니다.
           </p>
           {trackingQuality && (
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">

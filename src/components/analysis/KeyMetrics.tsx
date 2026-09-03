@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { formatGolfMetric } from "@/lib/golfMetricLabels";
 import { AnalysisResult, GenericMetricPayload, JobStatus, MetricGroup } from "@/types/shots";
 
 type KeyMetricsProps = {
@@ -22,11 +23,16 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
 
   const tempoStatus = metricStatus(analysis, "tempo");
   const shaftStatus = metricStatus(analysis, "shaft");
+  const pathStatus = metricStatus(analysis, "path");
   const backswingStatus = metricStatus(analysis, "backswing");
   const impactStatus = metricStatus(analysis, "impactStability");
+  const impactEvent = analysis?.eventValidation?.eventQuality?.impact;
+  const impactEventStatus = impactEvent?.status;
+  const impactTime = analysis?.events?.impact?.timeMs ?? analysis?.metrics?.eventTiming?.impact;
   const tempoRatio = metricValue(analysis?.metrics.tempo?.ratio ?? fallback, tempoStatus);
-  const shaftPlane = metricValue(formatMetricLabel(analysis?.metrics.shaftPlane) ?? fallback, shaftStatus);
-  const backswing = metricValue(formatMetricLabel(analysis?.metrics.backswing) ?? fallback, backswingStatus);
+  const shaftPlane = metricValue(formatGolfMetric(analysis?.metrics.shaftPlane, "shaftPlane") ?? fallback, shaftStatus);
+  const clubPath = metricValue(formatGolfMetric(analysis?.metrics.swingPlaneDetail, "clubPath") ?? fallback, pathStatus);
+  const backswing = metricValue(formatGolfMetric(analysis?.metrics.backswing, "backswing") ?? fallback, backswingStatus);
   const quality = analysis ? analysisQuality(analysis) : null;
   const legacyImpact =
     analysis?.metrics.impactStability ?? formatMetricLabel(fusionPrimary) ?? formatMetricLabel(bodyPrimary) ?? fallback;
@@ -60,12 +66,21 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
             {quality.message}
           </p>
         ) : null}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <MetricCard label="샤프트 플레인" value={shaftPlane} status={shaftStatus} />
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+          <MetricCard label="샤프트 기울기" value={shaftPlane} status={shaftStatus} />
+          <MetricCard label="클럽 진행 경로" value={clubPath} status={pathStatus} />
           <MetricCard label="템포" value={tempoRatio} status={tempoStatus} />
           <MetricCard label="백스윙" value={backswing} status={backswingStatus} />
           <MetricCard label="임팩트 재현성" value={impactStability} status={impactStatus} />
+          <MetricCard
+            label="임팩트 시점"
+            value={impactTime != null ? `${Math.round(impactTime)} ms · ${impactEventStatus === "confirmed" ? "관측 확인" : impactEventStatus === "reference" ? "참고" : "미확인"}` : "미확인"}
+            status={impactEventStatus === "confirmed" ? "confirmed" : impactEventStatus === "reference" ? "reference" : "withheld"}
+          />
         </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          샤프트 기울기는 클럽이 눕거나 세워진 정도이고, 클럽 진행 경로는 인→아웃·아웃→인 방향입니다. 임팩트 시점과 여러 스윙의 임팩트 재현성도 서로 다른 항목입니다.
+        </p>
       </CardContent>
     </Card>
   );

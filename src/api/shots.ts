@@ -983,7 +983,14 @@ export const createShot = createAnalysisJob;
 
 export const createAnalysisJobFromFile = async (
   filename: string,
-  options?: { force?: boolean; jobId?: string; metaPath?: string | null }
+  options?: {
+    force?: boolean;
+    jobId?: string;
+    metaPath?: string | null;
+    club?: string;
+    viewpoint?: "down_the_line" | "face_on";
+    handedness?: "right" | "left";
+  }
 ): Promise<{ jobId: string; filename: string; status?: JobStatus }> => {
   const derivedJobId = options?.jobId ?? filename.replace(/\.[^.]+$/, "");
   const res = await fetch(`${API_BASE}/api/analyze/from-file`, {
@@ -996,6 +1003,12 @@ export const createAnalysisJobFromFile = async (
       filename,
       ...(options?.metaPath ? { metaPath: options.metaPath } : {}),
       ...(options?.force ? { force: true } : {}),
+      options: {
+        ...(options?.force ? { force: true } : {}),
+        ...(options?.club ? { club: options.club } : {}),
+        ...(options?.viewpoint ? { viewpoint: options.viewpoint } : {}),
+        ...(options?.handedness ? { handedness: options.handedness } : {}),
+      },
     }),
   });
   if (!res.ok) {

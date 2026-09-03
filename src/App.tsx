@@ -1245,7 +1245,12 @@ function MainApp() {
       let nextStatus: any = "queued";
 
       try {
-        const res = await createAnalysisJobFromFile(shot.filename, { metaPath: shot.metaPath });
+        const res = await createAnalysisJobFromFile(shot.filename, {
+          metaPath: shot.metaPath,
+          club: settings.club,
+          viewpoint: settings.viewpoint,
+          handedness: settings.handedness,
+        });
         jobId = res.jobId;
         nextStatus = res.status ?? "queued";
       } catch (err) {
@@ -1255,7 +1260,7 @@ function MainApp() {
         const videoRes = await fetch(shot.videoUrl);
         const blob = await videoRes.blob();
         const file = new File([blob], shot.filename, { type: blob.type || "video/mp4" });
-        const analyzedShot = await createAnalysisJob(file, shot.sourceType ?? "upload");
+        const analyzedShot = await createAnalysisJob(file, shot.sourceType ?? "upload", settings);
         jobId = analyzedShot.jobId ?? analyzedShot.id;
         nextStatus = analyzedShot.status ?? "queued";
       }
@@ -1281,6 +1286,9 @@ function MainApp() {
       const res = await createAnalysisJobFromFile(shot.filename, {
         force: true,
         metaPath: shot.metaPath,
+        club: settings.club,
+        viewpoint: settings.viewpoint,
+        handedness: settings.handedness,
       });
       selectShot({ ...shot, jobId: res.jobId, status: res.status ?? "queued" });
       setSelectedSession(null);

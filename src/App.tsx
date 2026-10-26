@@ -1666,7 +1666,7 @@ function MainApp() {
 
             <div className="order-first min-w-0 xl:order-none xl:sticky xl:top-4">
               <AnalysisPlayer
-                jobId={selectedSession ? undefined : analysisTarget?.jobId ?? analysisTarget?.id}
+                jobId={analysisTarget?.jobId ?? (selectedSession ? undefined : analysisTarget?.id)}
                 videoUrl={selectedVideoUrl}
                 events={analysis?.events}
                 overlay={analysis?.overlay}
@@ -1919,7 +1919,7 @@ function MainApp() {
               </Button>
             </div>
             <AnalysisPlayer
-              jobId={selectedSession ? undefined : analysisTarget?.jobId ?? analysisTarget?.id}
+              jobId={analysisTarget?.jobId ?? (selectedSession ? undefined : analysisTarget?.id)}
               videoUrl={selectedVideoUrl}
               events={analysis?.events}
               overlay={analysis?.overlay}

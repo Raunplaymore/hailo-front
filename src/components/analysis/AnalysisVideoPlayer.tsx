@@ -39,6 +39,10 @@ export function AnalysisVideoPlayer({
   onLoadedMetadata,
 }: AnalysisVideoPlayerProps) {
   const playerRef = useRef<HTMLDivElement | null>(null);
+  const dragging = useRef(false);
+  const pendingSeek = useRef<number | null>(null);
+  const [scrubTime, setScrubTime] = useState<number | null>(null);
+  const [buffering, setBuffering] = useState(false);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -48,6 +52,7 @@ export function AnalysisVideoPlayer({
 
   useEffect(() => {
     setDuration(0);
+    setScrubTime(null); pendingSeek.current = null; dragging.current = false;
     setIsPlaying(false);
     setIsReady(false);
     setHasError(false);
@@ -111,7 +116,7 @@ export function AnalysisVideoPlayer({
     setIsImmersive(true);
   };
 
-  const currentSeconds = Math.min(duration || Number.POSITIVE_INFINITY, Math.max(0, currentTimeMs / 1000));
+  const currentSeconds = Math.min(duration || Number.POSITIVE_INFINITY, Math.max(0, scrubTime ?? currentTimeMs / 1000));
   const controlsDisabled = disabled || hasError || !isReady;
 
   return (
@@ -121,11 +126,11 @@ export function AnalysisVideoPlayer({
           ref={videoRef}
           key={src}
           className={cn(
-            "block w-full max-h-[46vh] cursor-pointer object-contain transition md:max-h-[50vh] xl:max-h-[52vh] fullscreen:h-full fullscreen:max-h-none",
+            "block w-full max-h-[32vh] cursor-pointer object-contain transition md:max-h-[50vh] xl:max-h-[52vh] fullscreen:h-full fullscreen:max-h-none",
             disabled ? "pointer-events-none opacity-0" : "opacity-100",
           )}
           playsInline
-          preload="metadata"
+          preload="auto"
           disablePictureInPicture
           controlsList="nodownload noplaybackrate noremoteplayback"
           src={src}
@@ -137,6 +142,11 @@ export function AnalysisVideoPlayer({
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
           onEnded={() => setIsPlaying(false)}
+          onWaiting={() => setBuffering(true)}
+          onSeeking={() => setBuffering(true)}
+          onSeeked={() => setBuffering(false)}
+          onCanPlay={() => setBuffering(false)}
+          onPlaying={() => setBuffering(false)}
           onTimeUpdate={(event) => onTimeChange(event.currentTarget.currentTime * 1000)}
           onLoadedMetadata={(event) => {
             const video = event.currentTarget;
@@ -158,14 +168,15 @@ export function AnalysisVideoPlayer({
 
         {children}
 
-        {!isReady && !hasError && !disabled ? (
+        {(!isReady || buffering) && !hasError && !disabled ? (
           <span className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white/80 backdrop-blur">
-            영상 준비 중
+            {isReady ? "장면 불러오는 중…" : "영상 준비 중"}
           </span>
         ) : null}
         {hasError ? (
           <div className="absolute inset-x-3 bottom-3 rounded-lg border border-red-300/30 bg-black/80 px-3 py-2 text-sm text-red-100 backdrop-blur">
-            영상을 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.
+            <p>영상을 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.</p>
+            <button type="button" className="mt-2 min-h-12 rounded-lg border border-white/30 px-3 text-sm text-white" onClick={() => { setHasError(false); setIsReady(false); setBuffering(false); videoRef.current?.load(); }}>영상 다시 불러오기</button>
           </div>
         ) : null}
       </div>
@@ -202,7 +213,18 @@ export function AnalysisVideoPlayer({
             step={0.01}
             value={duration ? currentSeconds : 0}
             disabled={controlsDisabled || duration <= 0}
-            onChange={(event) => handleSeek(Number(event.currentTarget.value))}
+            onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); videoRef.current?.pause(); dragging.current = true; }}
+            onPointerUp={() => {
+              dragging.current = false;
+              if (pendingSeek.current !== null) handleSeek(pendingSeek.current);
+              pendingSeek.current = null; setScrubTime(null);
+            }}
+            onPointerCancel={() => { dragging.current = false; pendingSeek.current = null; setScrubTime(null); }}
+            onChange={(event) => {
+              const next = Number(event.currentTarget.value);
+              if (dragging.current) { pendingSeek.current = next; setScrubTime(next); }
+              else handleSeek(next);
+            }}
             aria-label="영상 재생 위치"
             className="h-11 w-full cursor-pointer bg-transparent accent-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
           />

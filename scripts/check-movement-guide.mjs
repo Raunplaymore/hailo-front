@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const dir=await mkdtemp(join(tmpdir(),'movement-guide-'));
+try {
+ const outfile=join(dir,'guide.cjs');
+ await build({stdin:{contents:`export * from './src/api/movementGuide'; import {createElement} from 'react'; import {renderToStaticMarkup} from 'react-dom/server'; import {MovementGuideControls,MovementGuideOverlay} from './src/components/analysis/MovementGuide'; export const render=p=>renderToStaticMarkup(createElement(MovementGuideControls,p)); export const overlay=p=>renderToStaticMarkup(createElement(MovementGuideOverlay,p));`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,platform:'node',format:'cjs',outfile,define:{'process.env.NODE_ENV':'"production"'},logLevel:'silent'});
+ const {parseMovementGuide,guidePointAt,guideSegments,render,overlay}=await import(outfile);
+ const points=Array.from({length:25},(_,i)=>({timeMs:100+i*40,x:.4+i*.002,y:.4}));
+ const track={baseline:points[0],points,focusTimeMs:900,phase:'before'};
+ const g={version:'movement-guide-v1',status:'ready',width:1080,height:1920,impactMs:1000,tracks:{pelvis:track}};
+ assert.equal(parseMovementGuide(g),g);
+ for(const patch of [{version:'bad'},{width:NaN},{height:0},{impactMs:Infinity},{tracks:{}},{tracks:{pelvis:{...track,focusTimeMs:5000}}},{tracks:{pelvis:{...track,phase:'after'}}},{tracks:{pelvis:{...track,points:[...points,points[0]]}}}]) assert.equal(parseMovementGuide({...g,...patch}),null);
+ assert.equal(guidePointAt(track,1200),null,'do not carry stale pose into missing frames');
+ assert.equal(guidePointAt(track,901).timeMs,900);
+ const gap={...track,points:[points[0],points[1],points[15],points[16]]};
+ assert.equal(guideSegments(gap,740).length,1,'never draw across a missing interval');
+ const props={guide:g,active:'pelvis',timeMs:900,onActive(){},onSeek(){}};
+ assert.match(render({...props,playable:false}), /disabled=""/);
+ const html=render(props);assert.match(html,/골반 보기/);assert.match(html,/엉덩이 윤곽선이나 실제 회전 깊이는 아닙니다/);assert.match(html,/임팩트 전/);assert.match(html,/임팩트 후/);
+ assert.match(render({...props,guide:{version:g.version,status:'unavailable'}}),/기준선이 없습니다/);
+ assert.match(render({...props,timeMs:1400}),/현재 장면은 추적이 없어/);
+ assert.match(overlay({guide:g,kind:'pelvis',timeMs:900}),/<ellipse/);
+ assert.doesNotMatch(overlay({guide:g,kind:'pelvis',timeMs:1400}),/<ellipse/);
+ assert.doesNotMatch(html,/진단 완료|교정 성공|점수/);
+ console.log('movement guide contract, gap hiding, phase controls and overlay checks passed');
+} finally {await rm(dir,{recursive:true,force:true});}

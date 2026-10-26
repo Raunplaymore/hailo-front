@@ -15,7 +15,12 @@
     "coach:check-runtime-verification": "node scripts/check-coach-runtime-verification.mjs",
     "preview": "vite preview",
     "start": "node server.js",
-    "check:impact-review": "node scripts/check-impact-review.mjs"
+    "check:impact-review": "node scripts/check-impact-review.mjs",
+    "check:upload": "node scripts/check-upload.mjs",
+    "check:list-performance": "node scripts/check-list-performance.mjs",
+    "check:practice-coach": "node scripts/check-practice-coach.mjs",
+    "check:movement-guide": "node scripts/check-movement-guide.mjs",
+    "check:service-ux": "node scripts/check-service-ux.mjs"
   },
   "keywords": [],
   "author": "",

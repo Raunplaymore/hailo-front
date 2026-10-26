@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { MovementGuideControls, MovementGuideOverlay } from "./MovementGuide";
+import type { MovementGuide, GuideKind } from "@/api/movementGuide";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
@@ -13,6 +12,7 @@ import { withImpactCandidate } from "@/api/impactReview";
 import { useImpactReview } from "@/hooks/useImpactReview";
 import { API_BASE } from "@/api/client";
 import { ImpactReview } from "./ImpactReview";
+import { PracticeCoach } from "./PracticeCoach";
 import { AnalysisVideoPlayer } from "./AnalysisVideoPlayer";
 
 type AnalysisPlayerProps = {
@@ -26,11 +26,11 @@ type AnalysisPlayerProps = {
 };
 
 const EVENT_LABELS: Record<SwingEventKey, string> = {
-  address: "Address",
-  takeaway: "Takeaway",
-  top: "Top",
-  impact: "Impact",
-  finish: "Finish",
+  address: "준비",
+  takeaway: "백스윙",
+  top: "탑",
+  impact: "임팩트",
+  finish: "피니시",
 };
 
 const SKELETON_LINKS = [
@@ -54,12 +54,23 @@ const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
 
 export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPointsV2, isModalOpen, evidenceFocus }: AnalysisPlayerProps) {
+  const [originalQuality, setOriginalQuality] = useState(false);
+  const [tool, setTool] = useState<"impact" | "movement" | "comparison">("impact");
   const impactState = useImpactReview(jobId);
   const displayEvents = withImpactCandidate(events, impactState.review, Boolean(jobId));
   const candidateVideoHash = impactState.review?.videoSha256;
+  const reviewVideoUrl = jobId ? `${API_BASE}/api/analyze/${encodeURIComponent(jobId)}/review-video${originalQuality ? "?quality=original" : ""}` : videoUrl;
+  const [movement, setMovement] = useState<{key:string; guide:MovementGuide|null}>({key:"",guide:null});
+  const [guideKind, setGuideKind] = useState<GuideKind | null>(null);
+  const guideKey = `${jobId}:${candidateVideoHash ?? "pending"}`;
+  const onGuide = useCallback((guide: MovementGuide | null) => setMovement({key:guideKey,guide}),[guideKey]);
+  const movementGuide = movement.key === guideKey ? movement.guide : null;
+  useEffect(() => { setGuideKind(null); }, [guideKey]);
+  useEffect(() => { setTool("impact"); setOriginalQuality(false); }, [jobId, videoUrl]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
+  const [videoPlayable, setVideoPlayable] = useState(false);
   const [layers, setLayers] = useState({ pose: true, hands: true, club: true, events: true });
   const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(null);
   const activePose = useMemo(() => nearestAt(overlay?.poseFrames ?? [], timeMs), [overlay, timeMs]);
@@ -67,6 +78,26 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const visibleClub = useMemo(() => (overlay?.clubFrames ?? []).filter((frame) => (
     frame.timeMs <= timeMs && frame.timeMs >= timeMs - CLUB_TRAIL_DURATION_MS
   )), [overlay, timeMs]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const sync = () => setVideoPlayable(Boolean(video && !video.error && !video.seeking && video.readyState >= 2));
+    setVideoPlayable(false);
+    if (!video) return;
+    const events = ["loadeddata", "canplay", "seeking", "seeked", "error", "emptied"];
+    events.forEach((name) => video.addEventListener(name, sync));
+    sync();
+    return () => events.forEach((name) => video.removeEventListener(name, sync));
+  }, [reviewVideoUrl]);
+
+  const captureCurrentFrame = () => {
+    const video = videoRef.current;
+    if (!video || video.error || video.seeking || video.readyState < 2) return null;
+    video.pause();
+    const selected = video.currentTime * 1000;
+    setTimeMs(selected);
+    return selected;
+  };
 
   const syncOverlayBounds = () => {
     const video = videoRef.current;
@@ -111,6 +142,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     const video = videoRef.current;
     if (!video || !Number.isFinite(nextMs) || nextMs < 0) return;
     video.pause();
+    videoFrameRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     const apply = () => {
       // Seek inside the frame so rounded PTS does not display the preceding frame.
       video.currentTime = Math.min((nextMs + 0.1) / 1000, video.duration || nextMs / 1000);
@@ -132,25 +164,13 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     if (target != null) seekTime(target);
   }, [evidenceFocus?.requestId]);
 
-  useEffect(() => {
-    if (impactState.review) seekTime(impactState.review.candidate.timeMs);
-  }, [jobId, impactState.review]);
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="p-4 pb-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-lg">분석 영상</CardTitle>
-            <CardDescription className="text-xs">DTL 단일 카메라 기준</CardDescription>
-          </div>
-          <span className="shrink-0 text-xs text-muted-foreground">DTL 기준</span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-2 p-4 pt-0">
+    <Card className="min-w-0 border-0 bg-transparent shadow-none">
+      <CardContent className="space-y-4 p-0">
         {videoUrl ? (
           <AnalysisVideoPlayer
-            src={jobId ? `${API_BASE}/api/analyze/${encodeURIComponent(jobId)}/review-video${candidateVideoHash ? `?v=${candidateVideoHash}` : ""}` : videoUrl}
+            src={reviewVideoUrl!}
             videoRef={videoRef}
             mediaRef={videoFrameRef}
             currentTimeMs={timeMs}
@@ -160,44 +180,49 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           >
             {overlay && overlayBounds ? (
               <div className="pointer-events-none absolute" style={overlayBounds}>
-                <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={displayEvents} timeMs={timeMs} layers={layers} />
+                {!(guideKind && movementGuide?.tracks?.[guideKind]) && <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={displayEvents} timeMs={timeMs} layers={layers} />}
               </div>
             ) : null}
-            {overlay ? (
-              <details className="absolute right-2 top-2 z-10">
-                <summary className="cursor-pointer list-none rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs font-semibold text-white backdrop-blur [&::-webkit-details-marker]:hidden">레이어</summary>
-                <div className="mt-1 grid gap-1 rounded-lg border border-white/15 bg-black/80 p-1.5 backdrop-blur">
-                  {([['pose', '자세'], ['hands', '손'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => (
-                    <button key={key} type="button" aria-pressed={layers[key]} onClick={() => setLayers((current) => ({ ...current, [key]: !current[key] }))}
-                      className={cn("min-h-9 rounded-md px-2 text-left text-xs font-semibold", layers[key] ? "bg-primary text-primary-foreground" : "text-white/75")}>{label}</button>
-                  ))}
-                </div>
-              </details>
-            ) : null}
+            {movementGuide?.status === "ready" && guideKind && videoPlayable && overlayBounds ? <div className="pointer-events-none absolute" style={overlayBounds}><MovementGuideOverlay guide={movementGuide} kind={guideKind} timeMs={timeMs} /></div> : null}
+            <details className="absolute right-2 top-2 z-10">
+              <summary className="cursor-pointer list-none rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs font-semibold text-white [&::-webkit-details-marker]:hidden">영상 옵션</summary>
+              <div className="mt-1 grid max-h-[25vh] gap-1 overflow-y-auto rounded-lg border border-white/15 bg-black/95 p-1.5">
+                <button type="button" aria-pressed={originalQuality} onClick={() => setOriginalQuality(value => !value)} className="min-h-12 rounded-md px-3 text-left text-xs text-white">{originalQuality ? "빠른 재생으로 전환" : "원본 화질로 전환"}</button>
+                {overlay && ([['pose', '자세'], ['hands', '손'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={layers[key]} onClick={() => { setGuideKind(null); setLayers(current => ({ ...current, [key]: !current[key] })); }} className={cn("min-h-12 rounded-md px-3 text-left text-xs font-semibold", layers[key] ? "bg-primary text-primary-foreground" : "text-white/75")}>{label}</button>)}
+              </div>
+            </details>
           </AnalysisVideoPlayer>
         ) : (
           <div className="rounded-xl border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground">
-            선택된 영상이 없습니다. 업로드 후 분석 탭에서 확인하세요.
+            확인할 영상이 없습니다. 기록에서 영상을 선택해 주세요.
           </div>
         )}
 
-        {overlay ? (
+        {guideKind ? <p className="text-xs text-muted-foreground">점선: 시작 기준 · 실선과 점: 현재 추적 위치</p> : overlay ? (
           <p className="flex items-center gap-3 text-xs text-muted-foreground" aria-label="자세 관절 색상 안내: 왼쪽은 파랑, 오른쪽은 주황">
             <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-blue-400" aria-hidden="true" />왼쪽 관절</span>
             <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400" aria-hidden="true" />오른쪽 관절</span>
           </p>
         ) : null}
 
-        {jobId && videoUrl && !isModalOpen ? <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} /> : null}
+        {jobId && videoUrl && !isModalOpen && <>
+          <div className="grid grid-cols-3 rounded-xl bg-muted p-1" role="group" aria-label="영상 확인 도구">
+            {([["impact", "임팩트"], ["movement", "머리·골반"], ["comparison", "자세 비교"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); if (key !== "movement") setGuideKind(null); }} className={cn("min-h-12 rounded-lg px-2 text-sm font-semibold", tool === key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}
+          </div>
+          {tool === "movement" && <MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} />}
+          <div hidden={tool !== "comparison"}>
+            <PracticeCoach key={`practice:${jobId}:${candidateVideoHash ?? "pending"}`} jobId={jobId} videoSha256={candidateVideoHash} timeMs={timeMs} playable={videoPlayable} onCapture={captureCurrentFrame} onSeek={seekTime} onGuide={onGuide} candidatePending={impactState.loading} suggestedAddressMs={Math.max(100, events?.address?.timeMs ?? 200)} suggestedComparisonMs={impactState.review ? impactState.review.candidate.timeMs - 80 : undefined} />
+          </div>
+          {tool === "impact" && <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} />}
+        </>}
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인 · {jobId ? "Impact는 새 모델 후보" : "기존 연구 결과"}</p>
-          <div className="grid min-w-0 grid-cols-2 gap-2">
+          <p className="text-xs font-semibold text-muted-foreground">스윙 장면 · {jobId ? "임팩트는 추정 후보, 나머지는 연구 참고" : "연구 참고"}</p>
+          <div className="grid min-w-0 grid-cols-5 gap-1">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
               const event = displayEvents?.[key];
-              const disabled = !event;
+              const disabled = !event || !videoPlayable;
               const isReference = event?.quality === "reference";
-              const v2Takeaway = key === "takeaway" ? dtlClubPointsV2?.takeaway : null;
               return (
                 <button
                   key={key}
@@ -205,7 +230,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
                   onClick={() => handleSeek(key)}
                   disabled={disabled}
                   className={cn(
-                    "min-h-16 min-w-0 w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold transition",
+                    "min-h-16 min-w-0 w-full rounded-lg border px-1 py-2 text-center text-xs font-semibold transition",
                     disabled
                       ? "cursor-not-allowed border-border bg-muted/60 text-muted-foreground"
                       : isReference
@@ -213,15 +238,10 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
                         : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"
                   )}
                 >
-                  <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}{key === "impact" && jobId ? " · 새 모델 후보" : ""}</span>
-                  <span className="text-sm">
-                    {event ? `${Math.round(event.timeMs)} ms${isReference ? " · 참고" : ""}` : key === "impact" && jobId ? (impactState.loading ? "계산 중" : "판정 보류") : "-"}
+                  <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}</span>
+                  <span className="text-[11px]">
+                    {event ? `${(event.timeMs / 1000).toFixed(2)}초` : key === "impact" && jobId ? (impactState.loading ? "계산 중" : "판정 보류") : "-"}
                   </span>
-                  {v2Takeaway?.timeMs != null ? (
-                    <span className="mt-0.5 block text-[11px] font-medium text-cyan-100/80">
-                      V2 club {Math.round(v2Takeaway.timeMs)} ms · {v2Takeaway.status === "confirmed" ? "확정" : "참고"}
-                    </span>
-                  ) : null}
                 </button>
               );
             })}
@@ -232,7 +252,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           <summary className="min-h-11 cursor-pointer">기존 임팩트 기록 · 연구용</summary>
           <p>{Math.round(events.impact.timeMs)} ms · 현재 Impact 선택에 사용하지 않습니다.</p>
         </details> : null}
-        <ClubTrackingEvidence sidecar={dtlClubPointsV2} />
+        {dtlClubPointsV2 && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={dtlClubPointsV2} /></details>}
       </CardContent>
     </Card>
   );

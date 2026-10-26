@@ -93,9 +93,9 @@ export function CameraPreview({
                 )}
               </span>
               <div>
-                <p className="text-sm font-semibold text-foreground">Live Preview</p>
+                <p className="text-sm font-semibold text-foreground">카메라 미리보기</p>
                 <p className="text-xs text-muted-foreground">
-                  {width} x {height} · 15fps · AI overlay ready
+                  {width} x {height} · 15fps
                 </p>
               </div>
             </div>
@@ -155,7 +155,7 @@ export function CameraPreview({
                 <Camera className="size-7" aria-hidden="true" />
               </div>
               <div>
-                <p className="text-base font-semibold text-foreground">프리뷰 대기</p>
+                <p className="text-base font-semibold text-foreground">미리보기를 켜서 구도를 확인하세요</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   현재 설정: {width} x {height} · 15fps
                 </p>
@@ -168,7 +168,7 @@ export function CameraPreview({
                 disabled={startDisabled}
                 className="min-w-40"
               >
-                프리뷰 시작
+                미리보기 켜기
               </Button>
             </div>
           )}

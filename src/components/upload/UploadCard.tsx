@@ -1,120 +1,41 @@
 import { ChangeEvent, useRef } from "react";
-
+import { Check, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
-
+import type { UploadStatus } from "../../hooks/useUpload";
 import { UploadSettings } from "../settings/SettingsForm";
 
 type UploadCardProps = {
-  isUploading: boolean;
+  status: UploadStatus;
   message: string;
   activeFilename?: string;
   settings?: UploadSettings;
   onUpload: (file: File) => void | Promise<void>;
 };
-
-export function UploadCard({ isUploading, message, activeFilename, onUpload }: UploadCardProps) {
+export function UploadCard({ status, message, activeFilename, settings, onUpload }: UploadCardProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    void onUpload(file);
-    e.target.value = "";
+  const busy = status === "uploading";
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file) void onUpload(file);
   };
-
-  return (
-    <>
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle className="text-lg">스윙 업로드 & 분석</CardTitle>
-          <CardDescription className="break-words">
-            스윙 영상을 선택해 업로드하면 자동으로 분석이 시작됩니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div
-            className={cn(
-              "rounded-xl border px-4 py-3 transition",
-              isUploading
-                ? "border-emerald-300/50 bg-emerald-500/10 text-emerald-50"
-                : "border-border bg-muted/40 text-foreground"
-            )}
-            aria-live="polite"
-          >
-            <div className="flex items-center gap-3">
-              {isUploading ? <Spinner className="size-5" /> : <div className="size-5 rounded-full border border-border bg-background" />}
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">
-                  {isUploading ? "업로드 중" : "업로드 대기"}
-                </p>
-                <p className="truncate text-xs opacity-80">
-                  {activeFilename || "선택한 파일이 여기에 표시됩니다."}
-                </p>
-              </div>
-            </div>
-          </div>
-          <label
-            className={cn(
-              "flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-dashed border-border bg-muted/50 p-4 transition",
-              "hover:border-primary/50 hover:bg-primary/10",
-              isUploading && "pointer-events-none opacity-60"
-            )}
-          >
-            <span className="text-sm text-foreground">영상 파일을 선택하세요</span>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".mp4,.mov,video/mp4,video/quicktime"
-              onChange={handleChange}
-              disabled={isUploading}
-              className="w-full text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border file:border-border file:bg-background file:px-3 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted"
-            />
-          </label>
-
-          <div className="grid gap-1">
-            <span className="text-sm text-foreground">설정</span>
-            <p className="text-sm text-muted-foreground">
-              세부 옵션은 상단의 <strong>설정</strong> 탭에서 변경할 수 있습니다.
-            </p>
-          </div>
-        </CardContent>
-        <CardFooter className="border-t border-border/80 bg-muted/40 px-5 py-4">
-          <Button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={isUploading}
-            fullWidth
-          >
-            <span className="inline-flex items-center gap-2">
-              {isUploading && <Spinner className="size-4" />}
-              {isUploading ? "업로드 중..." : "업로드"}
-            </span>
-          </Button>
-        </CardFooter>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">업로드 상태</CardTitle>
-          <CardDescription className="break-words">
-            서버 응답 및 Job 상태를 표시합니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="min-h-[48px] break-words rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">
-            {message || "메시지가 여기에 표시됩니다."}
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
+  return <section aria-labelledby="upload-title" className="mx-auto max-w-xl space-y-5">
+    <div><h1 id="upload-title" className="text-2xl font-semibold">스윙 업로드</h1><p className="mt-2 text-sm text-muted-foreground">영상을 선택하면 분석이 시작됩니다.</p></div>
+    <Card><CardContent className="space-y-6 px-5 pb-6 pt-8 sm:px-8">
+      <div className="space-y-3 text-center"><span className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary"><Upload className="size-6" aria-hidden="true" /></span><h2 className="text-lg font-semibold">내 스윙을 확인해 보세요</h2><p className="text-sm leading-6 text-muted-foreground">준비 자세부터 피니시까지 담긴 영상<br />MP4 또는 MOV</p></div>
+      <input ref={inputRef} type="file" aria-label="스윙 영상 파일" accept=".mp4,.mov,video/mp4,video/quicktime" onChange={handleChange} disabled={busy} className="hidden" aria-hidden="true" tabIndex={-1} />
+      <Button type="button" size="lg" onClick={() => inputRef.current?.click()} disabled={busy}>
+        {busy ? <><Spinner className="mr-2 size-4" />업로드 중...</> : status === "failed" ? "다시 선택해 업로드" : "영상 선택 및 업로드"}
+      </Button>
+      {status !== "idle" && <div role={status === "failed" ? "alert" : "status"} className="space-y-1 rounded-xl bg-muted p-4 text-sm">
+        <p className="flex items-center gap-2 font-semibold">{status === "succeeded" && <Check className="size-4 text-primary" aria-hidden="true" />}{busy ? "업로드 중" : status === "failed" ? "업로드 실패" : "업로드 완료 · 분석 화면으로 이동합니다"}</p>
+        {activeFilename && <p className="break-all text-xs text-muted-foreground">{activeFilename}</p>}
+        {message && <p className={status === "failed" ? "text-red-300" : "text-muted-foreground"}>{message}</p>}
+      </div>}
+      <p className="border-t border-border pt-4 text-xs leading-6 text-muted-foreground">촬영 방향: {settings?.viewpoint === "face_on" ? "정면" : "후방 (DTL)"} · {settings?.handedness === "left" ? "왼손" : "오른손"}<br />촬영 조건과 클럽은 상단 설정에서 변경할 수 있습니다.</p>
+    </CardContent></Card>
+    <p className="px-1 text-xs leading-6 text-muted-foreground">임팩트 후보와 자세 움직임을 영상에서 확인합니다. 고정된 카메라로 전신과 클럽이 보이게 촬영해 주세요.</p>
+  </section>;
 }

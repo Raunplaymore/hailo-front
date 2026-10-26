@@ -2,6 +2,8 @@ import { useState } from "react";
 import { createAnalysisJob } from "../api/shots";
 import { Shot } from "../types/shots";
 
+export type UploadStatus = "idle" | "uploading" | "succeeded" | "failed";
+
 type UseUploadOptions = {
   onSuccess?: (shot?: Shot) => void;
 };
@@ -22,7 +24,7 @@ const isSupportedVideoFile = (file: File): boolean => {
 };
 
 export function useUpload(hookOptions?: UseUploadOptions) {
-  const [isUploading, setIsUploading] = useState(false);
+  const [status, setStatus] = useState<UploadStatus>("idle");
   const [message, setMessage] = useState<string>("");
   const [activeFilename, setActiveFilename] = useState<string>("");
 
@@ -44,30 +46,31 @@ export function useUpload(hookOptions?: UseUploadOptions) {
       metaPath?: string | null;
     }
   ): Promise<Shot | undefined> => {
+    setActiveFilename(file.name);
     if (!isSupportedVideoFile(file)) {
+      setStatus("failed");
       setMessage("지원하지 않는 영상 형식입니다. MP4 또는 iPhone MOV 파일을 선택하세요.");
       return undefined;
     }
 
-    setIsUploading(true);
-    setActiveFilename(file.name);
+    setStatus("uploading");
     setMessage(`${file.name} 업로드 중...`);
     try {
       const shot = await createAnalysisJob(file, sourceType, uploadOptions);
       setMessage(
         `업로드 완료. 분석 Job ${shot.jobId ?? shot.id}이 ${shot.status ?? "대기"} 상태입니다.`
       );
+      setStatus("succeeded");
       hookOptions?.onSuccess?.(shot);
       return shot;
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : "업로드 실패. 다시 시도하세요.";
+      setStatus("failed");
       setMessage(`업로드 실패: ${message}`);
       return undefined;
-    } finally {
-      setIsUploading(false);
     }
   };
 
-  return { isUploading, message, activeFilename, start, setMessage };
+  return { status, isUploading: status === "uploading", message, activeFilename, start, setMessage };
 }

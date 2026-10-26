@@ -64,7 +64,7 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
         }
 
         if (nextStatus === "succeeded") {
-          const result = await fetchAnalysisResult(jobId);
+          const result = statusAnalysis ?? await fetchAnalysisResult(jobId);
           if (cancelled) return;
           setAnalysis(result);
           setIsLoading(false);

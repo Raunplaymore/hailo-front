@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn, formatMediaTitle } from "@/lib/utils";
-import { Eye, Trash2 } from "lucide-react";
+import { formatMediaTitle } from "@/lib/utils";
+import { Trash2 } from "lucide-react";
 import { SessionRecord, SessionStatus } from "@/types/session";
 
 type SessionListProps = {
@@ -32,14 +31,6 @@ const STATUS_LABELS: Record<SessionStatus, string> = {
   failed: "분석 실패",
 };
 
-const STATUS_STYLES: Record<SessionStatus, string> = {
-  recording: "bg-amber-400/10 text-amber-100 border border-amber-300/30",
-  recorded: "bg-muted/60 text-muted-foreground border border-border",
-  analyzing: "bg-sky-400/10 text-sky-100 border border-sky-300/30",
-  done: "bg-emerald-400/10 text-emerald-100 border border-emerald-300/30",
-  failed: "bg-red-400/10 text-red-100 border border-red-300/30",
-};
-
 export function SessionList({
   sessions,
   isLoading,
@@ -52,13 +43,10 @@ export function SessionList({
   emptyMessage = "아직 촬영된 세션이 없습니다.",
 }: SessionListProps) {
   return (
-    <Card className="min-w-0 max-w-full">
-      <CardHeader className="flex-col items-stretch gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="min-w-0 max-w-full border-0 bg-transparent shadow-none">
+      <CardHeader className="flex-row items-center justify-between gap-3 px-0 pb-2 pt-0">
         <div className="min-w-0">
-          <CardTitle className="text-lg">{title}</CardTitle>
-          <CardDescription className="break-words">
-            카메라에서 기록한 스윙 세션 목록입니다.
-          </CardDescription>
+          <CardTitle className="text-sm text-muted-foreground">{title} · {sessions.length}개</CardTitle>
         </div>
         <Button
           type="button"
@@ -72,11 +60,11 @@ export function SessionList({
           {isLoading ? "새로고침 중..." : "새로고침"}
         </Button>
       </CardHeader>
-      <CardContent className="min-w-0">
-        {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
+      <CardContent className="min-w-0 px-0">
+        {error && <p role="alert" className="mb-2 text-sm text-red-300">{error}</p>}
         {sessions.length === 0 ? (
           <div className="rounded-xl border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-            {emptyMessage}
+            {isLoading ? "촬영 기록을 불러오는 중…" : error ? "연결을 확인하고 새로고침해 주세요." : emptyMessage}
           </div>
         ) : (
           <ul className="m-0 grid min-w-0 list-none gap-3 p-0">
@@ -86,36 +74,20 @@ export function SessionList({
               return (
                 <li
                   key={session.id}
-                  className="flex w-full min-w-0 max-w-full flex-col gap-3 break-words rounded-xl border border-border bg-card p-3 text-sm"
+                  className="flex w-full min-w-0 flex-col gap-3 border-b border-border py-4 text-sm last:border-0"
                 >
                   <div className="min-w-0 space-y-1">
-                    <span className="block w-full max-w-full break-words text-sm font-semibold leading-5 [overflow-wrap:anywhere]" style={TITLE_CLAMP_STYLE}>
+                    <button type="button" disabled={session.status === "recording"} onClick={() => onSelect(session)} className="block min-h-12 w-full max-w-full break-words text-left text-sm font-semibold leading-5 [overflow-wrap:anywhere]" style={TITLE_CLAMP_STYLE}>
                       {displayTitle}
-                    </span>
+                    </button>
                   <span className="block break-words text-xs text-muted-foreground">
                     {STATUS_LABELS[session.status]} ·{" "}
                     {new Date(session.createdAt).toLocaleString()}
                   </span>
-                  <span
-                    className={cn(
-                      "inline-flex w-fit items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold",
-                      STATUS_STYLES[session.status]
-                    )}
-                  >
-                    {session.status === "analyzing" && (
-                      <span className="h-2 w-2 animate-pulse rounded-full bg-sky-300" />
-                    )}
-                    {STATUS_LABELS[session.status]}
-                  </span>
                   {session.status === "failed" && session.errorMessage && (
-                    <p className="break-words text-xs text-destructive">
+                    <p className="break-words text-xs text-red-300">
                       {session.errorMessage}
                     </p>
-                  )}
-                  {session.analysisJobId && (
-                    <span className="block break-all text-xs text-muted-foreground">
-                      Job ID: {session.analysisJobId}
-                    </span>
                   )}
                 </div>
                 <div className="mt-1 flex flex-wrap justify-end gap-2 border-t border-border/70 pt-3">
@@ -128,21 +100,17 @@ export function SessionList({
                     disabled={session.status === "recording"}
                     className="gap-2"
                   >
-                    <Eye className="h-4 w-4" />
-                    결과 보기
+                    {session.status === "analyzing" ? "진행 상황 보기" : "스윙 확인"}
                   </Button>
-                  <Button
-                    type="button"
-                    onClick={() => onDelete(session)}
-                    variant="destructive"
-                    size="icon"
-                    fullWidth={false}
-                    disabled={session.status === "recording" || deletingId === session.id}
-                    aria-label={deletingId === session.id ? "삭제 중" : "삭제"}
-                    title={deletingId === session.id ? "삭제 중" : "삭제"}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <details className="w-full rounded-lg bg-muted/30 px-3"><summary className="text-xs text-muted-foreground">촬영 기록 관리</summary><div className="space-y-2 pb-3">
+                  {session.analysisJobId && (
+                    <span className="block break-all text-xs text-muted-foreground">
+                      Job ID: {session.analysisJobId}
+                    </span>
+                  )}
+                    <Button type="button" onClick={() => onDelete(session)} variant="ghost" size="sm" fullWidth={false}
+                      disabled={session.status === "recording" || deletingId === session.id} className="text-red-300"><Trash2 className="mr-2 size-4" aria-hidden="true" />{deletingId === session.id ? "삭제 중" : "촬영 기록 삭제"}</Button>
+                  </div></details>
                 </div>
               </li>
               );

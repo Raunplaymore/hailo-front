@@ -30,6 +30,8 @@ try {
   assert.doesNotMatch(loading,/후보 찾기|checked=/);
   const ready=render({...base,review:valid,loading:false});
   assert.match(ready,/0.067/); assert.match(ready,/후보로 이동/);
+  const unavailableVideo=render({...base,review:valid,loading:false,playable:false});
+  assert.equal((unavailableVideo.match(/disabled=""/g)||[]).length,3,'all seek controls stay disabled without playable video');
   const failed=render({...base,review:null,loading:false,error:'입력 부족'});
   assert.match(failed,/판정 보류/);assert.match(failed,/다시 시도/);
   console.log('automatic impact response, selection and UI-state checks passed');

@@ -54,12 +54,12 @@ for (const className of ["group", "rounded-2xl", "border", "border-border", "bg-
     `Detailed metrics disclosure must retain the ${className} class.`
   );
 }
-assert.match(appSource, /compact\s*\n\s*\/>/, "Analysis progress should use compact mode on the analysis screen.");
+assert.match(appSource, /compact\s*\/>/, "Analysis progress should use compact mode on the analysis screen.");
 assert.doesNotMatch(appSource, /<CardTitle className="text-lg">코칭 요약<\/CardTitle>/, "Analysis summary must not render as a separate duplicate card.");
-assert.match(appSource, /xl:sticky xl:top-4/, "Analysis video should remain sticky on wide screens to reduce scrolling.");
-assert.match(appSource, /order-first/, "Analysis video should appear before long details on mobile layouts.");
-assert.match(appSource, /xl:order-none/, "Analysis video should return to its desktop order on wide screens.");
-assert.match(videoPlayerSource, /max-h-\[46vh\]/, "Analysis video must remain useful on a narrow portrait screen.");
+assert.ok(appSource.indexOf("<AnalysisPlayer") < appSource.indexOf("연구 기록 및 상세 수치"), "The video must precede research details in DOM order.");
+assert.match(appSource, /연구 기록 및 상세 수치<\/summary>/, "Research details stay collapsed by default.");
+assert.match(appSource, /max-w-3xl/, "Keep analysis content readable on wide screens.");
+assert.match(videoPlayerSource, /max-h-\[32vh\]/, "Analysis video must remain useful on a narrow portrait screen.");
 assert.match(videoPlayerSource, /md:max-h-\[50vh\]/, "Analysis video height must stay viewport-limited on medium layouts.");
 assert.match(videoPlayerSource, /xl:max-h-\[52vh\]/, "Analysis video height must stay viewport-limited on wide layouts.");
 assert.match(playerSource, /video\.videoWidth \/ video\.videoHeight/, "Overlay bounds must use the source video's intrinsic aspect ratio.");
@@ -74,7 +74,7 @@ assert.match(playerSource, /CLUB_TRAIL_MIN_CONFIDENCE = 0\.3/, "Club trajectory 
 assert.match(playerSource, /function smoothClubTrailPaths\(/, "Club trajectory must use a dedicated smoothing path builder.");
 assert.match(playerSource, /smoothClubTrailPaths\(clubFrames, "head"\)/, "Club-head trajectory must render as a smooth path.");
 assert.match(playerSource, /strokeLinejoin="round"/, "Club trajectory curve must have rounded joins.");
-assert.match(playerSource, /grid min-w-0 grid-cols-2 gap-2/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
+assert.match(playerSource, /grid min-w-0 grid-cols-5 gap-1/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
 assert.match(playerSource, /<AnalysisVideoPlayer/, "Analysis view must use the dedicated video player.");
 assert.doesNotMatch(videoPlayerSource, /\scontrols(?:\s|=|>)/, "Native video controls must not cover the analysis frame.");
 assert.match(videoPlayerSource, /aria-label=\{isPlaying \? "분석 영상 일시정지" : "분석 영상 재생"\}/, "Video surface must expose keyboard playback state.");
@@ -82,15 +82,15 @@ assert.match(videoPlayerSource, /aria-label="영상 재생 위치"/, "Custom pla
 assert.match(videoPlayerSource, /border-t border-white\/10 px-3 pb-2 pt-1/, "Seek control must occupy its own full-width row on mobile.");
 assert.match(videoPlayerSource, /className="h-11 w-full cursor-pointer/, "Seek control must use the complete available width.");
 assert.match(videoPlayerSource, /webkitEnterFullscreen/, "Custom player must retain an iOS fullscreen fallback.");
-assert.match(playerSource, /isReference \? " · 참고"/, "Reference-only events must be visibly labeled in the timeline.");
+assert.match(playerSource, /임팩트는 추정 후보, 나머지는 연구 참고/, "Timeline must distinguish the candidate from research reference events.");
 assert.match(keyMetricsSource, /validationStatus !== "usable"/, "Partial validation must keep event-dependent key metrics hidden.");
 assert.match(metricsTableSource, /analysis\.eventValidation\.status !== "usable"/, "Partial validation must keep event-dependent detail metrics hidden.");
 assert.doesNotMatch(sessionSource, /overflow-x-auto pb-1 whitespace-nowrap/, "Session progress must wrap instead of overflowing on mobile.");
-assert.match(sessionSource, /grid grid-cols-2 gap-2 sm:flex sm:flex-wrap/, "Session progress must use a two-column mobile layout.");
+assert.match(sessionSource, /grid grid-cols-6 gap-1/, "Session progress must keep its six stages in a compact row.");
 assert.match(connectionSource, /flex flex-wrap items-start justify-between gap-3/, "Connection header must wrap its status badge on narrow screens.");
 assert.match(connectionSource, /min-w-0 overflow-hidden rounded-xl border p-3/, "Connection tiles must constrain long status text.");
-assert.match(shotListSource, /block break-all text-xs text-muted-foreground/, "Upload Job IDs must wrap inside a narrow lookup card.");
+assert.match(shotListSource, /break-all text-xs text-muted-foreground/, "Upload Job IDs must wrap inside a narrow lookup card.");
 assert.match(shotListSource, /\[overflow-wrap:anywhere\]/, "Upload filenames must wrap before expanding the lookup dialog.");
-assert.match(sessionListSource, /block break-all text-xs text-muted-foreground/, "Session Job IDs must wrap inside a narrow lookup card.");
+assert.match(sessionListSource, /break-all text-xs text-muted-foreground/, "Session Job IDs must wrap inside a narrow lookup card.");
 
 console.log("coach summary UI check passed");

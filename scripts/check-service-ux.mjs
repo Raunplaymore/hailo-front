@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const dir=await mkdtemp(join(tmpdir(),'service-ux-'));
+try {
+ const outfile=join(dir,'ui.cjs');
+ await build({stdin:{contents:`import {renderToStaticMarkup} from 'react-dom/server';import {createElement} from 'react';import {Shell} from './src/components/layout/Shell';import {ShotList} from './src/components/shots/ShotList';import {SessionControls} from './src/components/camera/SessionControls';import {SettingsForm} from './src/components/settings/SettingsForm';export const render=(name,props)=>renderToStaticMarkup(createElement({Shell,ShotList,SessionControls,SettingsForm}[name],props));`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,platform:'node',format:'cjs',outfile,define:{'import.meta.env':'{}','process.env.NODE_ENV':'"production"'},logLevel:'silent'});
+ const {render}=await import(outfile);
+ const shell=render('Shell',{tabs:[{key:'camera',label:'촬영'},{key:'upload',label:'업로드'},{key:'list',label:'기록'}],active:'analysis',onChange(){},children:'영상'});
+ assert.equal((shell.match(/aria-current="page"/g)||[]).length,2,'analysis belongs to records in desktop and mobile navigation');
+ assert.match(shell,/본문으로 이동/);assert.doesNotMatch(shell,/Swing Capture Lab|DTL Single Camera Lab/);
+ const common={onRefresh(){},onSelect(){},onReview(){},onAnalyze(){},onDelete(){},onForceAnalyze(){},onRetake(){},onRetryArchive(){}};
+ const shot={id:'one',jobId:'job',filename:'swing.mov',createdAt:'2026-10-26T00:00:00Z',status:'succeeded',nasArchive:{state:'stored'}};
+ const done=render('ShotList',{...common,shots:[shot]});
+ assert.match(done,/스윙 확인/);assert.doesNotMatch(done,/임팩트 검수/);
+ assert.match(done,/<details[^>]*>[\s\S]*영상 관리[\s\S]*영상 삭제[\s\S]*<\/details>/,'management is disclosed, not a primary destructive action');
+ assert.doesNotMatch(done,/<video/,'history does not eagerly create video players');
+ const processing=render('ShotList',{...common,shots:[{...shot,status:'running'}]});assert.match(processing,/진행 상황 보기/);assert.doesNotMatch(processing,/>분석<\/button>/);
+ const failed=render('ShotList',{...common,shots:[{...shot,status:'failed',errorMessage:'서버 연결 실패'}]});assert.match(failed,/재시도/);assert.match(failed,/서버 연결 실패/);
+ const notSwing=render('ShotList',{...common,shots:[{...shot,status:'failed',errorCode:'NOT_SWING'}]});assert.match(notSwing,/강제 분석/);assert.match(notSwing,/다시 촬영/);
+ const noJob=render('ShotList',{...common,shots:[{...shot,jobId:undefined,status:'not-analyzed'}]});assert.match(noJob,/>분석<\/span>|>분석<\/button>/);
+ const empty=render('ShotList',{...common,shots:[],isLoading:true});assert.match(empty,/영상을 불러오는 중/);
+ const session={state:'done',onStart(){},onStop(){},onReset(){},onViewResult(){}};
+ const finished=render('SessionControls',session);assert.match(finished,/스윙 확인/);assert.match(finished,/다음 스윙 준비/);assert.doesNotMatch(finished,/촬영 시작<\/button>/);
+ const settings=render('SettingsForm',{value:{club:'iron'},onChange(){},onSubmit(){}});assert.match(settings,/<option value="iron" selected="">/);assert.match(settings,/<details[^>]*><summary[^>]*>고급 촬영 옵션/);assert.match(settings,/완료/);
+ console.log('service navigation, compact history, processing/error/retry, deferred video and capture-to-result checks passed');
+} finally {await rm(dir,{recursive:true,force:true});}

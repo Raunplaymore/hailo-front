@@ -17,14 +17,14 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline:
-          "border border-input bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
+          "border border-input bg-background text-foreground shadow-sm hover:bg-muted hover:text-foreground",
+        ghost: "hover:bg-muted hover:text-foreground",
       },
       size: {
-        default: "h-11 px-4 py-2",
-        sm: "h-10 rounded-lg px-3",
+        default: "h-12 px-4 py-2",
+        sm: "h-12 rounded-lg px-3",
         lg: "h-12 rounded-xl px-5",
-        icon: "h-10 w-10",
+        icon: "h-12 w-12",
       },
       fullWidth: {
         true: "w-full",

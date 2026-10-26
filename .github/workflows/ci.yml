@@ -37,6 +37,15 @@ jobs:
       - name: Check impact review contract
         run: npm run check:impact-review
 
+      - name: Check upload navigation
+        run: npm run check:upload
+
+      - name: Check list performance
+        run: npm run check:list-performance
+
+      - name: Check review interface
+        run: npm run check:service-ux && npm run check:practice-coach && npm run check:movement-guide
+
       - name: Build frontend
         run: npm run build
 

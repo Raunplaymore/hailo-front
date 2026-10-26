@@ -25,6 +25,7 @@ type SessionControlsProps = {
   onStart: () => void;
   onStop: () => void;
   onReset: () => void;
+  onViewResult?: () => void;
   onClubChange?: (club: string) => void;
 };
 
@@ -105,6 +106,7 @@ export function SessionControls({
   onStart,
   onStop,
   onReset,
+  onViewResult,
   onClubChange,
 }: SessionControlsProps) {
   const isRecording = state === "recording";
@@ -116,7 +118,7 @@ export function SessionControls({
     state === "stopping" ||
     state === "analyzing";
   const canStart = state === "idle" || state === "done" || state === "failed";
-  const showStart = !isRecording && !isBusy;
+  const showStart = !isRecording && !isBusy && !(state === "done" && onViewResult);
   const showStop =
     isRecording ||
     state === "starting" ||
@@ -139,11 +141,11 @@ export function SessionControls({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
-            AI inference session
+            자동 촬영
           </p>
-          <CardTitle className="mt-1 text-xl">원탭 스윙 세션</CardTitle>
+          <CardTitle className="mt-1 text-xl">스윙 촬영</CardTitle>
           <CardDescription className="mt-1">
-            어드레스 감지부터 분석 요청까지 한 번의 흐름으로 진행합니다.
+            준비 자세를 감지하면 촬영하고 분석합니다.
           </CardDescription>
         </div>
         <span
@@ -169,7 +171,7 @@ export function SessionControls({
           <p className="text-sm font-medium text-foreground">진행 상태</p>
           <span className="text-xs text-muted-foreground">{activeStep + 1} / {stepLabels.length}</span>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-6 gap-1">
           {stepLabels.map((label, index) => {
             const isActive = index === activeStep;
             const isComplete = index < activeStep;
@@ -178,7 +180,7 @@ export function SessionControls({
               <div
                 key={label}
                 className={cn(
-                  "min-w-0 min-h-9 rounded-full border px-2.5 py-1 text-center text-xs font-semibold leading-4 transition sm:min-w-20",
+                  "min-w-0 min-h-9 rounded-lg border px-1 py-1 text-center text-xs font-semibold leading-4 transition ",
                   isComplete && "border-emerald-300/30 bg-emerald-400/10 text-emerald-100",
                   isActive && !isFailed && "border-sky-300/30 bg-sky-400/10 text-sky-100",
                   isFailed && "border-red-300/30 bg-red-400/10 text-red-100",
@@ -243,6 +245,7 @@ export function SessionControls({
         </select>
       </label>
       <div className="grid gap-2 sm:grid-cols-2">
+        {state === "done" && onViewResult && <Button type="button" onClick={onViewResult}>스윙 확인</Button>}
         {showStop ? (
           <Button
             type="button"
@@ -251,7 +254,7 @@ export function SessionControls({
             onClick={onStop}
           >
             <Square className="size-4" aria-hidden="true" />
-            Stop Session
+            촬영 종료
           </Button>
         ) : showStart ? (
           <Button
@@ -261,7 +264,7 @@ export function SessionControls({
             disabled={startDisabled || isBusy}
           >
             <Play className="size-4" aria-hidden="true" />
-            Start Swing
+            촬영 시작
           </Button>
         ) : null}
         {canStart && (state === "done" || state === "failed") && (
@@ -272,7 +275,7 @@ export function SessionControls({
             onClick={onReset}
           >
             <RotateCcw className="size-4" aria-hidden="true" />
-            새 세션 준비
+            다음 스윙 준비
           </Button>
         )}
         {isBusy && (

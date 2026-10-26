@@ -63,7 +63,7 @@ type FilesDetailRes = {
   }>;
 };
 
-const isFallbackableUploadError = (error: unknown): boolean => {
+const isFallbackableApiError = (error: unknown): boolean => {
   if (!(error instanceof ApiError)) return false;
   if (error.status === 404 || error.status === 405) return true;
   if (typeof error.body !== "string") return false;
@@ -747,10 +747,12 @@ const mapToShot = (item: any): Shot => {
   } as Shot);
 };
 
-export const fetchShots = async (): Promise<Shot[]> => {
+export const fetchShots = async (jobIds?: string[]): Promise<Shot[]> => {
   // 1) /api/files/detail (확장 스펙)
   try {
-    const detail = await client.get<FilesDetailRes>("/api/files/detail");
+    const query = new URLSearchParams({ summary: "true" });
+    if (jobIds) query.set("jobIds", jobIds.join(","));
+    const detail = await client.get<FilesDetailRes>(`/api/files/detail?${query}`);
     if (detail && Array.isArray(detail.files)) {
       const sorted = sortByModifiedDesc(detail.files);
       return sorted
@@ -777,6 +779,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
         .sort((a, b) => toTime(b.modifiedAt ?? b.createdAt) - toTime(a.modifiedAt ?? a.createdAt));
     }
   } catch (err) {
+    if (jobIds || !isFallbackableApiError(err)) throw err;
     console.warn("fetchShots /api/files/detail failed, fallback to /api/files", err);
   }
 
@@ -795,6 +798,7 @@ export const fetchShots = async (): Promise<Shot[]> => {
       return mapped.sort((a, b) => toTime(b.modifiedAt ?? b.createdAt) - toTime(a.modifiedAt ?? a.createdAt));
     }
   } catch (err) {
+    if (!isFallbackableApiError(err)) throw err;
     console.warn("fetchShots /api/files failed, fallback to legacy", err);
   }
 
@@ -805,10 +809,10 @@ export const fetchShots = async (): Promise<Shot[]> => {
       return (data as any[]).map((entry) => mapToShot(entry));
     }
   } catch (err) {
-    console.error("fetchShots /api/shots failed", err);
+    throw err;
   }
 
-  return [];
+  throw new Error("영상 목록 응답을 확인할 수 없습니다.");
 };
 
 export const retryNasArchive = async (jobId: string): Promise<{ scheduled: boolean }> => {
@@ -876,7 +880,7 @@ export const createAnalysisJob = async (
   try {
     res = await send("/api/analyze");
   } catch (primaryError) {
-    if (!isFallbackableUploadError(primaryError)) {
+    if (!isFallbackableApiError(primaryError)) {
       throw primaryError;
     }
     console.warn("createAnalysisJob: /api/analyze unavailable, fallback to /api/upload?analyze=true", primaryError);

@@ -102,14 +102,15 @@ export function SessionList({
                   >
                     {session.status === "analyzing" ? "진행 상황 보기" : "스윙 확인"}
                   </Button>
+                    <Button type="button" onClick={() => onDelete(session)} variant="ghost" size="sm" fullWidth={false}
+                      disabled={session.status === "recording" || deletingId === session.id} aria-label={`${displayTitle} 삭제`} className="gap-2 text-red-300"><Trash2 className="size-4" aria-hidden="true" />{deletingId === session.id ? "삭제 중" : "삭제"}</Button>
                   <details className="w-full rounded-lg bg-muted/30 px-3"><summary className="text-xs text-muted-foreground">촬영 기록 관리</summary><div className="space-y-2 pb-3">
                   {session.analysisJobId && (
                     <span className="block break-all text-xs text-muted-foreground">
                       Job ID: {session.analysisJobId}
                     </span>
                   )}
-                    <Button type="button" onClick={() => onDelete(session)} variant="ghost" size="sm" fullWidth={false}
-                      disabled={session.status === "recording" || deletingId === session.id} className="text-red-300"><Trash2 className="mr-2 size-4" aria-hidden="true" />{deletingId === session.id ? "삭제 중" : "촬영 기록 삭제"}</Button>
+
                   </div></details>
                 </div>
               </li>

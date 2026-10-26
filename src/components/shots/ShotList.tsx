@@ -198,6 +198,7 @@ export function ShotList({
                   </div>
                   <div className="flex w-full flex-wrap items-center justify-end gap-2">
                     {isAnalyzeAvailable ? <Button type="button" size="sm" fullWidth={false} disabled={analyzingId === shot.id} onClick={() => onAnalyze?.(shot)}>{analyzingId === shot.id ? "요청 중…" : analyzeButtonLabel}</Button> : shot.jobId && onReview ? <Button type="button" variant="outline" size="sm" fullWidth={false} onClick={() => onReview(shot)}>{isProcessing ? "진행 상황 보기" : "스윙 확인"}</Button> : <Button type="button" variant="outline" size="sm" fullWidth={false} onClick={() => onSelect(shot)}>{isOpen ? "영상 접기" : "영상 보기"}</Button>}
+                    {onDelete && <Button type="button" variant="ghost" size="sm" fullWidth={false} disabled={deletingId === shot.id} onClick={() => onDelete(shot)} aria-label={`${displayTitle} 삭제`} className="gap-2 text-red-300"><Trash2 className="size-4" aria-hidden="true" />{deletingId === shot.id ? "삭제 중" : "삭제"}</Button>}
                     <details className="min-w-0 flex-1 basis-full rounded-lg bg-muted/30 px-3">
                       <summary className="text-xs text-muted-foreground">영상 관리 · 원본 및 보관 상태</summary>
                       <div className="space-y-3 pb-3">
@@ -214,7 +215,6 @@ export function ShotList({
                         <div className="flex flex-wrap gap-2">
                           <Button type="button" variant="outline" size="sm" fullWidth={false} onClick={() => onSelect(shot)}>{isOpen ? "원본 접기" : "원본 보기"}</Button>
                           {canRetryArchive && <Button type="button" variant="outline" size="sm" fullWidth={false} disabled={retryingArchiveId === shot.id} onClick={() => onRetryArchive?.(shot)}>{retryingArchiveId === shot.id ? "NAS 재시도 중…" : "NAS 재시도"}</Button>}
-                          {onDelete && <Button type="button" variant="ghost" size="sm" fullWidth={false} disabled={deletingId === shot.id} onClick={() => onDelete(shot)} aria-label={`${displayTitle} 삭제`} className="text-red-300"><Trash2 className="mr-2 size-4" aria-hidden="true" />{deletingId === shot.id ? "삭제 중" : "영상 삭제"}</Button>}
                         </div>
                       </div>
                     </details>

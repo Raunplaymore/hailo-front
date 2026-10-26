@@ -368,7 +368,7 @@ function MainApp() {
       setSessionsError("카메라 서버 주소를 입력하세요.");
       return;
     }
-    const confirmed = window.confirm(`${session.filename} 세션을 삭제할까요?`);
+    const confirmed = window.confirm(`${formatMediaTitle(session.filename)} 촬영 기록을 삭제할까요?`);
     if (!confirmed) return;
     setDeletingSessionId(session.id);
     setSessionsError(null);

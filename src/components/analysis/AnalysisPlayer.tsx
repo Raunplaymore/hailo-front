@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
+import { withImpactCandidate } from "@/api/impactReview";
+import { useImpactReview } from "@/hooks/useImpactReview";
 import { API_BASE } from "@/api/client";
 import { ImpactReview } from "./ImpactReview";
 import { AnalysisVideoPlayer } from "./AnalysisVideoPlayer";
@@ -52,6 +54,9 @@ const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
 
 export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPointsV2, isModalOpen, evidenceFocus }: AnalysisPlayerProps) {
+  const impactState = useImpactReview(jobId);
+  const displayEvents = withImpactCandidate(events, impactState.review, Boolean(jobId));
+  const candidateVideoHash = impactState.review?.videoSha256;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
@@ -116,14 +121,20 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   };
 
   const handleSeek = (key: SwingEventKey) => {
-    const target = events?.[key]?.timeMs;
+    const target = displayEvents?.[key]?.timeMs;
     if (target != null) seekTime(target);
   };
 
   useEffect(() => {
     if (!evidenceFocus) return;
-    handleSeek(evidenceFocus.event);
+    // Historical coach evidence stays on its historical timing.
+    const target = events?.[evidenceFocus.event]?.timeMs;
+    if (target != null) seekTime(target);
   }, [evidenceFocus?.requestId]);
+
+  useEffect(() => {
+    if (impactState.review) seekTime(impactState.review.candidate.timeMs);
+  }, [jobId, impactState.review]);
 
   return (
     <Card className="min-w-0">
@@ -139,7 +150,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
       <CardContent className="space-y-2 p-4 pt-0">
         {videoUrl ? (
           <AnalysisVideoPlayer
-            src={jobId ? `${API_BASE}/api/analyze/${encodeURIComponent(jobId)}/review-video` : videoUrl}
+            src={jobId ? `${API_BASE}/api/analyze/${encodeURIComponent(jobId)}/review-video${candidateVideoHash ? `?v=${candidateVideoHash}` : ""}` : videoUrl}
             videoRef={videoRef}
             mediaRef={videoFrameRef}
             currentTimeMs={timeMs}
@@ -149,7 +160,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           >
             {overlay && overlayBounds ? (
               <div className="pointer-events-none absolute" style={overlayBounds}>
-                <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={timeMs} layers={layers} />
+                <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={displayEvents} timeMs={timeMs} layers={layers} />
               </div>
             ) : null}
             {overlay ? (
@@ -177,13 +188,13 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           </p>
         ) : null}
 
-        {jobId && videoUrl && !isModalOpen ? <ImpactReview key={`${jobId}:${videoUrl}`} jobId={jobId} timeMs={timeMs} onSeek={seekTime} /> : null}
+        {jobId && videoUrl && !isModalOpen ? <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} /> : null}
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인 · 기존 연구 결과</p>
+          <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인 · {jobId ? "Impact는 새 모델 후보" : "기존 연구 결과"}</p>
           <div className="grid min-w-0 grid-cols-2 gap-2">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
-              const event = events?.[key];
+              const event = displayEvents?.[key];
               const disabled = !event;
               const isReference = event?.quality === "reference";
               const v2Takeaway = key === "takeaway" ? dtlClubPointsV2?.takeaway : null;
@@ -202,9 +213,9 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
                         : "border-sky-300/30 bg-sky-400/10 text-sky-100 hover:bg-sky-400/15"
                   )}
                 >
-                  <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}</span>
+                  <span className="block text-xs text-muted-foreground">{EVENT_LABELS[key]}{key === "impact" && jobId ? " · 새 모델 후보" : ""}</span>
                   <span className="text-sm">
-                    {event ? `${Math.round(event.timeMs)} ms${isReference ? " · 참고" : ""}` : "-"}
+                    {event ? `${Math.round(event.timeMs)} ms${isReference ? " · 참고" : ""}` : key === "impact" && jobId ? (impactState.loading ? "계산 중" : "판정 보류") : "-"}
                   </span>
                   {v2Takeaway?.timeMs != null ? (
                     <span className="mt-0.5 block text-[11px] font-medium text-cyan-100/80">
@@ -217,6 +228,10 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           </div>
         </div>
 
+        {jobId && events?.impact ? <details className="text-xs text-muted-foreground">
+          <summary className="min-h-11 cursor-pointer">기존 임팩트 기록 · 연구용</summary>
+          <p>{Math.round(events.impact.timeMs)} ms · 현재 Impact 선택에 사용하지 않습니다.</p>
+        </details> : null}
         <ClubTrackingEvidence sidecar={dtlClubPointsV2} />
       </CardContent>
     </Card>

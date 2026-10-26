@@ -1,25 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { ImpactReview as Review, requestImpactReview } from "@/api/impactReview";
+import { useState } from "react";
+import { ImpactReview as Review } from "@/api/impactReview";
 
-export function ImpactReview({ jobId, timeMs, onSeek }: {
-  jobId: string; timeMs: number; onSeek: (timeMs: number) => void;
+export function ImpactReview({ review, loading, error, onRetry, timeMs, onSeek }: {
+  review: Review | null; loading: boolean; error: string | null;
+  onRetry: () => void; timeMs: number; onSeek: (timeMs: number) => void;
 }) {
-  const [eligible, setEligible] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [review, setReview] = useState<Review | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
-  const active = useRef(true);
-  useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-  const load = async () => {
-    setLoading(true); setError(null);
-    try {
-      const result = await requestImpactReview(jobId);
-      if (active.current) { setReview(result); onSeek(result.candidate.timeMs); }
-    } catch (err) {
-      if (active.current) setError(err instanceof Error ? err.message : "후보를 불러오지 못했습니다.");
-    } finally { if (active.current) setLoading(false); }
-  };
   const index = review ? review.frameTimesMs.reduce((best, t, i, times) =>
     Math.abs(t - timeMs) < Math.abs(times[best] - timeMs) ? i : best, 0) : 0;
   const buttonClass = "min-h-11 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
@@ -29,17 +15,12 @@ export function ImpactReview({ jobId, timeMs, onSeek }: {
       <p className="mt-1 text-xs text-muted-foreground">추정한 후보 프레임을 원본 영상에서 확인하세요. 자동 진단·교정 결과가 아닙니다.</p>
       <p className="mt-1 text-xs text-muted-foreground">시작·탑·피니시·템포·몸 움직임 수치·공 비행 분석은 보류 중입니다.</p>
     </div>
-    {!review && <>
-      <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
-        <input type="checkbox" checked={eligible} disabled={loading} onChange={(e) => setEligible(e.target.checked)} />
-        오른손 골퍼의 DTL 영상이며, 한 번의 완전한 스윙입니다.
-      </label>
-      <button type="button" className={buttonClass} disabled={!eligible || loading} onClick={() => void load()}>
-        {loading ? "자세 추출 및 후보 계산 중…" : "임팩트 후보 찾기"}
-      </button>
-      {loading && <p role="status" className="text-xs text-muted-foreground">Pi에서 처리 중입니다. 최대 3분 정도 기다려 주세요.</p>}
-    </>}
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <p className="text-xs text-muted-foreground">오른손 DTL의 단일 완전 스윙을 전제로 자동 계산합니다. 촬영 조건과 실제 임팩트는 원본에서 확인하세요.</p>
+    {loading && <p role="status" className="text-sm">임팩트 후보 자동 계산 대기·처리 중…</p>}
+    {error && <div role="alert" className="space-y-2">
+      <p className="text-sm text-destructive">임팩트 판정 보류: {error}</p>
+      <button type="button" className={buttonClass} onClick={onRetry}>다시 시도</button>
+    </div>}
     {review && <>
       <p role="status" className="text-sm">검수 대기 후보 · {(review.candidate.timeMs / 1000).toFixed(3)}초 · {review.candidate.frameIndex + 1}번째 프레임</p>
       <div className="flex flex-wrap gap-2">

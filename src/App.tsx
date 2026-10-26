@@ -1919,6 +1919,7 @@ function MainApp() {
               </Button>
             </div>
             <AnalysisPlayer
+              jobId={selectedSession ? undefined : analysisTarget?.jobId ?? analysisTarget?.id}
               videoUrl={selectedVideoUrl}
               events={analysis?.events}
               overlay={analysis?.overlay}

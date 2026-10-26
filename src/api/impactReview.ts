@@ -1,8 +1,11 @@
+import type { AnalysisResult } from "@/types/shots";
 import { client } from "./client";
 
 export type ImpactReview = {
   jobId: string;
   status: "reference_candidate";
+  videoSha256: string;
+  inputScopeConfirmed: boolean;
   candidate: { frameIndex: number; timeMs: number };
   frameTimesMs: number[];
 };
@@ -13,6 +16,7 @@ export function validateImpactReview(raw: any, jobId: string): ImpactReview {
   if (raw?.ok !== true || raw.jobId !== jobId || raw.status !== "reference_candidate"
     || raw.modelSha256 !== "70b338b519565f870ed1fce044a0453f828773e53b9fa9d024391b3b4cf57733"
     || raw.publicValue !== null || raw.automaticCoachingReady !== false || raw.appliedToPrimary !== false
+    || !/^[a-f0-9]{64}$/.test(raw.videoSha256 ?? "") || raw.inputScopeConfirmed !== false
     || raw.requiresHumanConfirmation !== true || !Array.isArray(times) || times.length < 4
     || !times.every((t: unknown, i: number) => typeof t === "number" && Number.isFinite(t) && t >= 0 && (i === 0 || t > times[i - 1]))
     || !Number.isInteger(index) || index < 0 || index >= times.length || times[index] !== raw.candidate.timeMs) {
@@ -22,6 +26,14 @@ export function validateImpactReview(raw: any, jobId: string): ImpactReview {
 }
 
 export async function requestImpactReview(jobId: string): Promise<ImpactReview> {
-  const body = new Blob([JSON.stringify({ confirmedInput: true })], { type: "application/json" });
+  const body = new Blob([JSON.stringify({ automatic: true })], { type: "application/json" });
   return validateImpactReview(await client.post(`/api/analyze/${encodeURIComponent(jobId)}/impact-review`, body), jobId);
+}
+
+export function withImpactCandidate(events: AnalysisResult["events"] | undefined, review: ImpactReview | null, enabled: boolean): AnalysisResult["events"] | undefined {
+  if (!enabled) return events;
+  return { ...events, impact: review ? {
+    timeMs: review.candidate.timeMs, frame: review.candidate.frameIndex,
+    quality: "reference", source: "pose-tcn-v1",
+  } : undefined };
 }

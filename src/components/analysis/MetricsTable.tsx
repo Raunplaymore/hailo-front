@@ -264,9 +264,9 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
         <CollapsibleMetricSection
           title="스윙 동작과 클럽 진단"
           summary={compactDetail([
-            `샤프트 ${metricAvailabilitySummary(shaftAvailability, formatGolfMetric(shaftPlane, "shaftPlane"))}`,
-            `경로 ${metricAvailabilitySummary(pathAvailability, formatGolfMetric(clubPath, "clubPath"))}`,
-            `백스윙 ${metricAvailabilitySummary(backswingAvailability, formatGolfMetric(backswing, "backswing"))}`,
+            `샤프트 ${metricAvailabilitySummary(shaftAvailability, formatGolfMetric(shaftPlane, "shaftPlane") ?? "-")}`,
+            `경로 ${metricAvailabilitySummary(pathAvailability, formatGolfMetric(clubPath, "clubPath") ?? "-")}`,
+            `백스윙 ${metricAvailabilitySummary(backswingAvailability, formatGolfMetric(backswing, "backswing") ?? "-")}`,
           ])}
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

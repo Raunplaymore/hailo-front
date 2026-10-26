@@ -1,0 +1,27 @@
+import { client } from "./client";
+
+export type ImpactReview = {
+  jobId: string;
+  status: "reference_candidate";
+  candidate: { frameIndex: number; timeMs: number };
+  frameTimesMs: number[];
+};
+
+export function validateImpactReview(raw: any, jobId: string): ImpactReview {
+  const times = raw?.frameTimesMs;
+  const index = raw?.candidate?.frameIndex;
+  if (raw?.ok !== true || raw.jobId !== jobId || raw.status !== "reference_candidate"
+    || raw.modelSha256 !== "70b338b519565f870ed1fce044a0453f828773e53b9fa9d024391b3b4cf57733"
+    || raw.publicValue !== null || raw.automaticCoachingReady !== false || raw.appliedToPrimary !== false
+    || raw.requiresHumanConfirmation !== true || !Array.isArray(times) || times.length < 4
+    || !times.every((t: unknown, i: number) => typeof t === "number" && Number.isFinite(t) && t >= 0 && (i === 0 || t > times[i - 1]))
+    || !Number.isInteger(index) || index < 0 || index >= times.length || times[index] !== raw.candidate.timeMs) {
+    throw new Error("검수 후보 응답을 확인할 수 없습니다. 다시 시도해 주세요.");
+  }
+  return raw as ImpactReview;
+}
+
+export async function requestImpactReview(jobId: string): Promise<ImpactReview> {
+  const body = new Blob([JSON.stringify({ confirmedInput: true })], { type: "application/json" });
+  return validateImpactReview(await client.post(`/api/analyze/${encodeURIComponent(jobId)}/impact-review`, body), jobId);
+}

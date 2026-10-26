@@ -19,6 +19,7 @@ type ShotListProps = {
   error?: string | null;
   onRefresh: () => void;
   onSelect: (shot: Shot) => void;
+  onReview?: (shot: Shot) => void;
   onTitleClick?: (shot: Shot) => void;
   onAnalyze?: (shot: Shot) => void;
   onForceAnalyze?: (shot: Shot) => void;
@@ -40,6 +41,7 @@ export function ShotList({
   onRefresh,
   onSelect,
   onTitleClick,
+  onReview,
   onAnalyze,
   onForceAnalyze,
   onRetake,
@@ -228,6 +230,9 @@ export function ShotList({
                       {isOpen ? <RotateCcw className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       <span>{isOpen ? "접기" : "보기"}</span>
                     </Button>
+                    {onReview && shot.jobId ? (
+                      <Button type="button" variant="outline" size="sm" fullWidth={false} onClick={() => onReview(shot)}>임팩트 검수</Button>
+                    ) : null}
                     {isAnalyzeAvailable && (
                       <Button
                         type="button"

@@ -34,6 +34,9 @@ jobs:
       - name: Check coach summary UI
         run: npm run check:coach-ui
 
+      - name: Check impact review contract
+        run: npm run check:impact-review
+
       - name: Build frontend
         run: npm run build
 

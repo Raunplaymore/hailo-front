@@ -9,10 +9,13 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
+import { API_BASE } from "@/api/client";
+import { ImpactReview } from "./ImpactReview";
 import { AnalysisVideoPlayer } from "./AnalysisVideoPlayer";
 
 type AnalysisPlayerProps = {
   videoUrl?: string;
+  jobId?: string;
   events?: AnalysisResult["events"];
   overlay?: AnalysisOverlay | null;
   dtlClubPointsV2?: DtlClubPointsV2Sidecar | null;
@@ -48,7 +51,7 @@ const LEFT_JOINT_COLOR = "#38bdf8";
 const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
 
-export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isModalOpen, evidenceFocus }: AnalysisPlayerProps) {
+export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPointsV2, isModalOpen, evidenceFocus }: AnalysisPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
@@ -99,29 +102,22 @@ export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isM
     return () => observer.disconnect();
   }, [videoUrl]);
 
-  const handleSeek = (key: SwingEventKey) => {
-    const timeMs = events?.[key]?.timeMs;
-    if (timeMs == null) return;
-
+  const seekTime = (nextMs: number) => {
     const video = videoRef.current;
-    if (!video) return;
-
-    const seekTo = timeMs / 1000;
+    if (!video || !Number.isFinite(nextMs) || nextMs < 0) return;
+    video.pause();
     const apply = () => {
-      video.currentTime = seekTo;
-      setTimeMs(timeMs);
+      // Seek inside the frame so rounded PTS does not display the preceding frame.
+      video.currentTime = Math.min((nextMs + 0.1) / 1000, video.duration || nextMs / 1000);
+      setTimeMs(video.currentTime * 1000);
     };
+    if (video.readyState < 1) video.addEventListener("loadedmetadata", apply, { once: true });
+    else apply();
+  };
 
-    if (video.readyState < 1) {
-      const onLoaded = () => {
-        apply();
-        video.removeEventListener("loadedmetadata", onLoaded);
-      };
-      video.addEventListener("loadedmetadata", onLoaded);
-      video.load();
-    } else {
-      apply();
-    }
+  const handleSeek = (key: SwingEventKey) => {
+    const target = events?.[key]?.timeMs;
+    if (target != null) seekTime(target);
   };
 
   useEffect(() => {
@@ -143,7 +139,7 @@ export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isM
       <CardContent className="space-y-2 p-4 pt-0">
         {videoUrl ? (
           <AnalysisVideoPlayer
-            src={videoUrl}
+            src={jobId ? `${API_BASE}/api/analyze/${encodeURIComponent(jobId)}/review-video` : videoUrl}
             videoRef={videoRef}
             mediaRef={videoFrameRef}
             currentTimeMs={timeMs}
@@ -181,8 +177,10 @@ export function AnalysisPlayer({ videoUrl, events, overlay, dtlClubPointsV2, isM
           </p>
         ) : null}
 
+        {jobId && videoUrl && !isModalOpen ? <ImpactReview key={`${jobId}:${videoUrl}`} jobId={jobId} timeMs={timeMs} onSeek={seekTime} /> : null}
+
         <div className="space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인</p>
+          <p className="text-xs font-semibold text-muted-foreground">스윙 이벤트 타임라인 · 기존 연구 결과</p>
           <div className="grid min-w-0 grid-cols-2 gap-2">
             {(Object.keys(EVENT_LABELS) as SwingEventKey[]).map((key) => {
               const event = events?.[key];

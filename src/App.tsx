@@ -409,6 +409,13 @@ function MainApp() {
     error: analysisError,
   } = useAnalysis(analysisTarget);
 
+  const openImpactReview = (shot: Shot) => {
+    selectShot(shot);
+    setSelectedSession(null);
+    setShowLookupLayer(false);
+    setActiveTab("analysis");
+  };
+
   const toggleOpen = (shot: Shot) => {
     const next = new Set(openShotIds);
     if (next.has(shot.id)) {
@@ -1518,6 +1525,7 @@ function MainApp() {
                   error={shotsError || analyzeError}
                   onRefresh={refreshShots}
                   onSelect={toggleOpen}
+                  onReview={openImpactReview}
                   onAnalyze={(shot) => handleAnalyzeShot(shot)}
                   onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
                   onRetake={handleRetake}
@@ -1538,6 +1546,7 @@ function MainApp() {
                   error={shotsError || analyzeError}
                   onRefresh={refreshShots}
                   onSelect={toggleOpen}
+                  onReview={openImpactReview}
                   onTitleClick={(shot) => {
                     selectShot(shot);
                     setSelectedSession(null);
@@ -1592,36 +1601,46 @@ function MainApp() {
           {(analysisTarget || analysis) && (
             <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
               {analysisTarget && (
-                <AnalysisProgressCard
-                  jobId={analysisTarget.jobId ?? analysisTarget.id}
-                  status={jobStatus}
-                  isLoading={isAnalysisLoading}
-                  analysisVersion={analysis?.analysisVersion}
-                  error={analysisError || selectedShot?.errorMessage || null}
-                  progress={analysis?.progress ?? analysisTarget.analysis?.progress ?? null}
-                  compact
-                />
+                <details className="rounded-xl border border-border p-3">
+                  <summary className="min-h-11 cursor-pointer text-sm font-semibold">기존 Hailo 분석 상태 · 임팩트 검수와 별개</summary>
+                  <AnalysisProgressCard
+                    jobId={analysisTarget.jobId ?? analysisTarget.id}
+                    status={jobStatus}
+                    isLoading={isAnalysisLoading}
+                    analysisVersion={analysis?.analysisVersion}
+                    error={analysisError || selectedShot?.errorMessage || null}
+                    progress={analysis?.progress ?? analysisTarget.analysis?.progress ?? null}
+                    compact
+                  />
+                </details>
               )}
-              <KeyMetrics analysis={analysis} status={jobStatus} />
+              <details className="rounded-xl border border-border p-3">
+                <summary className="cursor-pointer text-sm font-semibold">기존 분석 수치 · 정확도 검증 보류</summary>
+                <KeyMetrics analysis={analysis} status={jobStatus} />
+              </details>
             </div>
           )}
 
           <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(420px,1.1fr)]">
             <div className="min-w-0 space-y-3">
-              <CoachSummary
-                summary={
-                  analysis?.summary
-                    ? analysis.summary
-                    : jobStatus === "queued" || jobStatus === "running"
-                    ? "분석 중입니다. 잠시만 기다려 주세요."
-                    : "데이터가 부족합니다."
-                }
-                comments={analysis?.coachSummary ?? []}
-                findings={analysis?.coachFindings ?? []}
-                events={analysis?.events}
-                onWatchEvidence={(event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 }))}
-              />
+              <details className="rounded-xl border border-border p-3">
+                <summary className="min-h-11 cursor-pointer text-sm font-semibold">기존 코칭 기록 · 연구 참고용</summary>
+                <p className="mb-2 text-xs text-muted-foreground">아래 기록은 이번 임팩트 후보 검수와 별개이며, 자동 교정의 근거로 검증되지 않았습니다.</p>
+                <CoachSummary
+                  summary={
+                    analysis?.summary
+                      ? analysis.summary
+                      : jobStatus === "queued" || jobStatus === "running"
+                      ? "분석 중입니다. 잠시만 기다려 주세요."
+                      : "데이터가 부족합니다."
+                  }
+                  comments={analysis?.coachSummary ?? []}
+                  findings={analysis?.coachFindings ?? []}
+                  events={analysis?.events}
+                  onWatchEvidence={(event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 }))}
+                />
 
+              </details>
               <details className="border shadow-sm group rounded-2xl border-border bg-card">
                 <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
                   <div className="min-w-0">
@@ -1647,6 +1666,7 @@ function MainApp() {
 
             <div className="order-first min-w-0 xl:order-none xl:sticky xl:top-4">
               <AnalysisPlayer
+                jobId={selectedSession ? undefined : analysisTarget?.jobId ?? analysisTarget?.id}
                 videoUrl={selectedVideoUrl}
                 events={analysis?.events}
                 overlay={analysis?.overlay}
@@ -1832,6 +1852,7 @@ function MainApp() {
                         error={shotsError || analyzeError}
                         onRefresh={refreshShots}
                         onSelect={toggleOpen}
+                  onReview={openImpactReview}
                         onAnalyze={(shot) => handleAnalyzeShot(shot)}
                         onForceAnalyze={(shot) => handleForceAnalyzeShot(shot)}
                         onRetake={handleRetake}
@@ -1852,6 +1873,7 @@ function MainApp() {
                         error={shotsError || analyzeError}
                         onRefresh={refreshShots}
                         onSelect={toggleOpen}
+                  onReview={openImpactReview}
                         onTitleClick={(shot) => {
                           selectShot(shot);
                           setSelectedSession(null);

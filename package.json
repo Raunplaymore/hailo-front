@@ -14,7 +14,8 @@
     "coach:new-runtime-verification": "node scripts/new-coach-runtime-verification.mjs",
     "coach:check-runtime-verification": "node scripts/check-coach-runtime-verification.mjs",
     "preview": "vite preview",
-    "start": "node server.js"
+    "start": "node server.js",
+    "check:impact-review": "node scripts/check-impact-review.mjs"
   },
   "keywords": [],
   "author": "",

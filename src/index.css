@@ -46,7 +46,7 @@
 
   body {
     width: 100%;
-    min-height: 100vh;
+    min-height: 100dvh;
     max-width: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -95,7 +95,7 @@
   }
 }
 @layer components {
-  .app-bottom-nav { position: fixed; inset: auto 0 0; z-index: 20; border-top: 1px solid hsl(var(--border)); background: hsl(var(--background) / .97); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .app-bottom-nav { position: fixed; inset: auto 0 0; z-index: 20; border-top: 1px solid hsl(var(--border)); background: hsl(var(--background)); padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
 
 @layer components {
@@ -116,7 +116,7 @@
 }
 @layer components {
   @media (max-width: 1023px) {
-    .analysis-page { padding-top: .5rem; }
-    .analysis-page .analysis-workspace { height: calc(100dvh - 9.5rem - env(safe-area-inset-bottom, 0px)); min-height: 0; }
+    main.analysis-page { padding-top: calc(env(safe-area-inset-top, 0px) + .25rem); }
+    .analysis-page .analysis-workspace { height: calc(100dvh - 8rem - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px)); min-height: 0; }
   }
 }

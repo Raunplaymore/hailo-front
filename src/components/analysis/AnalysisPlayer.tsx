@@ -213,8 +213,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
 
         </div>
         <div className="analysis-tools min-w-0">
-        {jobId && videoUrl && !isModalOpen && <div className="grid shrink-0 grid-cols-3 rounded-xl bg-muted p-1" role="group" aria-label="영상 확인 도구">
-          {([["coaching", "몸 움직임"], ["club", "손·클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 rounded-lg px-2 text-sm font-semibold", tool === key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}
+        {jobId && videoUrl && !isModalOpen && <div className="grid shrink-0 grid-cols-3 border-b border-border" role="group" aria-label="영상 확인 도구">
+          {([["coaching", "몸"], ["club", "클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 border-b-2 px-2 text-sm font-semibold", tool === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
         </div>}
         <div ref={analysisScrollRef} className="analysis-scroll space-y-3" role="region" aria-label="분석 내용" tabIndex={0}>
         {contour ? <p className="text-xs text-muted-foreground">노란 점선: 준비 자세 · 초록 선: 추적된 뒤쪽 윤곽 · 공은 {contour.ballDirection === "right" ? "오른쪽" : "왼쪽"}</p> : guideKind ? <p className="text-xs text-muted-foreground">점선: 시작 기준 · 실선과 점: 현재 추적 위치</p> : overlay && tool !== "club" ? (

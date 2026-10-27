@@ -81,8 +81,8 @@ assert.match(playerSource, /<AnalysisVideoPlayer/, "Analysis view must use the d
 assert.doesNotMatch(videoPlayerSource, /\scontrols(?:\s|=|>)/, "Native video controls must not cover the analysis frame.");
 assert.match(videoPlayerSource, /aria-label=\{isPlaying \? "분석 영상 일시정지" : "분석 영상 재생"\}/, "Video surface must expose keyboard playback state.");
 assert.match(videoPlayerSource, /aria-label="영상 재생 위치"/, "Custom player must expose an accessible seek control.");
-assert.match(videoPlayerSource, /flex items-center gap-2 border-t border-white\/10/, "Seek and frame controls must share a separate row on mobile.");
-assert.match(videoPlayerSource, /className="h-11 min-w-0 flex-1 cursor-pointer/, "Seek control must fill the space between frame buttons without overflowing.");
+assert.match(videoPlayerSource, /flex h-14 items-center gap-1 px-1/, "Playback, seek and frame controls must share one compact row.");
+assert.match(videoPlayerSource, /className="block h-11 w-full min-w-0 cursor-pointer/, "Seek control must fill the space between frame buttons without overflowing.");
 assert.match(videoPlayerSource, /webkitEnterFullscreen/, "Custom player must retain an iOS fullscreen fallback.");
 assert.match(playerSource, /임팩트는 추정 후보, 나머지는 연구 참고/, "Timeline must distinguish the candidate from research reference events.");
 assert.match(keyMetricsSource, /validationStatus !== "usable"/, "Partial validation must keep event-dependent key metrics hidden.");

@@ -213,9 +213,19 @@ export function AnalysisVideoPlayer({
         </video>
 
         {children}
+        <div className="absolute bottom-1 left-1 rounded-lg bg-black/60">
+          <ControlButton label={isMuted ? "음소거 해제" : "음소거"} disabled={disabled || hasError} onClick={toggleMute}>
+            {isMuted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
+          </ControlButton>
+        </div>
+        <div className="absolute bottom-1 right-1 rounded-lg bg-black/60">
+          <ControlButton label={isImmersive ? "전체 화면 닫기" : "전체 화면"} disabled={disabled || hasError} onClick={() => isImmersive ? setIsImmersive(false) : void enterFullscreen()}>
+            {isImmersive ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}
+          </ControlButton>
+        </div>
 
         {(!isReady || buffering) && !hasError && !disabled ? (
-          <span className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white/80 backdrop-blur">
+          <span className="pointer-events-none absolute bottom-14 left-2 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white/80 backdrop-blur">
             {isReady ? "장면 불러오는 중…" : "영상 준비 중"}
           </span>
         ) : null}
@@ -232,7 +242,7 @@ export function AnalysisVideoPlayer({
           <span role="status">{playbackError ? "재생 버튼을 눌러 시작하세요" : "근거 구간 · 0.5배 반복"}</span>
           <button type="button" onClick={onClearReview} className="min-h-12 rounded-lg px-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">전체 영상 보기</button>
         </div>}
-        <div className="flex min-h-14 items-center gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3">
+        <div className="flex h-14 items-center gap-1 px-1" aria-label="영상 조작">
           <ControlButton
             label={isPlaying ? "일시정지" : "재생"}
             disabled={controlsDisabled}
@@ -240,23 +250,8 @@ export function AnalysisVideoPlayer({
           >
             {isPlaying ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
           </ControlButton>
-
-          <span className="w-[72px] shrink-0 text-center text-[11px] font-medium tabular-nums text-white/75 sm:w-[86px] sm:text-xs">
-            {formatTime(currentSeconds)} / {formatTime(duration)}
-          </span>
-
-          <div className="flex-1" />
-
-          <ControlButton label={isMuted ? "음소거 해제" : "음소거"} disabled={disabled || hasError} onClick={toggleMute}>
-            {isMuted ? <VolumeX className="size-4" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
-          </ControlButton>
-          <ControlButton label={isImmersive ? "전체 화면 닫기" : "전체 화면"} disabled={disabled || hasError} onClick={() => isImmersive ? setIsImmersive(false) : void enterFullscreen()}>
-            {isImmersive ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}
-          </ControlButton>
-        </div>
-
-        <div className="flex items-center gap-2 border-t border-white/10 px-2 pb-1 pt-1">
           {frameTimes?.length ? <ControlButton label="이전 추적 프레임" disabled={controlsDisabled || previousFrame == null} onClick={() => previousFrame != null && stepFrame(previousFrame)}><ChevronLeft className="size-4" /></ControlButton> : null}
+          <div className="relative min-w-0 flex-1 pb-2">
           <input
             type="range"
             min={0}
@@ -277,8 +272,10 @@ export function AnalysisVideoPlayer({
               else handleSeek(next);
             }}
             aria-label="영상 재생 위치"
-            className="h-11 min-w-0 flex-1 cursor-pointer bg-transparent accent-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="block h-11 w-full min-w-0 cursor-pointer bg-transparent accent-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
           />
+          <span className="pointer-events-none absolute inset-x-0 bottom-0 text-center text-[10px] tabular-nums text-white/70">{formatTime(currentSeconds)} / {formatTime(duration)}</span>
+          </div>
           {frameTimes?.length ? <ControlButton label="다음 추적 프레임" disabled={controlsDisabled || nextFrame == null} onClick={() => nextFrame != null && stepFrame(nextFrame)}><ChevronRight className="size-4" /></ControlButton> : null}
         </div>
       </div>

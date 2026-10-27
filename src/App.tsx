@@ -1493,8 +1493,8 @@ function MainApp() {
         <section className="mx-auto max-w-lg space-y-4 py-12 text-center"><h1 className="text-2xl font-semibold">확인할 스윙을 골라주세요</h1><p className="text-sm text-muted-foreground">기록에서 영상을 열거나 새 스윙을 업로드하세요.</p><Button onClick={() => setActiveTab("list")}>기록 보기</Button><Button variant="outline" onClick={() => setActiveTab("upload")}>영상 업로드</Button></section>
       )}
       {activeTab === "analysis" && analysisTarget && (
-        <div className="min-w-0 space-y-4">
-          <div className="flex min-w-0 items-center gap-3"><Button variant="ghost" fullWidth={false} size="icon" aria-label="기록으로 돌아가기" onClick={() => setActiveTab("list")}><ArrowLeft className="size-5" /></Button><div className="min-w-0"><p className="text-xs text-muted-foreground">스윙 확인</p><h1 className="truncate text-base font-semibold">{formatMediaTitle(analysisTarget.filename, analysisTarget.originalName)}</h1></div></div>
+        <div className="min-w-0 space-y-2 lg:space-y-4">
+          <div className="flex min-h-11 min-w-0 items-center gap-2"><Button variant="ghost" fullWidth={false} size="icon" aria-label="기록으로 돌아가기" onClick={() => setActiveTab("list")}><ArrowLeft className="size-5" /></Button><div className="min-w-0"><p className="sr-only">스윙 확인</p><h1 className="truncate text-base font-semibold">{formatMediaTitle(analysisTarget.filename, analysisTarget.originalName)}</h1></div></div>
 
           <div className="space-y-2">
             {isAnalysisLoading && <p className="text-sm text-muted-foreground">분석 상태를 불러오는 중...</p>}

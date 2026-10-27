@@ -1,5 +1,7 @@
 import {
   Maximize2,
+  ChevronLeft,
+  ChevronRight,
   Minimize2,
   Pause,
   Play,
@@ -22,6 +24,7 @@ type AnalysisVideoPlayerProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
   mediaRef: RefObject<HTMLDivElement | null>;
   currentTimeMs: number;
+  frameTimes?: number[];
   disabled?: boolean;
   children?: ReactNode;
   onTimeChange: (timeMs: number) => void;
@@ -35,6 +38,7 @@ export function AnalysisVideoPlayer({
   videoRef,
   mediaRef,
   currentTimeMs,
+  frameTimes,
   disabled = false,
   children,
   onTimeChange,
@@ -156,10 +160,13 @@ export function AnalysisVideoPlayer({
   };
 
   const currentSeconds = Math.min(duration || Number.POSITIVE_INFINITY, Math.max(0, scrubTime ?? currentTimeMs / 1000));
+  const previousFrame = frameTimes?.filter(ms => ms < currentTimeMs - 1).at(-1);
+  const nextFrame = frameTimes?.find(ms => ms > currentTimeMs + 1);
+  const stepFrame = (ms: number) => { videoRef.current?.pause(); handleSeek((ms + 0.1) / 1000); };
   const controlsDisabled = disabled || hasError || !isReady;
 
   return (
-    <div ref={playerRef} className={cn("min-w-0 overflow-hidden rounded-xl border border-border bg-black fullscreen:flex fullscreen:h-screen fullscreen:w-screen fullscreen:flex-col fullscreen:rounded-none fullscreen:border-0", isImmersive && "fixed inset-0 z-50 flex h-[100dvh] w-screen flex-col rounded-none border-0") }>
+    <div ref={playerRef} className={cn("min-w-0 overflow-hidden rounded-xl border border-border bg-black fullscreen:flex fullscreen:h-screen fullscreen:w-screen fullscreen:flex-col fullscreen:rounded-none fullscreen:border-0", isImmersive && "analysis-immersive fixed inset-0 z-50 flex h-[100dvh] w-screen flex-col rounded-none border-0") }>
       <div ref={mediaRef} className="relative min-w-0 bg-black fullscreen:flex fullscreen:min-h-0 fullscreen:flex-1 fullscreen:items-center fullscreen:justify-center">
         <video
           ref={videoRef}
@@ -248,7 +255,8 @@ export function AnalysisVideoPlayer({
           </ControlButton>
         </div>
 
-        <div className="border-t border-white/10 px-3 pb-2 pt-1 sm:px-4">
+        <div className="flex items-center gap-2 border-t border-white/10 px-2 pb-1 pt-1">
+          {frameTimes?.length ? <ControlButton label="이전 추적 프레임" disabled={controlsDisabled || previousFrame == null} onClick={() => previousFrame != null && stepFrame(previousFrame)}><ChevronLeft className="size-4" /></ControlButton> : null}
           <input
             type="range"
             min={0}
@@ -269,8 +277,9 @@ export function AnalysisVideoPlayer({
               else handleSeek(next);
             }}
             aria-label="영상 재생 위치"
-            className="h-11 w-full cursor-pointer bg-transparent accent-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-11 min-w-0 flex-1 cursor-pointer bg-transparent accent-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
           />
+          {frameTimes?.length ? <ControlButton label="다음 추적 프레임" disabled={controlsDisabled || nextFrame == null} onClick={() => nextFrame != null && stepFrame(nextFrame)}><ChevronRight className="size-4" /></ControlButton> : null}
         </div>
       </div>
     </div>

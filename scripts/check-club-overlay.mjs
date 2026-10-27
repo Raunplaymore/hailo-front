@@ -27,3 +27,16 @@ assert.equal(context.choose(primary, { status: 'succeeded', overlay: side }), si
 assert.equal(context.choose(primary, { status: 'failed', overlay: side }), primary);
 assert.equal(context.choose(primary, { status: 'succeeded', overlay: { clubFrames: [frame] } }), primary);
 console.log('club overlay selection and rendered shaft guards passed');
+
+// Render the real selector to catch missing levels and accidental repeated cards.
+const clubSource = fs.readFileSync('src/components/analysis/ClubObservation.tsx', 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function');
+const clubCode = await esbuild.transform(clubSource, {loader:'tsx', jsx:'transform'});
+const clubContext = vm.createContext({React, useState:React.useState, useEffect:React.useEffect, useRef:React.useRef});
+vm.runInContext(clubCode.code, clubContext);
+const props = {jobId:'fixture', onSeek(){}, onResult(){}, sidecar:{observations:{levels:[.2,.35,.5,.65,.8].map(heightFraction=>({heightFraction, direction:'steeper', backswingMs:1000, downswingMs:1700}))}}};
+const clubHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,props));
+assert.equal((clubHtml.match(/>백스윙/g)||[]).length,1,'only one phase pair should be displayed');
+assert.equal((clubHtml.match(/aria-pressed="true"/g)||[]).length,1,'default height selected');
+assert.match(clubHtml,/50%/); assert.match(clubHtml,/관측의 한계/);
+assert.doesNotMatch(source,/scrollIntoView/,'changing scenes must not move the document');
+console.log('compact height selector and stationary scene navigation passed');

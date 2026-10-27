@@ -97,3 +97,26 @@
 @layer components {
   .app-bottom-nav { position: fixed; inset: auto 0 0; z-index: 20; border-top: 1px solid hsl(var(--border)); background: hsl(var(--background) / .97); padding-bottom: env(safe-area-inset-bottom, 0px); }
 }
+
+@layer components {
+  .analysis-workspace { display: flex; flex-direction: column; gap: .75rem; height: calc(100dvh - 13rem - env(safe-area-inset-bottom, 0px)); min-height: 28rem; }
+  .analysis-media { flex: 0 0 auto; }
+  .analysis-media video { height: 28dvh; max-height: 28dvh; }
+  .analysis-tools { display: flex; flex: 1; flex-direction: column; gap: .5rem; min-height: 0; }
+  .analysis-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; padding: .25rem .25rem 1rem; }
+  @media (min-width: 1024px) {
+    .analysis-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: calc(100dvh - 12rem); }
+    .analysis-media video { height: calc(100dvh - 20rem); max-height: none; }
+  }
+  .analysis-media :fullscreen video { height: 100%; max-height: none; }
+}
+@layer components {
+  .analysis-immersive > div:first-child { display: flex; flex: 1; min-height: 0; align-items: center; }
+  .analysis-immersive video { height: 100%; max-height: 100%; }
+}
+@layer components {
+  @media (max-width: 1023px) {
+    .analysis-page { padding-top: .5rem; }
+    .analysis-page .analysis-workspace { height: calc(100dvh - 9.5rem - env(safe-area-inset-bottom, 0px)); min-height: 0; }
+  }
+}

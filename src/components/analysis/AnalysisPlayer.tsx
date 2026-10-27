@@ -58,7 +58,7 @@ const CENTER_JOINT_COLOR = "#ecfdf5";
 
 export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPointsV2, isModalOpen, evidenceFocus }: AnalysisPlayerProps) {
   const [originalQuality, setOriginalQuality] = useState(false);
-  const [tool, setTool] = useState<"coaching" | "impact" | "movement">("coaching");
+  const [tool, setTool] = useState<"coaching" | "impact" | "club">("coaching");
   const impactState = useImpactReview(jobId);
   const displayEvents = withImpactCandidate(events, impactState.review, Boolean(jobId));
   const candidateVideoHash = impactState.review?.videoSha256;
@@ -70,11 +70,12 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const onCoaching = useCallback((result: CoachingResult | null) => setCoaching({key:guideKey,result}),[guideKey]);
   const coachingResult = coaching.key === guideKey ? coaching.result : null;
   const movementGuide = coachingResult?.movementGuide ?? null;
-  const contour = tool === "coaching" ? coachingResult?.evidence : null;
+  const contour = tool === "coaching" && !guideKind ? coachingResult?.evidence : null;
   const clearReview = useCallback(() => setReviewRange(null), []);
   useEffect(() => { setGuideKind(null); setReviewRange(null); }, [guideKey]);
   useEffect(() => { setTool("coaching"); setOriginalQuality(false); }, [jobId, videoUrl]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const analysisScrollRef = useRef<HTMLDivElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
   const [clubOverride, setClubOverride] = useState<{ jobId: string; value: DtlClubPointsV2Sidecar } | null>(null);
@@ -145,7 +146,6 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     if (!video || !Number.isFinite(nextMs) || nextMs < 0) return;
     setReviewRange(null);
     video.pause();
-    videoFrameRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     const apply = () => {
       // Seek inside the frame so rounded PTS does not display the preceding frame.
       video.currentTime = Math.min((nextMs + 0.1) / 1000, video.duration || nextMs / 1000);
@@ -158,7 +158,6 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const showEvidence = (evidence: CoachingEvidence) => {
     setGuideKind(null);
     setReviewRange({ startMs: evidence.startMs, endMs: evidence.endMs });
-    videoFrameRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   };
 
   const handleSeek = (key: SwingEventKey) => {
@@ -176,7 +175,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
 
   return (
     <Card className="min-w-0 border-0 bg-transparent shadow-none">
-      <CardContent className="space-y-4 p-0">
+      <CardContent className="analysis-workspace p-0">
+        <div className="analysis-media min-w-0">
         {videoUrl ? (
           <AnalysisVideoPlayer
             src={reviewVideoUrl!}
@@ -186,6 +186,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             disabled={isModalOpen}
             onTimeChange={setTimeMs}
             onLoadedMetadata={syncOverlayBounds}
+            frameTimes={clubOverlay?.clubFrames.map(frame => frame.timeMs)}
             reviewRange={reviewRange}
             onClearReview={clearReview}
           >
@@ -210,7 +211,13 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           </div>
         )}
 
-        {contour ? <p className="text-xs text-muted-foreground">노란 점선: 준비 자세 · 초록 선: 추적된 뒤쪽 윤곽 · 공은 {contour.ballDirection === "right" ? "오른쪽" : "왼쪽"}</p> : guideKind ? <p className="text-xs text-muted-foreground">점선: 시작 기준 · 실선과 점: 현재 추적 위치</p> : overlay ? (
+        </div>
+        <div className="analysis-tools min-w-0">
+        {jobId && videoUrl && !isModalOpen && <div className="grid shrink-0 grid-cols-3 rounded-xl bg-muted p-1" role="group" aria-label="영상 확인 도구">
+          {([["coaching", "몸 움직임"], ["club", "손·클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 rounded-lg px-2 text-sm font-semibold", tool === key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}
+        </div>}
+        <div ref={analysisScrollRef} className="analysis-scroll space-y-3" role="region" aria-label="분석 내용" tabIndex={0}>
+        {contour ? <p className="text-xs text-muted-foreground">노란 점선: 준비 자세 · 초록 선: 추적된 뒤쪽 윤곽 · 공은 {contour.ballDirection === "right" ? "오른쪽" : "왼쪽"}</p> : guideKind ? <p className="text-xs text-muted-foreground">점선: 시작 기준 · 실선과 점: 현재 추적 위치</p> : overlay && tool !== "club" ? (
           <p className="flex items-center gap-3 text-xs text-muted-foreground" aria-label="자세 관절 색상 안내: 왼쪽은 파랑, 오른쪽은 주황">
             <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-blue-400" aria-hidden="true" />왼쪽 관절</span>
             <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400" aria-hidden="true" />오른쪽 관절</span>
@@ -218,17 +225,15 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
         ) : null}
 
         {jobId && videoUrl && !isModalOpen && <>
-          <div className="grid grid-cols-3 rounded-xl bg-muted p-1" role="group" aria-label="영상 확인 도구">
-            {([["coaching", "코칭"], ["movement", "머리·골반"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); if (key !== "movement") setGuideKind(null); }} className={cn("min-h-12 rounded-lg px-2 text-sm font-semibold", tool === key ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}
-          </div>
-          {tool === "movement" && <MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} />}
-          {tool === "movement" && <CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} />}
           <div hidden={tool !== "coaching"}>
             <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={candidateVideoHash} addressMs={Math.max(100, events?.address?.timeMs ?? 200)} impactMs={impactState.review?.candidate.timeMs} candidatePending={impactState.loading} playable={videoPlayable} onResult={onCoaching} onEvidence={showEvidence} onSeek={seekTime} />
           </div>
+          {tool === "coaching" && <details><summary className="text-sm font-semibold">머리·골반 움직임 직접 확인</summary><MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} /><CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} /></details>}
           {tool === "impact" && <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} />}
         </>}
 
+        {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
+        {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} /></details>}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 장면 · {jobId ? "임팩트는 추정 후보, 나머지는 연구 참고" : "연구 참고"}</p>
           <div className="grid min-w-0 grid-cols-5 gap-1">
@@ -265,8 +270,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           <summary className="min-h-11 cursor-pointer">기존 임팩트 기록 · 연구용</summary>
           <p>{Math.round(events.impact.timeMs)} ms · 현재 Impact 선택에 사용하지 않습니다.</p>
         </details> : null}
-        {jobId && <ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} />}
-        {clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} /></details>}
+        </div>
+        </div>
       </CardContent>
     </Card>
   );

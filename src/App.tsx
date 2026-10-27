@@ -1535,7 +1535,7 @@ function MainApp() {
           )}
           {jobStatus === "failed" && <Button fullWidth={false} onClick={() => handleAnalyzeShot(analysisTarget)} disabled={Boolean(analyzingId)}>분석 다시 시도</Button>}
 
-          <div className="mx-auto max-w-3xl space-y-4">
+          <div className="mx-auto max-w-5xl space-y-4">
             <div className="min-w-0">
               <AnalysisPlayer
                 jobId={analysisTarget?.jobId ?? (selectedSession ? undefined : analysisTarget?.id)}

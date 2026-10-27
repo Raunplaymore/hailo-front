@@ -58,7 +58,9 @@ assert.match(appSource, /compact\s*\/>/, "Analysis progress should use compact m
 assert.doesNotMatch(appSource, /<CardTitle className="text-lg">코칭 요약<\/CardTitle>/, "Analysis summary must not render as a separate duplicate card.");
 assert.ok(appSource.indexOf("<AnalysisPlayer") < appSource.indexOf("연구 기록 및 상세 수치"), "The video must precede research details in DOM order.");
 assert.match(appSource, /연구 기록 및 상세 수치<\/summary>/, "Research details stay collapsed by default.");
-assert.match(appSource, /max-w-3xl/, "Keep analysis content readable on wide screens.");
+assert.match(appSource, /max-w-5xl/, "Allow room for the video and analysis columns on wide screens.");
+assert.match(playerSource, /analysis-workspace/, "Analysis must use the bounded video and tools workspace.");
+assert.match(playerSource, /analysis-scroll/, "Analysis content must scroll separately from the video.");
 assert.match(videoPlayerSource, /max-h-\[32vh\]/, "Analysis video must remain useful on a narrow portrait screen.");
 assert.match(videoPlayerSource, /md:max-h-\[50vh\]/, "Analysis video height must stay viewport-limited on medium layouts.");
 assert.match(videoPlayerSource, /xl:max-h-\[52vh\]/, "Analysis video height must stay viewport-limited on wide layouts.");
@@ -79,8 +81,8 @@ assert.match(playerSource, /<AnalysisVideoPlayer/, "Analysis view must use the d
 assert.doesNotMatch(videoPlayerSource, /\scontrols(?:\s|=|>)/, "Native video controls must not cover the analysis frame.");
 assert.match(videoPlayerSource, /aria-label=\{isPlaying \? "분석 영상 일시정지" : "분석 영상 재생"\}/, "Video surface must expose keyboard playback state.");
 assert.match(videoPlayerSource, /aria-label="영상 재생 위치"/, "Custom player must expose an accessible seek control.");
-assert.match(videoPlayerSource, /border-t border-white\/10 px-3 pb-2 pt-1/, "Seek control must occupy its own full-width row on mobile.");
-assert.match(videoPlayerSource, /className="h-11 w-full cursor-pointer/, "Seek control must use the complete available width.");
+assert.match(videoPlayerSource, /flex items-center gap-2 border-t border-white\/10/, "Seek and frame controls must share a separate row on mobile.");
+assert.match(videoPlayerSource, /className="h-11 min-w-0 flex-1 cursor-pointer/, "Seek control must fill the space between frame buttons without overflowing.");
 assert.match(videoPlayerSource, /webkitEnterFullscreen/, "Custom player must retain an iOS fullscreen fallback.");
 assert.match(playerSource, /임팩트는 추정 후보, 나머지는 연구 참고/, "Timeline must distinguish the candidate from research reference events.");
 assert.match(keyMetricsSource, /validationStatus !== "usable"/, "Partial validation must keep event-dependent key metrics hidden.");

@@ -1,0 +1,67 @@
+export function CoachingLesson({ topic }: { topic: "pelvis" | "head" }) {
+  const pelvis = topic === "pelvis";
+  return <details className="group rounded-xl border border-border bg-card">
+    <summary className="min-h-12 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      교습 원리와 연습
+      <span className="mt-1 block pl-4 text-xs font-normal text-muted-foreground">{pelvis ? "골반이 돌아갈 공간" : "머리는 안정적으로, 회전은 자연스럽게"}</span>
+    </summary>
+    <div className="space-y-4 border-t border-border px-4 pb-4 pt-3">
+      <p className="text-xs leading-5 text-muted-foreground">내 영상의 판정과 별개인 일반 교습 안내입니다.</p>
+      {pelvis ? <>
+        <p className="text-sm leading-6">얼리 익스텐션은 다운스윙에서 골반이 공 쪽으로 밀려 나오는 움직임입니다. 골반이 뒤쪽 공간에서 돌아가면 팔과 클럽이 지나갈 공간을 확보하는 데 도움이 됩니다.</p>
+        <figure className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <PelvisIllustration thrust={false} />
+            <PelvisIllustration thrust />
+          </div>
+          <figcaption className="text-xs leading-5 text-muted-foreground">후방(DTL)에서 보는 방향을 단순화한 개념도입니다. 점선은 준비 자세의 엉덩이 뒤쪽 기준이며, 개인별 정답 각도나 실제 측정값을 뜻하지 않습니다.</figcaption>
+        </figure>
+        <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+          <h4 className="text-sm font-semibold">공 없이 천천히 느껴보기</h4>
+          <ol className="list-decimal space-y-2 pl-4 text-sm leading-6">
+            <li>편안하게 준비한 뒤, 작은 백스윙에서 뒤쪽 엉덩이가 뒤로 돌아가는 느낌을 찾습니다.</li>
+            <li>천천히 내려오며 앞쪽 엉덩이가 뒤로 돌아나갈 공간을 만듭니다.</li>
+            <li>몸을 억지로 낮게 붙잡지 말고 자연스럽게 피니시합니다.</li>
+          </ol>
+          <p className="text-xs leading-5 text-muted-foreground">힘으로 엉덩이를 계속 뒤로 밀기보다 회전할 공간을 느껴보세요. 불편하면 멈추고 동작 범위를 줄이세요.</p>
+        </div>
+      </> : <>
+        <p className="text-sm leading-6">머리의 안정과 자연스러운 회전을 함께 봅니다. 얼굴이 돌아가는 움직임까지 억지로 막거나, 피니시까지 고개를 붙잡아 둘 필요는 없습니다.</p>
+        <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+          <h4 className="text-sm font-semibold">공 없이 작은 스윙으로 확인하기</h4>
+          <p className="text-sm leading-6">편안한 준비 자세에서 천천히 몸을 돌리고, 얼굴과 목도 자연스럽게 따라가도록 합니다. 임팩트 전후의 몸통 변화와 얼굴 회전을 나누어 살펴보세요.</p>
+          <p className="text-xs leading-5 text-muted-foreground">코 한 점의 이동에는 얼굴 회전이 섞입니다. 코의 이동량만으로 머리가 불안정하다고 판단하지 않습니다.</p>
+        </div>
+      </>}
+      <a
+        href={pelvis ? "https://www.titleist.com/videos/instruction/early-extension-swing-fault" : "https://www.titleist.com/videos/instruction/golf-myths-keep-your-head-still"}
+        target="_blank" rel="noopener noreferrer"
+        className="flex min-h-12 items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span>{pelvis ? "Dave Phillips · 골반 움직임 교습" : "Jonathan Yarwood · 머리 움직임 교습"}<span className="mt-1 block text-xs font-normal text-muted-foreground">Titleist 원문 · 새 창</span></span>
+        <span aria-hidden="true">↗</span>
+      </a>
+    </div>
+  </details>;
+}
+
+function PelvisIllustration({ thrust }: { thrust: boolean }) {
+  const label = thrust ? "공 쪽으로 밀림" : "뒤쪽 공간에서 회전";
+  const color = thrust ? "#fbbf24" : "#34d399";
+  const hipX = thrust ? 82 : 51;
+  return <div className="overflow-hidden rounded-lg border border-border bg-background p-2">
+    <p className="text-center text-xs font-semibold" style={{ color }}>{label}</p>
+    <svg viewBox="0 0 160 150" role="img" aria-label={`${label}. 공은 오른쪽, 점선은 준비 자세의 엉덩이 뒤쪽 기준선입니다.`} className="mt-1 block w-full">
+      <path d="M 15 130 H 150" stroke="currentColor" opacity=".2" />
+      <path d="M 40 25 V 126" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" opacity=".5" />
+      <path d="M 51 71 L 78 39 M 51 71 L 65 99 L 59 128 M 78 45 L 100 80" fill="none" stroke="currentColor" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" opacity=".12" />
+      <circle cx="85" cy="29" r="8" fill="currentColor" opacity=".12" />
+      <path d={`M ${hipX} 71 L ${thrust ? 94 : 79} 40 M ${hipX} 71 L 70 99 L 64 128 M ${thrust ? 94 : 79} 46 L 107 80`} fill="none" stroke={color} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={thrust ? 99 : 86} cy="29" r="8" fill="none" stroke={color} strokeWidth="3" />
+      <ellipse cx={hipX} cy="71" rx="11" ry="8" fill={color} fillOpacity=".2" stroke={color} strokeWidth="2" />
+      {thrust ? <path d="M 45 89 H 89 M 83 84 L 89 89 L 83 94" fill="none" stroke={color} strokeWidth="2" /> : <path d="M 58 58 C 32 47 27 76 43 85 M 35 85 L 43 85 L 41 77" fill="none" stroke={color} strokeWidth="2" />}
+      <circle cx="140" cy="127" r="3" fill="currentColor" />
+      <text x="111" y="116" fill="currentColor" fontSize="11" opacity=".75">공 방향 →</text>
+    </svg>
+  </div>;
+}

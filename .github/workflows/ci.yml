@@ -44,7 +44,7 @@ jobs:
         run: npm run check:list-performance
 
       - name: Check review interface
-        run: npm run check:service-ux && npm run check:practice-coach && npm run check:movement-guide
+        run: npm run check:service-ux && npm run check:practice-coach && npm run check:movement-guide && npm run check:coaching-review
 
       - name: Build frontend
         run: npm run build

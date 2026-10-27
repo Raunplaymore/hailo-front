@@ -20,7 +20,8 @@
     "check:list-performance": "node scripts/check-list-performance.mjs",
     "check:practice-coach": "node scripts/check-practice-coach.mjs",
     "check:movement-guide": "node scripts/check-movement-guide.mjs",
-    "check:service-ux": "node scripts/check-service-ux.mjs"
+    "check:service-ux": "node scripts/check-service-ux.mjs",
+    "check:coaching-review": "node scripts/check-coaching-review.mjs && node scripts/check-coaching-lesson.mjs"
   },
   "keywords": [],
   "author": "",

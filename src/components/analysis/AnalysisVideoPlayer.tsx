@@ -26,6 +26,8 @@ type AnalysisVideoPlayerProps = {
   children?: ReactNode;
   onTimeChange: (timeMs: number) => void;
   onLoadedMetadata?: (video: HTMLVideoElement) => void;
+  reviewRange?: { startMs: number; endMs: number } | null;
+  onClearReview?: () => void;
 };
 
 export function AnalysisVideoPlayer({
@@ -37,6 +39,8 @@ export function AnalysisVideoPlayer({
   children,
   onTimeChange,
   onLoadedMetadata,
+  reviewRange,
+  onClearReview,
 }: AnalysisVideoPlayerProps) {
   const playerRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
@@ -49,6 +53,38 @@ export function AnalysisVideoPlayer({
   const [isReady, setIsReady] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isImmersive, setIsImmersive] = useState(false);
+  const [playbackError, setPlaybackError] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !reviewRange || disabled) return;
+    const start = reviewRange.startMs / 1000;
+    const end = Math.min(reviewRange.endMs / 1000, video.duration);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) return;
+    let active = true;
+    let frame: number | null = null;
+    const previousRate = video.playbackRate;
+    video.currentTime = start;
+    video.playbackRate = .5;
+    setPlaybackError(false);
+    const loop = () => {
+      if (!active) return;
+      if (!video.paused && !video.seeking && video.currentTime >= end) video.currentTime = start;
+    };
+    const nextFrame = () => {
+      loop();
+      if (active) { onTimeChange(video.currentTime * 1000); frame = video.requestVideoFrameCallback(nextFrame); }
+    };
+    if (video.requestVideoFrameCallback) frame = video.requestVideoFrameCallback(nextFrame);
+    video.addEventListener("timeupdate", loop);
+    void video.play().catch(() => { if (active) setPlaybackError(true); });
+    return () => {
+      active = false;
+      if (frame !== null) video.cancelVideoFrameCallback(frame);
+      video.removeEventListener("timeupdate", loop);
+      video.pause(); video.playbackRate = previousRate;
+    };
+  }, [reviewRange, disabled, src, videoRef, onTimeChange]);
 
   useEffect(() => {
     setDuration(0);
@@ -76,7 +112,9 @@ export function AnalysisVideoPlayer({
     if (!video || disabled || hasError) return;
     if (video.paused || video.ended) {
       try {
+        if (reviewRange && (video.currentTime * 1000 < reviewRange.startMs || video.currentTime * 1000 >= reviewRange.endMs)) video.currentTime = reviewRange.startMs / 1000;
         await video.play();
+        setPlaybackError(false);
       } catch {
         setIsPlaying(false);
       }
@@ -94,6 +132,7 @@ export function AnalysisVideoPlayer({
   const handleSeek = (nextSeconds: number) => {
     const video = videoRef.current;
     if (!video || !Number.isFinite(nextSeconds)) return;
+    onClearReview?.();
     video.currentTime = nextSeconds;
     onTimeChange(nextSeconds * 1000);
   };
@@ -182,6 +221,10 @@ export function AnalysisVideoPlayer({
       </div>
 
       <div className="border-t border-white/10 bg-zinc-950">
+        {reviewRange && <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 text-xs text-emerald-200">
+          <span role="status">{playbackError ? "재생 버튼을 눌러 시작하세요" : "근거 구간 · 0.5배 반복"}</span>
+          <button type="button" onClick={onClearReview} className="min-h-12 rounded-lg px-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">전체 영상 보기</button>
+        </div>}
         <div className="flex min-h-14 items-center gap-1.5 px-2 py-1.5 sm:gap-2 sm:px-3">
           <ControlButton
             label={isPlaying ? "일시정지" : "재생"}
@@ -213,7 +256,7 @@ export function AnalysisVideoPlayer({
             step={0.01}
             value={duration ? currentSeconds : 0}
             disabled={controlsDisabled || duration <= 0}
-            onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); videoRef.current?.pause(); dragging.current = true; }}
+            onPointerDown={(event) => { onClearReview?.(); event.currentTarget.setPointerCapture(event.pointerId); videoRef.current?.pause(); dragging.current = true; }}
             onPointerUp={() => {
               dragging.current = false;
               if (pendingSeek.current !== null) handleSeek(pendingSeek.current);

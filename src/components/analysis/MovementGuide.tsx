@@ -4,7 +4,7 @@ const button = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-
 export function MovementGuideControls({ guide, active, onActive, onSeek, timeMs, playable = true }: { guide: MovementGuide | null; active: GuideKind | null; onActive: (kind: GuideKind | null) => void; onSeek: (ms: number) => void; timeMs: number; playable?: boolean }) {
   const track = active ? guide?.tracks?.[active] : undefined;
   return <section aria-label="머리와 골반 움직임" className="space-y-2 rounded-xl border border-border p-3">
-    {!guide ? <p className="text-sm text-muted-foreground">움직임을 확인할 장면을 준비하고 있어요.</p> : guide.status === "unavailable" ? <p className="text-sm text-muted-foreground">현재 사용할 수 있는 머리·골반 기준선이 없습니다. 자세 비교에서 준비 상태를 확인해 주세요.</p> : <>
+    {!guide ? <p className="text-sm text-muted-foreground">코칭에서 움직임의 준비 상태를 확인할 수 있습니다.</p> : guide.status === "unavailable" ? <p className="text-sm text-muted-foreground">현재 사용할 수 있는 머리·골반 기준선이 없습니다. 코칭에서 준비 상태를 확인해 주세요.</p> : <>
       <p className="text-xs text-muted-foreground">확인할 장면으로 바로 이동합니다.</p>
       <div className="flex flex-wrap gap-2">{(["head", "pelvis"] as const).map(kind => <button key={kind} type="button" className={`${button} ${active === kind ? "bg-primary/15 text-primary border-primary/40" : "hover:bg-muted"}`} aria-pressed={active === kind} disabled={!playable || !guide.tracks?.[kind]} onClick={() => { onActive(kind); onSeek(guide.tracks![kind]!.focusTimeMs); }}>{labels[kind]} 보기</button>)}
         {active && <button type="button" className={button} onClick={() => onActive(null)}>기준선 숨기기</button>}

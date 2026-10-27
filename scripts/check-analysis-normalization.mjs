@@ -24,7 +24,7 @@ try {
     logLevel: "silent",
   });
 
-  const { normalizeAnalysis } = await import(pathToFileURL(bundlePath).href);
+  const { normalizeAnalysis, requestClubReview } = await import(pathToFileURL(bundlePath).href);
 
   const raw = {
     jobId: "sample-v10",
@@ -217,6 +217,35 @@ try {
   assert.equal(v14.analysisQuality?.score, 0.48);
   assert.equal(v14.metrics.impactStability, "withheld");
 
+  const sideOverlay = { coordinateSpace: "normalized", clubTimeSource: "video_pts", poseFrames: [], clubFrames: [{ timeMs: 17, head: { x: .2, y: .3, confidence: .8 } }] };
+  const side = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: sideOverlay } }, "side");
+  assert.equal(side.dtlClubPointsV2.overlay.clubTimeSource, "video_pts");
+  assert.equal(side.dtlClubPointsV2.overlay.clubFrames[0].timeMs, 17);
+  const legacy = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: { ...sideOverlay, clubTimeSource: undefined } } }, "legacy");
+  assert.equal(legacy.dtlClubPointsV2.overlay.clubTimeSource, undefined);
+  const observation = { revision: 1, status: "research_observation", automaticCoachingReady: false, levels: [{
+    status: "observation", heightFraction: .5, backswing: { timeMs: 100 }, downswing: { timeMs: 300 }, inclinationDifferenceDeg: 10,
+    sensitivity: [{ endpointRadiusPx: 5, differenceBoundsDeg: [5, 15], direction: "steeper" }],
+  }] };
+  const observed = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", observations: observation } }, "observed");
+  assert.equal(observed.dtlClubPointsV2.observations.levels[0].downswingMs, 300);
+  assert.equal(normalizeAnalysis({ dtlClubPointsV2: { observations: { ...observation, automaticCoachingReady: true } } }, "unsafe").dtlClubPointsV2.observations, null);
+  observation.levels[0].sensitivity[0].differenceBoundsDeg = [-5,15];
+  assert.equal(normalizeAnalysis({ dtlClubPointsV2: { observations: observation } }, "inconsistent").dtlClubPointsV2.observations.levels.length, 0);
+  const originalFetch = globalThis.fetch;
+  try {
+    let calls=0;
+    globalThis.fetch = async (_url, options) => {
+      calls++;
+      return new Response(JSON.stringify(options.method === "POST" ? { ok: true } : { ok: true, jobId: "review", sidecar: { status: "succeeded" } }));
+    };
+    assert.equal((await requestClubReview("review", new AbortController().signal)).status,"succeeded");
+    assert.equal(calls,2);
+    const aborted=new AbortController();aborted.abort();
+    await assert.rejects(requestClubReview("review",aborted.signal),/Aborted/);assert.equal(calls,2);
+    globalThis.fetch = async () => new Response(JSON.stringify({ok:true,jobId:"other",sidecar:{status:"succeeded"}}));
+    await assert.rejects(requestClubReview("review",new AbortController().signal),/다른 영상/);
+  } finally { globalThis.fetch=originalFetch; }
   console.log("analysis normalization check passed");
 } finally {
   await rm(tempDir, { recursive: true, force: true });

@@ -114,6 +114,7 @@ export type OverlayPoseFrame = { timeMs: number; frame?: number; keypoints: Reco
 export type OverlayClubFrame = { timeMs: number; frame?: number; head?: OverlayPoint; handle?: OverlayPoint };
 export type AnalysisOverlay = {
   coordinateSpace: "normalized";
+  clubTimeSource?: "video_pts";
   poseFrames: OverlayPoseFrame[];
   clubFrames: OverlayClubFrame[];
 };
@@ -149,8 +150,15 @@ export type AnalysisQuality = {
   };
 };
 
-/** V2 club-point HEF sidecar result. It never replaces the primary Service7 analysis. */
+/** V2 club observations can replace the replay layer, not primary metrics. */
+export type ClubObservationLevel = {
+  heightFraction: number; backswingMs: number; downswingMs: number;
+  differenceDeg: number; lowerDeg: number; upperDeg: number;
+  direction: "steeper" | "flatter" | "unresolved" | "pair_uncertain";
+};
 export type DtlClubPointsV2Sidecar = {
+  observations?: { status: string; levels: ClubObservationLevel[] } | null;
+  overlay?: AnalysisOverlay | null;
   status: "queued" | "running" | "succeeded" | "failed" | string;
   model?: string | null;
   processingMs?: number | null;

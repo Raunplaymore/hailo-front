@@ -1,3 +1,4 @@
+import { ClubObservation } from "./ClubObservation";
 import { MovementGuideControls, MovementGuideOverlay } from "./MovementGuide";
 import type { GuideKind } from "@/api/movementGuide";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -76,14 +77,18 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
+  const [clubOverride, setClubOverride] = useState<{ jobId: string; value: DtlClubPointsV2Sidecar } | null>(null);
+  const clubSidecar = clubOverride && clubOverride.jobId === jobId ? clubOverride.value : dtlClubPointsV2;
   const [videoPlayable, setVideoPlayable] = useState(false);
   const [layers, setLayers] = useState({ pose: true, hands: true, club: true, events: true });
   const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(null);
   const activePose = useMemo(() => nearestAt(overlay?.poseFrames ?? [], timeMs), [overlay, timeMs]);
   const visiblePose = useMemo(() => (overlay?.poseFrames ?? []).filter((frame) => frame.timeMs <= timeMs && frame.timeMs >= timeMs - HAND_TRAIL_DURATION_MS), [overlay, timeMs]);
-  const visibleClub = useMemo(() => (overlay?.clubFrames ?? []).filter((frame) => (
+  const clubOverlay = clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts"
+    ? clubSidecar.overlay : overlay;
+  const visibleClub = useMemo(() => (clubOverlay?.clubFrames ?? []).filter((frame) => (
     frame.timeMs <= timeMs && frame.timeMs >= timeMs - CLUB_TRAIL_DURATION_MS
-  )), [overlay, timeMs]);
+  )), [clubOverlay, timeMs]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -184,9 +189,9 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             reviewRange={reviewRange}
             onClearReview={clearReview}
           >
-            {overlay && overlayBounds ? (
+            {(overlay || clubOverlay) && videoPlayable && overlayBounds ? (
               <div className="pointer-events-none absolute" style={overlayBounds}>
-                {!contour && !(guideKind && movementGuide?.tracks?.[guideKind]) && <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={displayEvents} timeMs={timeMs} layers={layers} />}
+                <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={displayEvents} timeMs={timeMs} layers={contour || (guideKind && movementGuide?.tracks?.[guideKind]) ? { ...layers, pose: false, hands: false, events: false } : layers} />
               </div>
             ) : null}
             {movementGuide?.status === "ready" && guideKind && videoPlayable && overlayBounds ? <div className="pointer-events-none absolute" style={overlayBounds}><MovementGuideOverlay guide={movementGuide} kind={guideKind} timeMs={timeMs} /></div> : null}
@@ -260,7 +265,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           <summary className="min-h-11 cursor-pointer">기존 임팩트 기록 · 연구용</summary>
           <p>{Math.round(events.impact.timeMs)} ms · 현재 Impact 선택에 사용하지 않습니다.</p>
         </details> : null}
-        {dtlClubPointsV2 && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={dtlClubPointsV2} /></details>}
+        {jobId && <ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} />}
+        {clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} /></details>}
       </CardContent>
     </Card>
   );
@@ -276,7 +282,7 @@ function ClubTrackingEvidence({ sidecar }: { sidecar?: DtlClubPointsV2Sidecar | 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold text-cyan-100">DTL V2 클럽 추적</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">Head·Handle로 확인한 보조 근거이며 Service7 이벤트를 교체하지 않습니다.</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{sidecar.overlay?.clubTimeSource === "video_pts" ? "영상에 파란 헤드 궤적과 노란 그립·샤프트 선을 표시합니다. 헤드와 그립이 함께 확인된 장면에만 샤프트 선이 나타납니다." : "클럽 관측 결과입니다. 이 기록에는 영상 시각과 맞춘 궤적이 아직 없습니다."}</p>
         </div>
         <span className={cn(
           "rounded-full border px-2 py-1 text-[11px] font-semibold",
@@ -316,6 +322,10 @@ function nearestAt<T extends { timeMs: number }>(frames: T[], timeMs: number): T
 function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { pose?: AnalysisOverlay["poseFrames"][number]; poseFrames: AnalysisOverlay["poseFrames"]; clubFrames: AnalysisOverlay["clubFrames"]; events?: AnalysisResult["events"]; timeMs: number; layers: Record<"pose" | "hands" | "club" | "events", boolean> }) {
   const hands = pose ? [pose.keypoints.left_wrist, pose.keypoints.right_wrist].filter((point): point is [number, number, number?] => Array.isArray(point) && (point[2] ?? 1) >= .15) : [];
   const latestClub = clubFrames.at(-1);
+  const visibleShaft = latestClub && timeMs - latestClub.timeMs <= 50
+    && [latestClub.head, latestClub.handle].every((point) => point
+      && (point.confidence ?? 0) >= CLUB_TRAIL_MIN_CONFIDENCE
+      && Number.isFinite(point.x) && Number.isFinite(point.y));
   const headPaths = smoothClubTrailPaths(clubFrames, "head");
   const handlePaths = smoothClubTrailPaths(clubFrames, "handle");
   const currentEvent = Object.entries(events ?? {}).find(([, event]) => event && Math.abs(event.timeMs - timeMs) < 80)?.[0];
@@ -327,7 +337,7 @@ function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { 
       </g>)}
       {handlePaths.map((path, index) => <path key={`handle-${index}`} d={path} stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" />)}
     </g> : null}
-    {layers.club && latestClub?.head && latestClub.handle ? <line x1={latestClub.head.x} y1={latestClub.head.y} x2={latestClub.handle.x} y2={latestClub.handle.y} stroke="#fbbf24" strokeWidth="0.009" /> : null}
+    {layers.club && visibleShaft && latestClub?.head && latestClub.handle ? <line x1={latestClub.head.x} y1={latestClub.head.y} x2={latestClub.handle.x} y2={latestClub.handle.y} stroke="#fbbf24" strokeWidth="0.009" /> : null}
     {layers.pose && pose ? SKELETON_LINKS.map(([from, to]) => { const a = pose.keypoints[from]; const b = pose.keypoints[to]; return Array.isArray(a) && Array.isArray(b) ? <line key={`${from}-${to}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#34d399" strokeWidth="0.006" /> : null; }) : null}
     {layers.pose && pose ? Object.entries(pose.keypoints).map(([name, point]) => Array.isArray(point) && (point[2] ?? 1) >= .15 ? <circle key={name} cx={point[0]} cy={point[1]} r="0.009" fill={jointColor(name)} /> : null) : null}
     {layers.hands ? (["left_wrist", "right_wrist"] as const).map((key) => {

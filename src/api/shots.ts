@@ -8,6 +8,7 @@ import {
   BackswingMetrics,
   CoachFinding,
   DtlClubPointsV2Sidecar,
+  ClubObservationLevel,
   EventEvidenceQuality,
   EventTimingMetrics,
   EventValidation,
@@ -510,6 +511,36 @@ const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefine
   return findings.length > 0 ? findings : undefined;
 };
 
+function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observations"] {
+  if (raw?.revision !== 1 || raw?.automaticCoachingReady !== false || !Array.isArray(raw.levels)) return null;
+  const levels: ClubObservationLevel[] = raw.levels.slice(0, 5).flatMap((row: any) => {
+    const test = Array.isArray(row?.sensitivity) ? row.sensitivity.find((s: any) => s?.endpointRadiusPx === 5) : null;
+    const values = [row?.heightFraction, row?.backswing?.timeMs, row?.downswing?.timeMs, row?.inclinationDifferenceDeg, test?.differenceBoundsDeg?.[0], test?.differenceBoundsDeg?.[1]];
+    if (row?.status !== "observation" || !values.every(v => typeof v === "number" && Number.isFinite(v))
+      || values[0] <= 0 || values[0] >= 1 || values[1] < 0 || values[2] <= values[1] || values[4] > values[5]
+      || !["steeper", "flatter", "unresolved", "pair_uncertain"].includes(test?.direction)
+      || (test.direction === "steeper" && values[4] <= 0) || (test.direction === "flatter" && values[5] >= 0)) return [];
+    return [{ heightFraction: values[0], backswingMs: values[1], downswingMs: values[2], differenceDeg: values[3], lowerDeg: values[4], upperDeg: values[5], direction: test.direction }];
+  });
+  return { status: String(raw.status), levels };
+}
+
+export async function requestClubReview(jobId: string, signal: AbortSignal): Promise<DtlClubPointsV2Sidecar> {
+  if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+  const url = `/api/analyze/${encodeURIComponent(jobId)}/club-review`;
+  await client.post(url, new Blob(["{}"], { type: "application/json" }));
+  for (let attempt = 0; attempt < 120; attempt++) {
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+    const raw: any = await client.get(url, { signal });
+    if (raw?.ok !== true || raw.jobId !== jobId) throw new Error("다른 영상의 관측 응답입니다. 다시 시도해 주세요.");
+    const sidecar = normalizeAnalysis({ dtlClubPointsV2: raw.sidecar }, jobId).dtlClubPointsV2;
+    if (sidecar?.status === "failed") throw new Error("클럽 관측을 완료하지 못했습니다. 다시 시도해 주세요.");
+    if (sidecar?.status === "succeeded") return sidecar;
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  throw new Error("관측이 아직 진행 중입니다. 잠시 후 다시 확인해 주세요.");
+}
+
 const normalizeOverlay = (raw: any): AnalysisOverlay | null => {
   if (!raw || typeof raw !== "object" || raw.coordinateSpace !== "normalized") return null;
   const point = (value: any) =>
@@ -526,7 +557,7 @@ const normalizeOverlay = (raw: any): AnalysisOverlay | null => {
         .filter((frame: any) => frame && Number.isFinite(Number(frame.timeMs)))
         .map((frame: any) => ({ timeMs: Number(frame.timeMs), frame: toOptionalNumber(frame.frame) ?? undefined, head: point(frame.head), handle: point(frame.handle) }))
     : [];
-  return poseFrames.length || clubFrames.length ? { coordinateSpace: "normalized", poseFrames, clubFrames } : null;
+  return poseFrames.length || clubFrames.length ? { coordinateSpace: "normalized", clubTimeSource: raw.clubTimeSource === "video_pts" ? "video_pts" : undefined, poseFrames, clubFrames } : null;
 };
 
 export const normalizeAnalysis = (
@@ -618,6 +649,8 @@ export const normalizeAnalysis = (
       ? {
           status: typeof rawDtlClubPointsV2.status === "string" ? rawDtlClubPointsV2.status : "queued",
           model: typeof rawDtlClubPointsV2.model === "string" ? rawDtlClubPointsV2.model : null,
+          overlay: normalizeOverlay(rawDtlClubPointsV2.overlay),
+          observations: normalizeClubObservations(rawDtlClubPointsV2.observations),
           processingMs: toOptionalNumber(rawDtlClubPointsV2.processingMs ?? rawDtlClubPointsV2.processing_ms),
           takeaway:
             rawDtlClubPointsV2.takeaway && typeof rawDtlClubPointsV2.takeaway === "object"

@@ -288,7 +288,7 @@ function ClubTrackingEvidence({ sidecar }: { sidecar?: DtlClubPointsV2Sidecar | 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold text-cyan-100">DTL V2 클럽 추적</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{sidecar.overlay?.clubTimeSource === "video_pts" ? "영상에 파란 헤드 궤적과 노란 그립·샤프트 선을 표시합니다. 헤드와 그립이 함께 확인된 장면에만 샤프트 선이 나타납니다." : "클럽 관측 결과입니다. 이 기록에는 영상 시각과 맞춘 궤적이 아직 없습니다."}</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{sidecar.overlay?.clubTimeSource === "video_pts" ? "파란 선은 헤드 궤적, 노란 선은 그립과 샤프트의 추정 위치입니다. 두 점이 실제 클럽과 맞는지 영상에서 확인하세요." : "클럽 관측 결과입니다. 이 기록에는 영상 시각과 맞춘 궤적이 아직 없습니다."}</p>
         </div>
         <span className={cn(
           "rounded-full border px-2 py-1 text-[11px] font-semibold",

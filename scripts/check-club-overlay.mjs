@@ -38,5 +38,6 @@ const clubHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObserv
 assert.equal((clubHtml.match(/>백스윙/g)||[]).length,1,'only one phase pair should be displayed');
 assert.equal((clubHtml.match(/aria-pressed="true"/g)||[]).length,1,'default height selected');
 assert.match(clubHtml,/50%/); assert.match(clubHtml,/관측의 한계/);
+assert.match(clubHtml,/두 장면에서 노란 선이 실제 클럽과 맞는지 먼저 확인하세요/);
 assert.doesNotMatch(source,/scrollIntoView/,'changing scenes must not move the document');
 console.log('compact height selector and stationary scene navigation passed');

@@ -30,6 +30,7 @@ export function ClubObservation({ jobId, sidecar, onSeek, onResult }: {
         {levels.map(level => <button key={level.heightFraction} type="button" aria-pressed={selected === level} onClick={() => { setHeight(level.heightFraction); if (phase) onSeek(phase === "backswing" ? level.backswingMs : level.downswingMs); }} className={`min-h-11 rounded-lg border text-sm ${selected === level ? "border-primary bg-primary/15 text-primary" : "border-border"}`}>{Math.round(level.heightFraction * 100)}%</button>)}
       </div>
       {selected && <div>
+        <p className="mb-1 text-xs leading-5 text-muted-foreground">두 장면에서 노란 선이 실제 클럽과 맞는지 먼저 확인하세요. 선이 어긋나면 비교 결과도 달라질 수 있습니다.</p>
         <p className="text-sm font-medium" aria-live="polite">{selected.direction === "steeper" ? "내려올 때 더 세워져 보임" : selected.direction === "flatter" ? "내려올 때 더 누워져 보임" : "차이 방향 불확실"}</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {([["backswing", "백스윙", selected.backswingMs], ["downswing", "다운스윙", selected.downswingMs]] as const).map(([key, label, ms]) => <button key={key} type="button" aria-pressed={phase === key} className={`min-h-11 rounded-lg border text-sm ${phase === key ? "border-primary bg-primary/15 text-primary" : "border-border"}`} onClick={() => { setPhase(key); onSeek(ms); }}>{label} · {(ms / 1000).toFixed(2)}초</button>)}

@@ -245,6 +245,29 @@ try {
     await assert.rejects(requestClubReview("review",aborted.signal),/Aborted/);assert.equal(calls,2);
     globalThis.fetch = async () => new Response(JSON.stringify({ok:true,jobId:"other",sidecar:{status:"succeeded"}}));
     await assert.rejects(requestClubReview("review",new AbortController().signal),/다른 영상/);
+    let sentBody;
+    globalThis.fetch = async (_url, options) => {
+      if (options.method === "POST") { sentBody = JSON.parse(await options.body.text()); return new Response(JSON.stringify({ok:true,refreshId:"new"})); }
+      return new Response(JSON.stringify({ok:true,jobId:"review",refresh:{id:"new",status:"succeeded"},sidecar:{status:"succeeded"}}));
+    };
+    assert.equal((await requestClubReview("review",new AbortController().signal,true)).status,"succeeded");
+    assert.equal(sentBody.refresh,true);
+    let polls=0;
+    globalThis.fetch = async (_url, options) => {
+      if (options.method === "POST") return new Response(JSON.stringify({ok:true,refreshId:"new"}));
+      polls++;
+      return new Response(JSON.stringify({ok:true,jobId:"review",refresh:{id:"new",status:polls === 1 ? "running" : "succeeded"},sidecar:{status:"succeeded",processingMs:polls}}));
+    };
+    assert.equal((await requestClubReview("review",new AbortController().signal,true)).processingMs,2);
+    assert.equal(polls,2,'old succeeded sidecar must not end an active refresh');
+    for (const status of ["failed","interrupted"]) {
+      globalThis.fetch = async (_url, options) => new Response(JSON.stringify(options.method === "POST" ? {ok:true,refreshId:"new"} : {ok:true,jobId:"review",refresh:{id:"new",status},sidecar:{status:"succeeded"}}));
+      await assert.rejects(requestClubReview("review",new AbortController().signal,true),/다시 계산하지 못했습니다/);
+    }
+    globalThis.fetch = async (_url, options) => new Response(JSON.stringify(options.method === "POST" ? {ok:true,refreshId:"new"} : {ok:true,jobId:"review",refresh:{id:"other",status:"succeeded"},sidecar:{status:"succeeded"}}));
+    await assert.rejects(requestClubReview("review",new AbortController().signal,true),/다른 관측 작업/);
+    globalThis.fetch = async () => new Response(JSON.stringify({ok:true,sidecar:{status:"succeeded"}}));
+    await assert.rejects(requestClubReview("review",new AbortController().signal,true),/다시 계산할 수 없습니다/);
   } finally { globalThis.fetch=originalFetch; }
   console.log("analysis normalization check passed");
 } finally {

@@ -525,15 +525,29 @@ function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observatio
   return { status: String(raw.status), levels };
 }
 
-export async function requestClubReview(jobId: string, signal: AbortSignal): Promise<DtlClubPointsV2Sidecar> {
+export async function requestClubReview(jobId: string, signal: AbortSignal, refresh = false): Promise<DtlClubPointsV2Sidecar> {
   if (signal.aborted) throw new DOMException("Aborted", "AbortError");
   const url = `/api/analyze/${encodeURIComponent(jobId)}/club-review`;
-  await client.post(url, new Blob(["{}"], { type: "application/json" }));
+  const started = await client.post<{ ok?: boolean; refreshId?: string }>(url, new Blob([JSON.stringify(refresh ? { refresh: true } : {})], { type: "application/json" }));
+  if (refresh && (started?.ok !== true || typeof started.refreshId !== "string")) {
+    throw new Error("클럽 관측을 다시 계산할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+  }
   for (let attempt = 0; attempt < 120; attempt++) {
     if (signal.aborted) throw new DOMException("Aborted", "AbortError");
     const raw: any = await client.get(url, { signal });
     if (raw?.ok !== true || raw.jobId !== jobId) throw new Error("다른 영상의 관측 응답입니다. 다시 시도해 주세요.");
     const sidecar = normalizeAnalysis({ dtlClubPointsV2: raw.sidecar }, jobId).dtlClubPointsV2;
+    if (refresh) {
+      if (raw.refresh?.id !== started.refreshId) throw new Error("다른 관측 작업이 시작됐습니다. 다시 시도해 주세요.");
+      if (["failed", "interrupted"].includes(raw.refresh.status)) throw new Error("클럽 관측을 다시 계산하지 못했습니다.");
+      if (raw.refresh.status === "succeeded") {
+        if (sidecar?.status === "succeeded") return sidecar;
+        throw new Error("새 관측 결과를 확인하지 못했습니다.");
+      }
+      if (!["queued", "running"].includes(raw.refresh.status)) throw new Error("관측 작업 상태를 확인하지 못했습니다.");
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      continue;
+    }
     if (sidecar?.status === "failed") throw new Error("클럽 관측을 완료하지 못했습니다. 다시 시도해 주세요.");
     if (sidecar?.status === "succeeded") return sidecar;
     await new Promise(resolve => setTimeout(resolve, 2000));

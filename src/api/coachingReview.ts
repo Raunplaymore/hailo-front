@@ -43,7 +43,12 @@ export function parseCoachingReview(raw: unknown, jobId: string, impactMs: numbe
       && (e.cameraMotion !== "similarity_corrected" || [p.referenceTop, p.referenceBottom].every(v => Array.isArray(v) && v.length === 2 && v.every(unit)))
       && unit(p.x) && unit(p.y) && unit(p.referenceX) && unit(p.referenceY) && (!i || p.timeMs > e.points[i - 1].timeMs))
     || !e.points.some(p => p.timeMs === e.focusMs))) throw new Error("근거 장면과 분석 결과가 일치하지 않습니다.");
-  return { ...value, movementGuide: parseMovementGuide(value.movementGuide) };
+  const measuredEnd = e && value.status === "ready"
+    ? Math.max(...e.points.filter(p => p.timeMs >= e.startMs && p.timeMs <= e.impactMs - 40).map(p => p.timeMs))
+    : null;
+  const evidence = e && measuredEnd !== null && measuredEnd < e.endMs ? { ...e, endMs: measuredEnd } : e;
+  if (evidence && evidence.focusMs > evidence.endMs) throw new Error("근거 장면과 분석 결과가 일치하지 않습니다.");
+  return { ...value, evidence, movementGuide: parseMovementGuide(value.movementGuide) };
 }
 
 // Share only in-flight work; reopening a record rechecks server-side file freshness.

@@ -30,6 +30,8 @@ export type InferDebugFramesResponse = {
     height: number | null;
     durationMs: number | null;
     frames: number;
+    timeBasis?: "source_pts" | "video_pts_unverified" | "fps_estimate";
+    legacyFrameNumbersChanged?: boolean;
   };
   body?: {
     bodyPath: string | null;
@@ -123,7 +125,7 @@ export type ClubPreprocessLabResponse = {
 export type SwingTrackingPoint = {
   x: number;
   y: number;
-  source: "manual" | "model";
+  source: "manual" | "model" | "unknown";
 };
 
 export type SwingTrackingVisibility = "visible" | "occluded" | "out_of_frame" | "unknown";
@@ -140,7 +142,7 @@ export type SwingTrackingFrameLabel = {
 export type SwingTrackingEventLabel = {
   frame: number;
   timeMs: number;
-  source: "manual" | "analysis";
+  source: "manual" | "analysis" | "unknown";
 };
 
 export type SwingTrackingAnnotation = {
@@ -176,7 +178,7 @@ export type SwingTrackingAnnotationListItem = {
   jobId: string;
   status: "draft" | "reviewed";
   viewpoint: "unknown" | "down_the_line" | "face_on";
-  handedness: "right" | "left";
+  handedness: "unknown" | "right" | "left";
   labeledFrames: number;
   events: number;
   updatedAt: string | null;

@@ -16,7 +16,7 @@ export function MovementGuideControls({ guide, active, onActive, onSeek, timeMs,
           <button type="button" className={button} disabled={!playable} onClick={() => onSeek(track.baseline.timeMs)}>시작 기준 자세</button>
           {([[-100,"임팩트 전"],[100,"임팩트 후"]] as const).map(([offset,label]) => { const p = guidePointAt(track,guide.impactMs!+offset); return <button key={label} type="button" className={button} disabled={!playable || !p} onClick={() => p && onSeek(p.timeMs)}>{label}</button>; })}
         </div>
-        <p className="text-xs leading-5 text-muted-foreground">{active === "head" ? "점선 십자는 시작 구간의 코 위치입니다. 얼굴 회전도 위치 변화로 보일 수 있습니다." : "점선은 시작 구간의 골반 중심입니다. 엉덩이 윤곽선이나 실제 회전 깊이는 아닙니다."} 실선과 점은 현재 추적 위치입니다.</p>
+        <p className="text-xs leading-5 text-muted-foreground">{active === "head" ? "점선 십자는 시작 구간의 코 위치입니다. 얼굴 회전도 위치 변화로 보일 수 있습니다." : "점선은 시작 구간의 골반 중심입니다. 엉덩이 윤곽선이나 실제 회전 깊이는 아닙니다."} 실선과 점은 현재 추적 위치입니다. 카메라 움직임도 화면상 변화에 포함됩니다.</p>
       </>}
       <details><summary className="text-xs text-muted-foreground">기준선 해석 안내</summary><p className="text-xs leading-5 text-muted-foreground">고정된 후방 촬영에서 확인하세요. 화면상 이동만 표시하며, 머리 고정·얼리 익스텐션의 좋고 나쁨을 판정하지 않습니다.</p></details>
     </>}

@@ -10,7 +10,7 @@ export function ImpactReview({ review, loading, error, onRetry, timeMs, onSeek, 
     Math.abs(t - timeMs) < Math.abs(times[best] - timeMs) ? i : best, 0) : 0;
   const buttonClass = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
   return <section className="space-y-2 rounded-xl border border-border p-3" aria-label="임팩트 후보 검수">
-    <p className="text-xs text-muted-foreground">추정한 임팩트 장면을 영상에서 확인하세요.</p>
+    <p className="text-xs leading-5 text-muted-foreground">오른손 후방의 완전한 스윙에서 추정한 장면입니다. 영상이 잘렸거나 연습 동작이면 후보가 틀릴 수 있으니 직접 확인하세요.</p>
     {loading && <p role="status" className="text-sm">임팩트 후보 자동 계산 대기·처리 중…</p>}
     {error && <div role="alert" className="space-y-2">
       <p className="text-sm text-destructive">임팩트 판정 보류: {error}</p>

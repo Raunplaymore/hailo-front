@@ -179,8 +179,8 @@ function createDraftAnnotation(
   return {
     schemaVersion: "swing-tracking-label-v2",
     jobId,
-    viewpoint: "down_the_line",
-    handedness: "right",
+    viewpoint: "unknown",
+    handedness: "unknown",
     status: "draft",
     events,
     frames: [],
@@ -456,19 +456,15 @@ export function InferDebugPage() {
       if (requestId !== loadRequestRef.current) return;
       const loadedAnnotation =
         stored.annotation ?? createDraftAnnotation(trimmed, next, nextAnalysis, targetVariant);
-      const nextAnnotation =
-        loadedAnnotation.handedness === "unknown"
-          ? { ...loadedAnnotation, handedness: "right" as const }
-          : loadedAnnotation;
       const normalizedAnnotation = {
-        ...nextAnnotation,
+        ...loadedAnnotation,
         schemaVersion: "swing-tracking-label-v2" as const,
         events: {
-          address: nextAnnotation.events.address ?? null,
-          takeaway: nextAnnotation.events.takeaway ?? null,
-          top: nextAnnotation.events.top ?? null,
-          impact: nextAnnotation.events.impact ?? null,
-          finish: nextAnnotation.events.finish ?? null,
+          address: loadedAnnotation.events.address ?? null,
+          takeaway: loadedAnnotation.events.takeaway ?? null,
+          top: loadedAnnotation.events.top ?? null,
+          impact: loadedAnnotation.events.impact ?? null,
+          finish: loadedAnnotation.events.finish ?? null,
         },
       };
       setData(next);
@@ -487,7 +483,7 @@ export function InferDebugPage() {
           )
         : 0;
       setSelectedIndex(initialIndex);
-      setDirty(loadedAnnotation.handedness === "unknown" || loadedAnnotation.schemaVersion !== "swing-tracking-label-v2");
+      setDirty(loadedAnnotation.schemaVersion !== "swing-tracking-label-v2");
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("jobId", trimmed);
@@ -1073,6 +1069,17 @@ export function InferDebugPage() {
               ))}
             </section>
 
+            {data.meta.timeBasis !== "source_pts" && (
+              <p role="status" className="mb-4 border border-amber-300/30 bg-amber-300/5 p-3 text-sm leading-6 text-amber-100">
+                {data.meta.timeBasis === "video_pts_unverified" ? "장면 시각은 원본 영상 기준입니다." : "프레임 시각은 평균 FPS로 추정했습니다."} 모델 검출 위치가 원본 장면과 어긋날 수 있으니 영상을 직접 확인해 주세요.
+              </p>
+            )}
+            {data.meta.legacyFrameNumbersChanged && (
+              <p role="status" className="mb-4 border border-amber-300/30 bg-amber-300/5 p-3 text-sm leading-6 text-amber-100">
+                이전에 저장한 라벨의 프레임 번호가 원본과 다를 수 있습니다. 기존 라벨을 자동으로 옮기지 않았으니 원본에서 다시 확인해 주세요.
+              </p>
+            )}
+
             {dtlClubPointsV2 ? (
               <section className="mb-4 border border-cyan-300/20 bg-cyan-300/[0.04]">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-300/15 px-4 py-3">
@@ -1135,7 +1142,7 @@ export function InferDebugPage() {
                     <label className="block text-xs text-slate-400">
                       타석
                       <select
-                        value={annotation?.handedness === "left" ? "left" : "right"}
+                        value={annotation?.handedness ?? "unknown"}
                         onChange={(event) =>
                           mutateAnnotation((current) => ({
                             ...current,
@@ -1144,6 +1151,7 @@ export function InferDebugPage() {
                         }
                         className="mt-1 h-10 w-full border border-white/10 bg-black/30 px-3 text-sm text-white"
                       >
+                        <option value="unknown">미지정</option>
                         <option value="right">오른손</option>
                         <option value="left">왼손</option>
                       </select>
@@ -1160,7 +1168,7 @@ export function InferDebugPage() {
                     {EVENT_KEYS.map((key) => {
                       const event = annotation?.events[key];
                       const delta =
-                        event && analysisEvents[key] != null
+                        event?.source === "manual" && analysisEvents[key] != null
                           ? event.timeMs - Number(analysisEvents[key])
                           : null;
                       return (
@@ -1178,10 +1186,13 @@ export function InferDebugPage() {
                               <span className="ml-2 font-mono text-xs text-slate-500">
                                 {event ? `F${event.frame}` : "—"}
                               </span>
+                              {event && <span className="ml-2 text-[10px] text-slate-400">
+                                {event.source === "manual" ? "수동 지정" : event.source === "analysis" ? "분석 초안" : "출처 미확인"}
+                              </span>}
                             </button>
                             {delta != null ? (
-                              <span className={`font-mono text-[10px] ${Math.abs(delta) <= 100 ? "text-emerald-300" : "text-amber-300"}`}>
-                                AI {delta >= 0 ? "+" : ""}{Math.round(delta)}ms
+                              <span className="font-mono text-[10px] text-slate-400">
+                                분석과 {delta >= 0 ? "+" : ""}{Math.round(delta)}ms
                               </span>
                             ) : null}
                           </div>

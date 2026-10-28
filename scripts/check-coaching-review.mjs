@@ -19,7 +19,10 @@ try {
     cameraMotion:'translation_corrected',ballDirection:'right',baselineX:.3,baselineY:.6,noisePx:2,shiftPx:10.8,observation:'toward_ball',points };
   const result = {ok:true,jobId:'job',version:'dtl-coaching-review-v1',status:'ready',diagnosisStatus:'unvalidated',reason:null,
     summary:'공에 닿기 전, 골반 뒤쪽 윤곽이 시작 기준선보다 공 쪽에 보입니다.',evidence};
-  assert.equal(parseCoachingReview(result,'job',1000).evidence,evidence);
+  const parsed = parseCoachingReview(result,'job',1000);
+  assert.equal(parsed.evidence.endMs, 920, 'legacy replay must stop at the last measured pre-impact frame');
+  assert.equal(evidence.endMs, 1100, 'normalization must not mutate the source response');
+  assert.equal(parseCoachingReview({...result,evidence:{...evidence,endMs:920}},'job',1000).evidence.endMs, 920);
   for (const patch of [{jobId:'other'},{version:'old'},{diagnosisStatus:'confirmed'},{status:'confirmed'},{summary:''},{evidence:null},
     {evidence:{...evidence,impactMs:1200}},{evidence:{...evidence,baselineX:NaN}},{evidence:{...evidence,focusMs:980}},
     {evidence:{...evidence,points:[...points,points[0]]}},{evidence:{...evidence,points:[null]}},
@@ -32,6 +35,7 @@ try {
   const props={result,playable:true,onEvidence(){},onSeek(){}};
   const html=render('CoachingObservation',props);
   assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/원인이나 교정 필요성을 확정하지 않습니다/);
+  assert.match(html,/영상에서도 이동이 보인다면 아래 교습 원리와 연습/);
   assert.doesNotMatch(html,/checkbox|연습 전과 비교|기준으로 저장|진단 완료|교정 성공/);
   assert.match(render('CoachingObservation',{...props,playable:false}),/disabled=""/);
   const neutral=render('CoachingObservation',{...props,result:{...result,evidence:{...evidence,observation:'no_clear_shift'}}});
@@ -42,7 +46,7 @@ try {
   assert.match(render('PelvisContourOverlay',{evidence,timeMs:860}),/x1="0.31"/);
   assert.doesNotMatch(render('PelvisContourOverlay',{evidence,timeMs:2000}),/stroke="#fbbf24"/);
   const similarity={...evidence,cameraMotion:'similarity_corrected',points:points.map(p=>({...p,referenceTop:[.30,.45],referenceBottom:[.32,.75]}))};
-  assert.equal(parseCoachingReview({...result,evidence:similarity},'job',1000).evidence,similarity);
+  assert.equal(parseCoachingReview({...result,evidence:similarity},'job',1000).evidence.endMs,920);
   assert.throws(()=>parseCoachingReview({...result,evidence:{...evidence,cameraMotion:'similarity_corrected'}},'job',1000));
   assert.throws(()=>parseCoachingReview({...result,excludedFrames:[{timeMs:NaN,reason:'bad'}]},'job',1000));
   assert.match(render('PelvisContourOverlay',{evidence:similarity,timeMs:860}),/x1="0.3" x2="0.32"/);

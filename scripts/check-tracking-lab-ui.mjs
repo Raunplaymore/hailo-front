@@ -3,13 +3,13 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile("src/components/debug/InferDebugPage.tsx", "utf8");
 
-assert.match(source, /handedness: "right"/, "New tracking labels must default to a right-handed golfer.");
-assert.match(
-  source,
-  /loadedAnnotation\.handedness === "unknown"/,
-  "Legacy unknown-handed annotations must be promoted to the right-handed default."
-);
-assert.doesNotMatch(source, /<option value="unknown">미지정<\/option>[\s\S]{0,120}<option value="right">오른손<\/option>/, "Handedness must not open on an unknown option.");
+assert.match(source, /viewpoint: "unknown",\s*handedness: "unknown"/, "New labels must not invent camera view or handedness.");
+assert.doesNotMatch(source, /loadedAnnotation\.handedness === "unknown"/, "Existing unknown handedness must not be rewritten.");
+assert.match(source, /<option value="unknown">미지정<\/option>[\s\S]{0,120}<option value="right">오른손<\/option>/, "Handedness must offer an unknown option.");
+assert.match(source, /data\.meta\.timeBasis !== "source_pts"/, "Estimated frame clocks must be visible to reviewers.");
+assert.match(source, /data\.meta\.legacyFrameNumbersChanged/, "Remapped old frame labels must be flagged for review.");
+assert.match(source, /event\?\.source === "manual" && analysisEvents\[key\]/, "Analysis-generated event labels must not compare against themselves.");
+assert.match(source, /분석 초안/, "Analysis-generated events must be labeled as drafts.");
 assert.match(
   source,
   /lg:grid-cols-\[minmax\(0,1fr\)_19rem\]/,

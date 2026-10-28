@@ -9,9 +9,8 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
-import { withImpactCandidate } from "@/api/impactReview";
+import { impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
 import { useImpactReview } from "@/hooks/useImpactReview";
-import { API_BASE } from "@/api/client";
 import { ImpactReview } from "./ImpactReview";
 import { CoachingReview, PelvisContourOverlay } from "./CoachingReview";
 import { CoachingLesson } from "./CoachingLesson";
@@ -62,7 +61,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const impactState = useImpactReview(jobId);
   const displayEvents = withImpactCandidate(events, impactState.review, Boolean(jobId));
   const candidateVideoHash = impactState.review?.videoSha256;
-  const reviewVideoUrl = jobId ? `${API_BASE}/api/analyze/${encodeURIComponent(jobId)}/review-video${originalQuality ? "?quality=original" : ""}` : videoUrl;
+  const reviewVideoUrl = jobId ? impactReviewVideoUrl(jobId, candidateVideoHash, originalQuality) : videoUrl;
   const [coaching, setCoaching] = useState<{key:string; result:CoachingResult|null}>({key:"",result:null});
   const [reviewRange, setReviewRange] = useState<{ startMs: number; endMs: number } | null>(null);
   const [guideKind, setGuideKind] = useState<GuideKind | null>(null);
@@ -80,7 +79,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const [timeMs, setTimeMs] = useState(0);
   const [clubOverride, setClubOverride] = useState<{ jobId: string; value: DtlClubPointsV2Sidecar } | null>(null);
   const clubSidecar = clubOverride && clubOverride.jobId === jobId ? clubOverride.value : dtlClubPointsV2;
-  const [videoPlayable, setVideoPlayable] = useState(false);
+  const [videoStatus, setVideoStatus] = useState<{src?: string; ready: boolean}>({ready: false});
+  const videoPlayable = videoStatus.src === reviewVideoUrl && videoStatus.ready;
   const [layers, setLayers] = useState({ pose: true, hands: true, club: true, events: true });
   const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(null);
   const activePose = useMemo(() => nearestAt(overlay?.poseFrames ?? [], timeMs), [overlay, timeMs]);
@@ -93,14 +93,14 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
 
   useEffect(() => {
     const video = videoRef.current;
-    const sync = () => setVideoPlayable(Boolean(video && !video.error && !video.seeking && video.readyState >= 2));
-    setVideoPlayable(false);
+    const sync = () => setVideoStatus({src: reviewVideoUrl, ready: Boolean(video && !video.error && !video.seeking && video.readyState >= 2)});
+    setVideoStatus({src: reviewVideoUrl, ready: false});
     if (!video) return;
     const events = ["loadeddata", "canplay", "seeking", "seeked", "error", "emptied"];
     events.forEach((name) => video.addEventListener(name, sync));
     sync();
     return () => events.forEach((name) => video.removeEventListener(name, sync));
-  }, [reviewVideoUrl]);
+  }, [reviewVideoUrl, videoUrl]);
 
   const syncOverlayBounds = () => {
     const video = videoRef.current;
@@ -189,6 +189,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             frameTimes={clubOverlay?.clubFrames.map(frame => frame.timeMs)}
             reviewRange={reviewRange}
             onClearReview={clearReview}
+            onRetry={jobId ? impactState.retry : undefined}
           >
             {(overlay || clubOverlay) && videoPlayable && overlayBounds ? (
               <div className="pointer-events-none absolute" style={overlayBounds}>
@@ -200,7 +201,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             <details className="absolute right-2 top-2 z-10">
               <summary className="cursor-pointer list-none rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs font-semibold text-white [&::-webkit-details-marker]:hidden">영상 옵션</summary>
               <div className="mt-1 grid max-h-[25vh] gap-1 overflow-y-auto rounded-lg border border-white/15 bg-black/95 p-1.5">
-                <button type="button" aria-pressed={originalQuality} onClick={() => { clearReview(); setOriginalQuality(value => !value); }} className="min-h-12 rounded-md px-3 text-left text-xs text-white">{originalQuality ? "빠른 재생으로 전환" : "원본 화질로 전환"}</button>
+                {jobId && <button type="button" aria-pressed={originalQuality} onClick={() => { clearReview(); setOriginalQuality(value => !value); }} className="min-h-12 rounded-md px-3 text-left text-xs text-white">{originalQuality ? "빠른 재생으로 전환" : "분석 영상 화질로 전환"}</button>}
                 {overlay && ([['pose', '자세'], ['hands', '손'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={layers[key]} onClick={() => { setGuideKind(null); setLayers(current => ({ ...current, [key]: !current[key] })); }} className={cn("min-h-12 rounded-md px-3 text-left text-xs font-semibold", layers[key] ? "bg-primary text-primary-foreground" : "text-white/75")}>{label}</button>)}
               </div>
             </details>

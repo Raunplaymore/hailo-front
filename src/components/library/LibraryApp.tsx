@@ -262,8 +262,16 @@ export function LibraryApp() {
               evidenceFocus={coachEvidenceFocus}
             />
           ) : <p className="rounded-xl border border-dashed bg-muted/40 p-4 text-sm text-muted-foreground">원본 영상은 없고 분석 결과만 보관되어 있습니다.</p>}
-          {selectedAnalysis ? <KeyMetrics analysis={selectedAnalysis} status={selectedAnalysis.status} /> : null}
-          {selectedAnalysis ? <CoachSummary summary={selectedAnalysis.summary} comments={selectedAnalysis.coachSummary} findings={selectedAnalysis.coachFindings} events={selectedAnalysis.events} onWatchEvidence={(event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 }))} /> : (
+          {selectedAnalysis ? (
+            <details className="rounded-xl border border-border px-4">
+              <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">기존 분석 기록 · 연구 참고용</summary>
+              <p className="mb-3 text-xs leading-5 text-muted-foreground">이전 자동 분석은 교정의 근거로 검증되지 않았습니다. 영상에서 관찰된 장면과 골프 진단은 다릅니다.</p>
+              <div className="space-y-3 pb-4">
+                <KeyMetrics analysis={selectedAnalysis} status={selectedAnalysis.status} />
+                <CoachSummary summary={selectedAnalysis.summary} comments={selectedAnalysis.coachSummary} findings={selectedAnalysis.coachFindings} events={selectedAnalysis.events} onWatchEvidence={selected.videoStored ? (event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 })) : undefined} />
+              </div>
+            </details>
+          ) : (
             <Card><CardContent className="p-4 text-sm text-muted-foreground">이 기록은 이전 형식으로 보관되어 상세 코칭을 표시할 수 없습니다.</CardContent></Card>
           )}
           <Card className="border-destructive/30">

@@ -31,6 +31,7 @@ type AnalysisVideoPlayerProps = {
   onLoadedMetadata?: (video: HTMLVideoElement) => void;
   reviewRange?: { startMs: number; endMs: number } | null;
   onClearReview?: () => void;
+  onRetry?: () => void;
 };
 
 export function AnalysisVideoPlayer({
@@ -45,6 +46,7 @@ export function AnalysisVideoPlayer({
   onLoadedMetadata,
   reviewRange,
   onClearReview,
+  onRetry,
 }: AnalysisVideoPlayerProps) {
   const playerRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
@@ -231,8 +233,8 @@ export function AnalysisVideoPlayer({
         ) : null}
         {hasError ? (
           <div className="absolute inset-x-3 bottom-3 rounded-lg border border-red-300/30 bg-black/80 px-3 py-2 text-sm text-red-100 backdrop-blur">
-            <p>영상을 불러오지 못했습니다. 네트워크 연결을 확인해 주세요.</p>
-            <button type="button" className="mt-2 min-h-12 rounded-lg border border-white/30 px-3 text-sm text-white" onClick={() => { setHasError(false); setIsReady(false); setBuffering(false); videoRef.current?.load(); }}>영상 다시 불러오기</button>
+            <p>영상을 불러오지 못했습니다. 영상이 변경됐거나 연결에 문제가 있을 수 있습니다.</p>
+            <button type="button" className="mt-2 min-h-12 rounded-lg border border-white/30 px-3 text-sm text-white" onClick={() => { setHasError(false); setIsReady(false); setBuffering(false); videoRef.current?.load(); onRetry?.(); }}>영상 다시 불러오기</button>
           </div>
         ) : null}
       </div>

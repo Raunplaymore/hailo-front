@@ -37,7 +37,7 @@ function EvidenceJump({ item, events, onWatchEvidence }: {
       className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-emerald-300 bg-white/80 px-3 py-2 text-sm font-semibold text-emerald-950 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
     >
       <Video className="size-4" aria-hidden="true" />
-      영상에서 확인
+      이전 후보 시점 보기
     </button>
   );
 }
@@ -117,7 +117,7 @@ function commentFromFinding(finding: CoachFinding): ParsedComment {
 
 function confidenceLabel(confidence: number | null): string | null {
   if (confidence === null || Number.isNaN(confidence)) return null;
-  return `신뢰도 ${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}%`;
+  return `이전 모델 점수 ${Math.round(Math.max(0, Math.min(1, confidence)) * 100)}% · 교정 정확도 아님`;
 }
 
 function isReferenceSignal(confidence: number | null, caution: string | null, evidenceLevel?: string | null): boolean {
@@ -161,15 +161,17 @@ function areInstructionsRedundant(first: string, second: string): boolean {
 }
 
 const FINDING_TITLES: Record<string, string> = {
-  tempo_rushed_transition: "전환이 너무 급해요",
-  tempo_reference_candidate: "전환 리듬을 다시 확인해요",
-  shoulder_turn_reference_candidate: "몸통 회전 여유를 확인해요",
-  sequence_rushed_proxy: "다운스윙은 몸부터 시작해요",
-  impact_unstable: "임팩트를 더 일정하게 만들어요",
-  head_unstable: "상체 중심을 안정적으로 유지해요",
-  path_inside_out: "클럽이 몸 뒤에 남지 않게 해요",
-  backswing_adequate: "백스윙 크기는 지금처럼 유지해요",
-  shaft_neutral: "샤프트 플레인은 현재 범위에서 유지해요",
+  tempo_rushed_transition: "기존 전환 속도 기록",
+  tempo_reference_candidate: "기존 전환 리듬 기록",
+  shoulder_turn_reference_candidate: "기존 몸통 회전 기록",
+  sequence_rushed_proxy: "기존 전환 순서 기록",
+  impact_unstable: "기존 임팩트 추정 기록",
+  head_unstable: "기존 머리·상체 기록",
+  path_inside_out: "기존 클럽 경로 추정 기록",
+  backswing_adequate: "기존 백스윙 크기 기록",
+  shaft_neutral: "기존 샤프트 기울기 기록",
+  shaft_flat: "기존 샤프트 기울기 기록",
+  shaft_steep: "기존 샤프트 기울기 기록",
 };
 
 function findingTitle(item: CoachSummaryItem): string {
@@ -185,11 +187,11 @@ function EvidenceDetails({ item }: { item: CoachSummaryItem }) {
   const confidenceText = confidenceLabel(item.confidence);
   const notice = lowConfidenceNotice(item.confidence, item.caution);
   const reference = isReferenceSignal(item.confidence, item.caution, item.evidenceLevel)
-    ? "이번 영상의 개선 후보입니다. 같은 신호가 반복되는지 확인하면서 적용하세요."
+    ? "이전 시스템의 추정이며 교정 정확도는 검증되지 않았습니다."
     : null;
   const evidence = [
-    item.evidence ? { label: "영상에서 보인 점", value: item.evidence } : null,
-    item.interpretation ? { label: "이렇게 해석했어요", value: item.interpretation } : null,
+    item.evidence ? { label: "당시 사용한 신호", value: item.evidence } : null,
+    item.interpretation ? { label: "당시 해석", value: item.interpretation } : null,
     item.theory ? { label: "분석 방식", value: item.theory } : null,
   ].filter((entry): entry is { label: string; value: string } => Boolean(entry));
 
@@ -198,7 +200,7 @@ function EvidenceDetails({ item }: { item: CoachSummaryItem }) {
   return (
     <details className="group rounded-xl border border-border bg-muted/25">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
-        <span className="text-sm font-semibold text-foreground">왜 이 조언이 나왔나요?</span>
+        <span className="text-sm font-semibold text-foreground">이전 기록의 근거 보기</span>
         <span className="shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
           <span className="group-open:hidden">보기</span>
           <span className="hidden group-open:inline">닫기</span>
@@ -222,9 +224,9 @@ function EvidenceDetails({ item }: { item: CoachSummaryItem }) {
 
 function PracticeSteps({ item }: { item: CoachSummaryItem }) {
   const candidates = [
-    { label: "스윙에서 느낄 것", value: actionText(item) },
-    { label: "연습 방법", value: item.parsed.drill },
-    { label: "확인할 것", value: item.parsed.checkpoint },
+    { label: "이전 동작 제안", value: actionText(item) },
+    { label: "이전 연습 제안", value: item.parsed.drill },
+    { label: "이전 확인 제안", value: item.parsed.checkpoint },
   ].filter((step): step is { label: string; value: string } => Boolean(step.value));
   const steps = candidates.filter(
     (step, index) =>
@@ -257,12 +259,12 @@ function PrimaryPracticePlan({ item, events, onWatchEvidence }: {
 }) {
   const severityText = item.severity ? SEVERITY_LABELS[item.severity] ?? item.severity : null;
   const reference = isReferenceSignal(item.confidence, item.caution, item.evidenceLevel)
-    ? "확정 진단이 아닌 개선 후보입니다. 무리하지 말고 다음 스윙과 비교하세요."
+    ? "이전 시스템의 추정이며 교정 지시로 검증되지 않았습니다."
     : null;
   return (
     <section className="rounded-2xl border border-emerald-200 bg-emerald-50/75 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-semibold text-emerald-900">이번 스윙에서 하나만</span>
+        <span className="text-xs font-semibold text-emerald-900">이전 시스템의 제안</span>
         {severityText ? <span className="rounded-full border border-emerald-200 bg-white/75 px-2.5 py-1 text-xs font-semibold text-emerald-900">{severityText}</span> : null}
         {item.parsed.priority ? (
           <span className={cn("rounded-full border px-2.5 py-1 text-xs font-semibold", PRIORITY_CLASSES[item.parsed.priority] ?? "border-emerald-200 bg-white/75 text-emerald-900")}>
@@ -272,11 +274,7 @@ function PrimaryPracticePlan({ item, events, onWatchEvidence }: {
         {reference ? <span className="rounded-full border border-slate-200 bg-white/75 px-2.5 py-1 text-xs font-semibold text-slate-700">참고해서 보기</span> : null}
       </div>
       <h3 className="mt-3 text-lg font-bold tracking-tight text-emerald-950">{findingTitle(item)}</h3>
-      <p className="mt-1 text-sm leading-6 text-emerald-900">
-        {item.parsed.drill
-          ? "아래 연습 하나만 천천히 반복해 보세요."
-          : "아래 한 가지 기준만 다음 스윙에서 확인해 보세요."}
-      </p>
+      <p className="mt-1 text-sm leading-6 text-emerald-900">아래는 과거 자동 생성된 내용으로, 영상 근거와 교정 효과가 검증되지 않았습니다.</p>
       <div className="mt-3"><PracticeSteps item={item} /></div>
       <div className="mt-3"><EvidenceJump item={item} events={events} onWatchEvidence={onWatchEvidence} /></div>
       {reference ? <p className="mt-3 text-xs leading-5 text-emerald-900/80">{reference}</p> : null}
@@ -290,8 +288,8 @@ function AdditionalFindings({ items }: { items: CoachSummaryItem[] }) {
     <details className="group rounded-2xl border border-dashed bg-muted/20">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
         <div>
-          <p className="text-sm font-semibold text-foreground">추가로 확인할 점 {items.length}개</p>
-          <p className="text-xs text-muted-foreground">첫 번째 연습이 익숙해진 뒤에만 펼쳐 보세요.</p>
+          <p className="text-sm font-semibold text-foreground">이전 추가 기록 {items.length}개</p>
+          <p className="text-xs text-muted-foreground">이전 시스템에서 추가로 생성한 기록입니다.</p>
         </div>
         <span className="shrink-0 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-muted-foreground">
           <span className="group-open:hidden">보기</span>
@@ -328,7 +326,7 @@ function MaintainPoints({ items }: { items: CoachSummaryItem[] }) {
   if (items.length === 0) return null;
   return (
     <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 px-3 py-3">
-      <p className="text-sm font-semibold text-emerald-950">지금처럼 유지할 점</p>
+      <p className="text-sm font-semibold text-emerald-950">이전 시스템의 유지 제안</p>
       <ul className="mt-2 space-y-2">
         {items.map((item) => (
           <li key={item.key ?? item.parsed.main} className="rounded-xl bg-white/60 px-3 py-2">
@@ -412,9 +410,9 @@ export function CoachSummary({ summary, comments, findings, events, onWatchEvide
     <div className="space-y-3">
       <Card>
         <CardHeader className="p-4 pb-2">
-          <CardTitle className="text-lg">코치 액션</CardTitle>
+          <CardTitle className="text-lg">과거 코칭 기록</CardTitle>
           <CardDescription>
-            확정 교정과 근거가 있는 개선 후보를 구분해 하나씩 제공합니다.
+            이전 시스템이 자동 생성한 기록이며 교정의 근거로 검증되지 않았습니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0">
@@ -429,9 +427,9 @@ export function CoachSummary({ summary, comments, findings, events, onWatchEvide
             <div className="space-y-3">
               {primaryItem ? <PrimaryPracticePlan item={primaryItem} events={events} onWatchEvidence={onWatchEvidence} /> : (
                 <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 px-4 py-3">
-                  <p className="text-sm font-semibold text-emerald-950">확인된 범위에서는 새 교정 항목이 없습니다.</p>
+                  <p className="text-sm font-semibold text-emerald-950">이전 시스템은 추가 교정 항목을 제시하지 않았습니다.</p>
                   <p className="mt-1 text-sm leading-6 text-emerald-900">
-                    유지점은 확인된 항목에만 해당하며 스윙 전체 평가가 아닙니다.
+                    이 기록은 스윙이 정상이라는 판정이 아닙니다.
                   </p>
                 </div>
               )}

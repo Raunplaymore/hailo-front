@@ -6,7 +6,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { formatGolfMetric } from "@/lib/golfMetricLabels";
 import { AnalysisResult, GenericMetricPayload, JobStatus, MetricGroup } from "@/types/shots";
 
 type KeyMetricsProps = {
@@ -26,13 +25,12 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
   const pathStatus = metricStatus(analysis, "path");
   const backswingStatus = metricStatus(analysis, "backswing");
   const impactStatus = metricStatus(analysis, "impactStability");
-  const impactEvent = analysis?.eventValidation?.eventQuality?.impact;
-  const impactEventStatus = impactEvent?.status;
   const impactTime = analysis?.events?.impact?.timeMs ?? analysis?.metrics?.eventTiming?.impact;
   const tempoRatio = metricValue(analysis?.metrics.tempo?.ratio ?? fallback, tempoStatus);
-  const shaftPlane = metricValue(formatGolfMetric(analysis?.metrics.shaftPlane, "shaftPlane") ?? fallback, shaftStatus);
-  const clubPath = metricValue(formatGolfMetric(analysis?.metrics.swingPlaneDetail, "clubPath") ?? fallback, pathStatus);
-  const backswing = metricValue(formatGolfMetric(analysis?.metrics.backswing, "backswing") ?? fallback, backswingStatus);
+  const shaftAngle = analysis?.metrics.shaftPlane?.angleDeg;
+  const shaftPlane = metricValue(typeof shaftAngle === "number" && Number.isFinite(shaftAngle) ? `${shaftAngle.toFixed(1)}° · 기존 2D 추정` : fallback, shaftStatus);
+  const clubPath = metricValue(fallback, pathStatus);
+  const backswing = metricValue(fallback, backswingStatus);
   const quality = analysis ? analysisQuality(analysis) : null;
   const legacyImpact =
     analysis?.metrics.impactStability ?? formatMetricLabel(fusionPrimary) ?? formatMetricLabel(bodyPrimary) ?? fallback;
@@ -74,12 +72,12 @@ export function KeyMetrics({ analysis, status }: KeyMetricsProps) {
           <MetricCard label="임팩트 재현성" value={impactStability} status={impactStatus} />
           <MetricCard
             label="임팩트 시점"
-            value={impactTime != null ? `${Math.round(impactTime)} ms · ${impactEventStatus === "confirmed" ? "관측 확인" : impactEventStatus === "reference" ? "참고" : "미확인"}` : "미확인"}
-            status={impactEventStatus === "confirmed" ? "confirmed" : impactEventStatus === "reference" ? "reference" : "withheld"}
+            value={impactTime != null ? `${Math.round(impactTime)} ms · 기존 후보` : "미확인"}
+            status={impactTime != null ? "reference" : "withheld"}
           />
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          샤프트 기울기는 클럽이 눕거나 세워진 정도이고, 클럽 진행 경로는 인→아웃·아웃→인 방향입니다. 임팩트 시점과 여러 스윙의 임팩트 재현성도 서로 다른 항목입니다.
+          샤프트 값은 이전 단일 카메라의 2D 추정입니다. 자세의 좋고 나쁨이나 3D 경로를 뜻하지 않으며, 임팩트도 원본 영상에서 확인해야 합니다.
         </p>
       </CardContent>
     </Card>
@@ -104,13 +102,13 @@ function analysisQuality(analysis: AnalysisResult) {
     return {
       label: "일부 근거",
       className: "border-yellow-200 bg-yellow-50 text-yellow-900",
-      message: `일부 구간을 관측했습니다.${percentText} 각 지표의 참고·확정 상태를 따로 확인하세요.`,
+      message: `일부 구간을 관측했습니다.${percentText} 각 지표의 한계를 따로 확인하세요.`,
     };
   }
   return {
     label: "관측 충분",
     className: "border-emerald-200 bg-emerald-50 text-emerald-900",
-    message: `관측 범위는 비교적 충분합니다.${percentText} 다만 확정 여부는 각 지표의 근거 배지를 따릅니다.`,
+    message: `관측 범위는 비교적 충분합니다.${percentText} 골프 동작의 정확도를 뜻하지는 않습니다.`,
   };
 }
 
@@ -122,12 +120,13 @@ function formatMetricLabel(metric?: { label?: string | null; confidence?: number
 }
 
 function metricStatus(analysis: AnalysisResult | null | undefined, key: string) {
+  if (!analysis) return undefined;
+  if (["path", "impactStability", "backswing"].includes(key)) return "withheld";
   const status =
-    analysis?.eventValidation?.metricEvidence?.[key]?.status ??
-    analysis?.eventValidation?.metricAvailability?.[key];
-  if (status === "confirmed" || status === "reference" || status === "withheld") return status;
-  if (!analysis?.eventValidation) return undefined;
-  return analysis.eventValidation.status === "usable" ? "confirmed" : "withheld";
+    analysis.eventValidation?.metricEvidence?.[key]?.status ??
+    analysis.eventValidation?.metricAvailability?.[key];
+  if (status === "withheld" || (analysis.eventValidation && analysis.eventValidation.status !== "usable")) return "withheld";
+  return "reference";
 }
 
 function metricValue(

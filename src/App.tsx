@@ -1563,7 +1563,7 @@ function MainApp() {
                   comments={analysis?.coachSummary ?? []}
                   findings={analysis?.coachFindings ?? []}
                   events={analysis?.events}
-                  onWatchEvidence={(event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 }))}
+                  onWatchEvidence={selectedVideoUrl ? (event) => setCoachEvidenceFocus((current) => ({ event, requestId: (current?.requestId ?? 0) + 1 })) : undefined}
                 />
 
               </details>

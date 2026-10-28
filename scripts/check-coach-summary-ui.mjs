@@ -19,13 +19,13 @@ assert.match(source, /function PrimaryPracticePlan\(/, "CoachSummary must render
 assert.match(source, /function areInstructionsRedundant\(/, "CoachSummary must detect semantically repeated action and checkpoint text.");
 assert.match(source, /jaccard >= 0\.7/, "Repeated coaching steps must use a conservative token-similarity threshold.");
 assert.match(source, /slice\(0, index\)/, "Practice steps must remove later instructions that repeat an earlier step.");
-assert.match(source, /이번 스윙에서 하나만/, "CoachSummary must encourage one focused change at a time.");
-assert.match(source, /스윙에서 느낄 것/, "Primary coaching must separate the swing cue from supporting detail.");
-assert.match(source, /연습 방법/, "Primary coaching must make the drill label easy to scan.");
-assert.match(source, /확인할 것/, "Primary coaching must make the checkpoint label easy to scan.");
+assert.match(source, /이전 시스템의 제안/, "Historical suggestions must be identified as past output.");
+assert.match(source, /이전 동작 제안/, "Historical swing cues must be identified as past output.");
+assert.match(source, /이전 연습 제안/, "Historical drills must be identified as past output.");
+assert.match(source, /이전 확인 제안/, "Historical checkpoints must be identified as past output.");
 assert.match(source, /function EvidenceDetails\(/, "CoachSummary must collapse evidence separately from practice steps.");
-assert.match(source, /왜 이 조언이 나왔나요\?/, "CoachSummary must use plain language for the evidence disclosure.");
-assert.match(source, /영상에서 확인/, "Actionable evidence must offer a direct jump to the matching video event.");
+assert.match(source, /이전 기록의 근거 보기/, "Historical evidence must be identified as past output.");
+assert.match(source, /이전 후보 시점 보기/, "Historical evidence jumps must identify the timing as a candidate.");
 assert.match(source, /item\.category === "backswing"/, "Backswing advice must map only to the measured top event.");
 assert.match(source, /item\.category === "shaft_plane"/, "Shaft-plane advice must map only to the measured impact event.");
 assert.match(playerSource, /evidenceFocus\.event/, "AnalysisPlayer must seek to a requested coaching evidence event.");
@@ -41,7 +41,7 @@ assert.match(source, /촬영 안내를 코칭으로 대신하지 않습니다/, 
 assert.match(source, /sequence_rushed_proxy/, "Duplicate transition proxy findings must be recognized for concise coaching.");
 assert.doesNotMatch(source, /<div className="border-t px-3 pb-3 pt-2">\s*<p[^>]*>\{parsed\.main\}<\/p>/, "Expanded findings must not repeat the summary sentence before their details.");
 assert.match(source, /summary\?: string \| null/, "CoachSummary must accept the analysis summary to avoid a duplicate summary card.");
-assert.match(source, /코치 액션/, "CoachSummary should focus the compact panel on actionable coaching.");
+assert.match(source, /과거 코칭 기록/, "Historical coaching must be identified as an unvalidated record.");
 
 assert.match(appSource, /상세 지표 \/ 디버그/, "Analysis screen must group detailed metrics under a compact disclosure.");
 const detailedMetricsDisclosure = appSource.match(

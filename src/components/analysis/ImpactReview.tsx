@@ -26,7 +26,7 @@ export function ImpactReview({ review, loading, error, onRetry, timeMs, onSeek, 
       <details><summary className="text-xs text-muted-foreground">후보 확인 표시 및 분석 범위</summary>
       <label className="flex min-h-12 cursor-pointer items-center gap-2 text-sm">
         <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-        원본 영상에서 후보를 직접 확인했습니다.
+        분석 영상에서 후보를 직접 확인했습니다.
       </label>
       <p className="text-xs text-muted-foreground">{confirmed ? "이번 화면에서 확인 표시됨. " : ""}확인 표시는 이 화면에서만 유지되며 정답 라벨이나 자동 코칭에 반영되지 않습니다.</p>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">오른손 후방(DTL) 단일 완전 스윙 기준입니다. 자동 진단·교정 결과가 아니며, 시작·탑·피니시·템포·몸 움직임 수치·공 비행 분석은 보류 중입니다.</p></details>

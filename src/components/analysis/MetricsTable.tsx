@@ -170,7 +170,9 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
   const metricAvailability = analysis?.eventValidation?.metricAvailability ?? {};
   const availability = (key: string) => {
     const value = analysis?.eventValidation?.metricEvidence?.[key]?.status ?? metricAvailability[key];
-    return value === "confirmed" || value === "reference" || value === "withheld" ? value : undefined;
+    if (analysis && ["ball", "path", "backswing"].includes(key)) return "withheld";
+    if (value === "withheld" || value === "reference") return value;
+    return value === "confirmed" ? "reference" : undefined;
   };
   const tempoAvailability = availability("tempo");
   const ballAvailability = availability("ball");
@@ -262,16 +264,15 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
         </CollapsibleMetricSection>
 
         <CollapsibleMetricSection
-          title="스윙 동작과 클럽 진단"
+          title="스윙 동작과 클럽 관측"
           summary={compactDetail([
-            `샤프트 ${metricAvailabilitySummary(shaftAvailability, formatGolfMetric(shaftPlane, "shaftPlane") ?? "-")}`,
+            `샤프트 ${metricAvailabilitySummary(shaftAvailability, formatAngle(shaftPlane?.angleDeg))}`,
             `경로 ${metricAvailabilitySummary(pathAvailability, formatGolfMetric(clubPath, "clubPath") ?? "-")}`,
             `백스윙 ${metricAvailabilitySummary(backswingAvailability, formatGolfMetric(backswing, "backswing") ?? "-")}`,
           ])}
         >
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <MetricCard label="샤프트 기울기" value={shaftAvailability === "withheld" ? "판정 보류" : formatGolfMetric(shaftPlane, "shaftPlane") ?? "-"} />
-            <MetricCard label="샤프트 각도" value={shaftAvailability === "withheld" ? "판정 보류" : formatAngle(shaftPlane?.angleDeg)} />
+            <MetricCard label="기존 샤프트 2D 추정" value={shaftAvailability === "withheld" ? "판정 보류" : formatAngle(shaftPlane?.angleDeg)} />
             <MetricCard label="클럽 진행 경로" value={pathAvailability === "withheld" ? "판정 보류" : formatGolfMetric(clubPath, "clubPath") ?? "-"} />
             <MetricCard label="백스윙 크기" value={backswingAvailability === "withheld" ? "판정 보류" : formatGolfMetric(backswing, "backswing") ?? "-"} />
             <MetricCard label="촬영 준비 상태" value={formatMetricLabel(readiness)} />
@@ -279,7 +280,7 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
             <MetricCard label="관측 커버리지" value={formatPercent(qualityScore)} />
           </div>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            샤프트 기울기는 클럽이 눕거나 세워진 정도입니다. 클럽 진행 경로의 인→아웃·아웃→인은 공 근처를 지나는 방향이며 별도 판정입니다. 관측 커버리지는 코칭 정답 확률이 아닙니다.
+            샤프트는 이전 단일 카메라 분석의 추정값이며, 실제 3D 자세나 교정 판정이 아닙니다. 관측 커버리지는 코칭 정답 확률이 아닙니다.
           </p>
           {trackingQuality && (
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-4">
@@ -295,15 +296,15 @@ export function MetricsTable({ analysis, status, onOpenVideo }: MetricsTableProp
         <DtlClubPointsV2Section sidecar={analysis?.dtlClubPointsV2} />
 
         {bodyMetrics.length > 0 && (
-          <MetricGroupSection title="Body Metrics" description="pose 기반 전신 분석 결과" metrics={bodyMetrics} />
+          <MetricGroupSection title="Body Metrics" description="검증되지 않은 기존 pose 기록" metrics={bodyMetrics} />
         )}
 
         {clubMetrics.length > 0 && (
-          <MetricGroupSection title="Club Metrics" description="클럽 추적 기반 세부 지표" metrics={clubMetrics} />
+          <MetricGroupSection title="Club Metrics" description="검증되지 않은 기존 클럽 기록" metrics={clubMetrics} />
         )}
 
         {fusionMetrics.length > 0 && (
-          <MetricGroupSection title="Fusion Metrics" description="body/club 융합 분석 결과" metrics={fusionMetrics} />
+          <MetricGroupSection title="Fusion Metrics" description="검증되지 않은 기존 융합 기록" metrics={fusionMetrics} />
         )}
 
         <CollapsibleMetricSection
@@ -354,7 +355,7 @@ function DtlClubPointsV2Section({ sidecar }: { sidecar?: DtlClubPointsV2Sidecar 
   if (!sidecar) return null;
   const isComplete = sidecar.status === "succeeded";
   const isFailed = sidecar.status === "failed";
-  const eventStatus = availabilityLabel(sidecar.takeaway?.status ?? undefined) ?? "보류";
+  const eventStatus = sidecar.takeaway?.status === "withheld" || !sidecar.takeaway?.status ? "보류" : "참고";
   const summary = isComplete
     ? compactDetail([
         `Head ${sidecar.trackingQuality?.clubHeadFrames ?? "-"}F`,

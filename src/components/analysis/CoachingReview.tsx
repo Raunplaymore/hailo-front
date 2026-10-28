@@ -27,7 +27,7 @@ export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, candid
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-xs font-semibold text-primary">이번 스윙에서 살펴볼 것</p>
       <h3 className="mt-1 text-lg font-semibold">골반이 돌아갈 공간</h3>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">후방에서 촬영한 완전한 스윙의 임팩트 후보 전, 엉덩이 뒤쪽이 준비 자세의 기준선에서 어떻게 움직이는지 봅니다. 임팩트와 공 방향은 추정이므로 원본 영상에서 먼저 확인해 주세요.</p>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">후방에서 촬영한 완전한 스윙 한 번을 기준으로, 임팩트 후보 전 엉덩이 뒤쪽의 움직임을 봅니다. 영상이 잘리거나 스윙이 반복되면 구간이 틀릴 수 있어요. 임팩트 후보와 추정 공 방향은 원본에서 확인해 주세요.</p>
       {loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요…"}</p>
         : error ? <div role="alert" className="mt-4 space-y-2"><p className="text-sm">{error}</p><button type="button" className={button} onClick={() => setAttempt(n => n + 1)}>근거 다시 불러오기</button></div>
         : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} />}

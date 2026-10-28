@@ -7,10 +7,10 @@ const dir = await mkdtemp(join(tmpdir(), 'coaching-review-'));
 try {
   const outfile = join(dir, 'test.cjs');
   await build({ stdin: { contents: `export * from './src/api/coachingReview';
-    import {CoachingObservation,PelvisContourOverlay} from './src/components/analysis/CoachingReview';
+    import {CoachingReview,CoachingObservation,PelvisContourOverlay} from './src/components/analysis/CoachingReview';
     import {AnalysisVideoPlayer} from './src/components/analysis/AnalysisVideoPlayer';
     import {createElement} from 'react'; import {renderToStaticMarkup} from 'react-dom/server';
-    export const render=(name,props)=>renderToStaticMarkup(createElement({CoachingObservation,PelvisContourOverlay,AnalysisVideoPlayer}[name],props));`,
+    export const render=(name,props)=>renderToStaticMarkup(createElement({CoachingReview,CoachingObservation,PelvisContourOverlay,AnalysisVideoPlayer}[name],props));`,
     resolveDir: process.cwd(), loader: 'tsx' }, bundle: true, platform: 'node', format: 'cjs', outfile,
     define: { 'import.meta.env': '{}', 'process.env.NODE_ENV': '"production"' }, logLevel: 'silent' });
   const { parseCoachingReview, requestCoachingReview, render } = await import(outfile);
@@ -33,6 +33,7 @@ try {
   assert.equal(parseCoachingReview(unavailable,'job',1000).status,'unavailable');
   assert.throws(()=>parseCoachingReview({...unavailable,evidence},'job',1000));
   const props={result,playable:true,onEvidence(){},onSeek(){}};
+  assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/영상이 잘리거나 스윙이 반복되면 구간이 틀릴 수/);
   const html=render('CoachingObservation',props);
   assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/원인이나 교정 필요성을 확정하지 않습니다/);
   assert.match(html,/영상에서도 이동이 보인다면 아래 교습 원리와 연습/);

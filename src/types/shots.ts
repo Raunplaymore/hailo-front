@@ -111,7 +111,7 @@ export type AnalysisProgress = {
 
 export type OverlayPoint = { x: number; y: number; confidence?: number | null };
 export type OverlayPoseFrame = { timeMs: number; frame?: number; keypoints: Record<string, [number, number, number?]> };
-export type OverlayClubFrame = { timeMs: number; frame?: number; head?: OverlayPoint; handle?: OverlayPoint };
+export type OverlayClubFrame = { timeMs: number; frame?: number; head?: OverlayPoint; handle?: OverlayPoint; headBreakBefore?: boolean; handleBreakBefore?: boolean; headValidUntilMs?: number; handleValidUntilMs?: number };
 export type AnalysisOverlay = {
   coordinateSpace: "normalized";
   clubTimeSource?: "video_pts";

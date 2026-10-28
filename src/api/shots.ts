@@ -569,7 +569,7 @@ const normalizeOverlay = (raw: any): AnalysisOverlay | null => {
   const clubFrames = Array.isArray(raw.clubFrames)
     ? raw.clubFrames
         .filter((frame: any) => frame && Number.isFinite(Number(frame.timeMs)))
-        .map((frame: any) => ({ timeMs: Number(frame.timeMs), frame: toOptionalNumber(frame.frame) ?? undefined, head: point(frame.head), handle: point(frame.handle) }))
+        .map((frame: any) => ({ timeMs: Number(frame.timeMs), frame: toOptionalNumber(frame.frame) ?? undefined, head: point(frame.head), handle: point(frame.handle), ...(frame.headBreakBefore === true ? { headBreakBefore: true } : {}), ...(frame.handleBreakBefore === true ? { handleBreakBefore: true } : {}), ...(typeof frame.headValidUntilMs === "number" && Number.isFinite(frame.headValidUntilMs) ? { headValidUntilMs: frame.headValidUntilMs } : {}), ...(typeof frame.handleValidUntilMs === "number" && Number.isFinite(frame.handleValidUntilMs) ? { handleValidUntilMs: frame.handleValidUntilMs } : {}) }))
     : [];
   return poseFrames.length || clubFrames.length ? { coordinateSpace: "normalized", clubTimeSource: raw.clubTimeSource === "video_pts" ? "video_pts" : undefined, poseFrames, clubFrames } : null;
 };

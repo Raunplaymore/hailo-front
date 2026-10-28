@@ -233,7 +233,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           {tool === "impact" && <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} />}
         </>}
 
-        {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
+        {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
         {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} /></details>}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 장면 · {jobId ? "임팩트는 추정 후보, 나머지는 연구 참고" : "연구 참고"}</p>
@@ -329,19 +329,27 @@ function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { 
   const hands = pose ? [pose.keypoints.left_wrist, pose.keypoints.right_wrist].filter((point): point is [number, number, number?] => Array.isArray(point) && (point[2] ?? 1) >= .15) : [];
   const latestClub = clubFrames.at(-1);
   const visibleShaft = latestClub && timeMs - latestClub.timeMs <= 50
+    && (latestClub.headValidUntilMs === undefined || timeMs < latestClub.headValidUntilMs)
+    && (latestClub.handleValidUntilMs === undefined || timeMs < latestClub.handleValidUntilMs)
     && [latestClub.head, latestClub.handle].every((point) => point
       && (point.confidence ?? 0) >= CLUB_TRAIL_MIN_CONFIDENCE
       && Number.isFinite(point.x) && Number.isFinite(point.y));
-  const headPaths = smoothClubTrailPaths(clubFrames, "head");
-  const handlePaths = smoothClubTrailPaths(clubFrames, "handle");
+  const headTrails = clubTrailSegments(clubFrames, "head");
+  const handleTrails = clubTrailSegments(clubFrames, "handle");
   const currentEvent = Object.entries(events ?? {}).find(([, event]) => event && Math.abs(event.timeMs - timeMs) < 80)?.[0];
   return <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="block h-full w-full" aria-label="분석 오버레이">
     {layers.club ? <g fill="none" strokeLinecap="round" strokeLinejoin="round">
-      {headPaths.map((path, index) => <g key={`head-${index}`}>
-        <path d={path} stroke="#082f49" strokeWidth="0.013" opacity="0.45" />
-        <path d={path} stroke="#38bdf8" strokeWidth="0.007" />
-      </g>)}
-      {handlePaths.map((path, index) => <path key={`handle-${index}`} d={path} stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" />)}
+      {headTrails.map((segment, index) => {
+        if (segment.length === 1) return <circle key={`head-${index}`} cx={segment[0].x} cy={segment[0].y} r="0.004" fill="#38bdf8" stroke="#082f49" strokeWidth="0.003" />;
+        const path = smoothPathFromPoints(segment);
+        return <g key={`head-${index}`}>
+          <path d={path} stroke="#082f49" strokeWidth="0.013" opacity="0.45" />
+          <path d={path} stroke="#38bdf8" strokeWidth="0.007" />
+        </g>;
+      })}
+      {handleTrails.map((segment, index) => segment.length === 1
+        ? <circle key={`handle-${index}`} cx={segment[0].x} cy={segment[0].y} r="0.003" fill="#fbbf24" />
+        : <path key={`handle-${index}`} d={smoothPathFromPoints(segment)} stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" />)}
     </g> : null}
     {layers.club && visibleShaft && latestClub?.head && latestClub.handle ? <line x1={latestClub.head.x} y1={latestClub.head.y} x2={latestClub.handle.x} y2={latestClub.handle.y} stroke="#fbbf24" strokeWidth="0.009" /> : null}
     {layers.pose && pose ? SKELETON_LINKS.map(([from, to]) => { const a = pose.keypoints[from]; const b = pose.keypoints[to]; return Array.isArray(a) && Array.isArray(b) ? <line key={`${from}-${to}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#34d399" strokeWidth="0.006" /> : null; }) : null}
@@ -380,30 +388,23 @@ function handTrailSegments(poseFrames: AnalysisOverlay["poseFrames"], key: "left
   });
 }
 
-function smoothClubTrailPaths(clubFrames: AnalysisOverlay["clubFrames"], key: "head" | "handle") {
-  const points: ClubTrailPoint[] = clubFrames
-    .flatMap((frame) => {
-      const point = frame[key];
-      return point
-        && (point.confidence ?? 1) >= CLUB_TRAIL_MIN_CONFIDENCE
-        && Number.isFinite(point.x)
-        && Number.isFinite(point.y)
-        ? [{ timeMs: frame.timeMs, x: point.x, y: point.y }]
-        : [];
-    })
-    .sort((a, b) => a.timeMs - b.timeMs);
-
-  const segments = points.reduce<ClubTrailPoint[][]>((groups, point) => {
-    const current = groups.at(-1);
-    if (!current || point.timeMs - current.at(-1)!.timeMs > CLUB_TRAIL_MAX_GAP_MS) {
-      groups.push([point]);
-    } else {
-      current.push(point);
+function clubTrailSegments(clubFrames: AnalysisOverlay["clubFrames"], key: "head" | "handle") {
+  const segments: ClubTrailPoint[][] = [];
+  let current: ClubTrailPoint[] | null = null;
+  for (const frame of [...clubFrames].sort((a, b) => a.timeMs - b.timeMs)) {
+    if (key === "head" ? frame.headBreakBefore : frame.handleBreakBefore) current = null;
+    const point = frame[key];
+    if (!point || !((point.confidence ?? 0) >= CLUB_TRAIL_MIN_CONFIDENCE) || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      current = null;
+      continue;
     }
-    return groups;
-  }, []);
-
-  return segments.filter((segment) => segment.length > 1).map(smoothPathFromPoints);
+    if (!current || frame.timeMs - current.at(-1)!.timeMs > CLUB_TRAIL_MAX_GAP_MS) {
+      current = [];
+      segments.push(current);
+    }
+    current.push({ timeMs: frame.timeMs, x: point.x, y: point.y });
+  }
+  return segments;
 }
 
 function smoothPathFromPoints(points: ClubTrailPoint[]) {

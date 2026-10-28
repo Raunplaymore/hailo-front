@@ -73,8 +73,8 @@ assert.match(playerSource, /strokeLinecap="round"/, "Hand trail segments must re
 assert.match(playerSource, /CLUB_TRAIL_MAX_GAP_MS = 120/, "Club trajectory must not bridge long detection gaps.");
 assert.match(playerSource, /CLUB_TRAIL_DURATION_MS = 550/, "Club trajectory must remain a short live trail instead of a full-video scribble.");
 assert.match(playerSource, /CLUB_TRAIL_MIN_CONFIDENCE = 0\.3/, "Club trajectory must hide low-confidence detections.");
-assert.match(playerSource, /function smoothClubTrailPaths\(/, "Club trajectory must use a dedicated smoothing path builder.");
-assert.match(playerSource, /smoothClubTrailPaths\(clubFrames, "head"\)/, "Club-head trajectory must render as a smooth path.");
+assert.match(playerSource, /function smoothPathFromPoints\(/, "Club trajectory must use a dedicated smoothing path builder.");
+assert.match(playerSource, /clubTrailSegments\(clubFrames, "head"\)/, "Club-head observations must be segmented before drawing.");
 assert.match(playerSource, /strokeLinejoin="round"/, "Club trajectory curve must have rounded joins.");
 assert.match(playerSource, /grid min-w-0 grid-cols-5 gap-1/, "Analysis timeline must fit a narrow viewport without horizontal scrolling.");
 assert.match(playerSource, /<AnalysisVideoPlayer/, "Analysis view must use the dedicated video player.");

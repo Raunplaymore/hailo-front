@@ -221,6 +221,16 @@ try {
   const side = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: sideOverlay } }, "side");
   assert.equal(side.dtlClubPointsV2.overlay.clubTimeSource, "video_pts");
   assert.equal(side.dtlClubPointsV2.overlay.clubFrames[0].timeMs, 17);
+  const marked = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: { ...sideOverlay,
+    clubFrames: [{...sideOverlay.clubFrames[0], headBreakBefore:true, handleBreakBefore:true, headValidUntilMs:25, handleValidUntilMs:26},
+      {timeMs:33,head:{x:.2,y:.3,confidence:.8},headBreakBefore:"true",headValidUntilMs:"40",handleValidUntilMs:NaN}] } } }, "marked");
+  assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[0].headBreakBefore,true);
+  assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[0].handleBreakBefore,true);
+  assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[1].headBreakBefore,undefined);
+  assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[0].headValidUntilMs,25);
+  assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[0].handleValidUntilMs,26);
+  assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[1].headValidUntilMs,undefined);
+  assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[1].handleValidUntilMs,undefined);
   const legacy = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: { ...sideOverlay, clubTimeSource: undefined } } }, "legacy");
   assert.equal(legacy.dtlClubPointsV2.overlay.clubTimeSource, undefined);
   const observation = { revision: 1, status: "research_observation", automaticCoachingReady: false, levels: [{

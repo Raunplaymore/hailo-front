@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { requestClubReview } from "@/api/shots";
 import type { DtlClubPointsV2Sidecar } from "@/types/shots";
 
-export function ClubObservation({ jobId, sidecar, onSeek, onResult }: {
-  jobId: string; sidecar?: DtlClubPointsV2Sidecar | null;
+export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: {
+  jobId: string; sidecar?: DtlClubPointsV2Sidecar | null; playable: boolean;
   onSeek: (ms: number) => void; onResult: (result: DtlClubPointsV2Sidecar) => void;
 }) {
   const [height, setHeight] = useState(0.5);
@@ -12,13 +12,14 @@ export function ClubObservation({ jobId, sidecar, onSeek, onResult }: {
   const [error, setError] = useState("");
   const active = useRef<AbortController | null>(null);
   useEffect(() => () => active.current?.abort(), []);
+  useEffect(() => setPhase(null), [sidecar]);
   const levels = sidecar?.observations?.levels;
   const selected = levels?.find(level => level.heightFraction === height) ?? levels?.[0];
   const run = async (refresh = false) => {
     active.current?.abort();
     const controller = new AbortController(); active.current = controller;
     setLoading(true); setError("");
-    try { const result = await requestClubReview(jobId, controller.signal, refresh); if (!controller.signal.aborted) onResult(result); }
+    try { const result = await requestClubReview(jobId, controller.signal, refresh); if (!controller.signal.aborted) { setPhase(null); onResult(result); } }
     catch (e) { if (!controller.signal.aborted) setError(`${e instanceof Error ? e.message : "관측을 불러오지 못했습니다."}${refresh ? " 이전 결과는 유지됩니다." : ""}`); }
     finally { if (!controller.signal.aborted) setLoading(false); }
   };
@@ -27,13 +28,13 @@ export function ClubObservation({ jobId, sidecar, onSeek, onResult }: {
     {levels?.length ? <>
       <p className="sr-only">손 높이: 시작 0% → 최고점 후보 100%</p>
       <div className="grid grid-cols-5 gap-1" role="group" aria-label="비교할 손 높이">
-        {levels.map(level => <button key={level.heightFraction} type="button" aria-pressed={selected === level} onClick={() => { setHeight(level.heightFraction); if (phase) onSeek(phase === "backswing" ? level.backswingMs : level.downswingMs); }} className={`min-h-11 rounded-lg border text-sm ${selected === level ? "border-primary bg-primary/15 text-primary" : "border-border"}`}>{Math.round(level.heightFraction * 100)}%</button>)}
+        {levels.map(level => <button key={level.heightFraction} type="button" aria-pressed={selected === level} onClick={() => { setHeight(level.heightFraction); if (phase && playable) onSeek(phase === "backswing" ? level.backswingMs : level.downswingMs); else if (!playable) setPhase(null); }} className={`min-h-11 rounded-lg border text-sm ${selected === level ? "border-primary bg-primary/15 text-primary" : "border-border"}`}>{Math.round(level.heightFraction * 100)}%</button>)}
       </div>
       {selected && <div>
-        <p className="mb-1 text-xs leading-5 text-muted-foreground">두 장면에서 노란 선이 실제 클럽과 맞는지 먼저 확인하세요. 선이 어긋나면 비교 결과도 달라질 수 있습니다.</p>
+        <p className="mb-1 text-xs leading-5 text-muted-foreground">두 장면이 각각 백스윙과 다운스윙인지, 노란 선이 실제 클럽과 맞는지 확인하세요.</p>
         <p className="text-sm font-medium" aria-live="polite">{selected.direction === "steeper" ? "내려올 때 더 세워져 보임" : selected.direction === "flatter" ? "내려올 때 더 누워져 보임" : "차이 방향 불확실"}</p>
         <div className="mt-2 grid grid-cols-2 gap-2">
-          {([["backswing", "백스윙", selected.backswingMs], ["downswing", "다운스윙", selected.downswingMs]] as const).map(([key, label, ms]) => <button key={key} type="button" aria-pressed={phase === key} className={`min-h-11 rounded-lg border text-sm ${phase === key ? "border-primary bg-primary/15 text-primary" : "border-border"}`} onClick={() => { setPhase(key); onSeek(ms); }}>{label} · {(ms / 1000).toFixed(2)}초</button>)}
+          {([["backswing", "백스윙", selected.backswingMs], ["downswing", "다운스윙", selected.downswingMs]] as const).map(([key, label, ms]) => <button key={key} type="button" aria-pressed={phase === key} disabled={!playable} className={`min-h-11 rounded-lg border text-sm disabled:opacity-40 ${phase === key ? "border-primary bg-primary/15 text-primary" : "border-border"}`} onClick={() => { setPhase(key); onSeek(ms); }}>{label} · {(ms / 1000).toFixed(2)}초</button>)}
         </div>
       </div>}
       <details className="text-xs text-muted-foreground"><summary className="cursor-pointer py-2">관측의 한계와 다시 계산</summary><p className="leading-5">손 높이가 비슷한 백스윙과 다운스윙 장면의 화면상 관측이며, 스윙의 정답·오류 판정은 아닙니다. 표시는 각 검출점에 5px 위치 오차를 가정하고 비교 프레임이 바뀔 가능성까지 계산한 결과입니다. 실제 오차를 측정한 정확도가 아니며, 카메라 각도·구간 경계·잘못된 물체 검출의 영향은 별도 확인이 필요합니다.</p><button type="button" disabled={loading} onClick={() => run(true)} className="mt-2 min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-60">{loading ? "다시 계산 중…" : "클럽 관측 다시 계산"}</button></details>

@@ -250,6 +250,15 @@ try {
   }] };
   const observed = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", observations: observation } }, "observed");
   assert.equal(observed.dtlClubPointsV2.observations.levels[0].downswingMs, 300);
+  assert.equal(observed.dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, undefined, 'older responses do not claim ten-pixel stability');
+  observation.levels[0].sensitivity.push({ endpointRadiusPx: 10, differenceBoundsDeg: [-5, 20], direction: 'unresolved', pairAvailabilityStable: true });
+  assert.equal(normalizeAnalysis({dtlClubPointsV2:{observations:observation}}, 'sensitive').dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, true);
+  observation.levels[0].sensitivity[1] = { endpointRadiusPx: 10, differenceBoundsDeg: [-5, 20], direction: 'pair_uncertain', pairAvailabilityStable: false };
+  assert.equal(normalizeAnalysis({dtlClubPointsV2:{observations:observation}}, 'pair').dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, true);
+  observation.levels[0].sensitivity[1] = { endpointRadiusPx: 10, differenceBoundsDeg: [5, 20], direction: 'unresolved', pairAvailabilityStable: true };
+  assert.equal(normalizeAnalysis({dtlClubPointsV2:{observations:observation}}, 'bad-range').dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, undefined);
+  observation.levels[0].sensitivity[1] = { endpointRadiusPx: 10, differenceBoundsDeg: [3, 20], direction: 'steeper', pairAvailabilityStable: true };
+  assert.equal(normalizeAnalysis({dtlClubPointsV2:{observations:observation}}, 'stable').dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, undefined);
   assert.equal(normalizeAnalysis({ dtlClubPointsV2: { observations: { ...observation, automaticCoachingReady: true } } }, "unsafe").dtlClubPointsV2.observations, null);
   observation.levels[0].sensitivity[0].differenceBoundsDeg = [-5,15];
   assert.equal(normalizeAnalysis({ dtlClubPointsV2: { observations: observation } }, "inconsistent").dtlClubPointsV2.observations.levels.length, 0);

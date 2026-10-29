@@ -32,12 +32,15 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
       </div>
       {selected && <div>
         <p className="mb-1 text-xs leading-5 text-muted-foreground">두 장면이 각각 백스윙과 다운스윙인지, 노란 선이 실제 클럽과 맞는지 확인하세요.</p>
-        <p className="text-sm font-medium" aria-live="polite">{selected.direction === "steeper" ? "내려올 때 더 세워져 보임" : selected.direction === "flatter" ? "내려올 때 더 누워져 보임" : "차이 방향 불확실"}</p>
+        <div aria-live="polite">
+          <p className="text-sm font-medium">{selected.direction === "steeper" ? "내려올 때 더 세워져 보임" : selected.direction === "flatter" ? "내려올 때 더 누워져 보임" : "차이 방향 불확실"}</p>
+          <p className="text-xs leading-5 text-muted-foreground">추정한 클럽 위치로 비교했어요.{selected.sensitiveTo10Px ? " 위치가 달라지면 비교가 불확실해질 수 있어요." : ""}</p>
+        </div>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {([["backswing", "백스윙", selected.backswingMs], ["downswing", "다운스윙", selected.downswingMs]] as const).map(([key, label, ms]) => <button key={key} type="button" aria-pressed={phase === key} disabled={!playable} className={`min-h-11 rounded-lg border text-sm disabled:opacity-40 ${phase === key ? "border-primary bg-primary/15 text-primary" : "border-border"}`} onClick={() => { setPhase(key); onSeek(ms); }}>{label} · {(ms / 1000).toFixed(2)}초</button>)}
         </div>
       </div>}
-      <details className="text-xs text-muted-foreground"><summary className="cursor-pointer py-2">관측의 한계와 다시 계산</summary><p className="leading-5">손 높이가 비슷한 백스윙과 다운스윙 장면의 화면상 관측이며, 스윙의 정답·오류 판정은 아닙니다. 표시는 각 검출점에 5px 위치 오차를 가정하고 비교 프레임이 바뀔 가능성까지 계산한 결과입니다. 실제 오차를 측정한 정확도가 아니며, 카메라 각도·구간 경계·잘못된 물체 검출의 영향은 별도 확인이 필요합니다.</p><button type="button" disabled={loading} onClick={() => run(true)} className="mt-2 min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-60">{loading ? "다시 계산 중…" : "클럽 관측 다시 계산"}</button></details>
+      <details className="text-xs text-muted-foreground"><summary className="cursor-pointer py-2">관측의 한계와 다시 계산</summary><p className="leading-5">손 높이가 비슷한 백스윙과 다운스윙 장면의 화면상 관측이며, 스윙의 정답·오류 판정은 아닙니다. 표시는 각 검출점에 5px 위치 오차를 가정하고 비교 프레임이 바뀔 가능성까지 계산한 결과입니다.{selected?.sensitiveTo10Px ? " 이 장면은 10px 오차를 가정하면 비교가 불확실해집니다." : ""} 실제 오차를 측정한 정확도가 아니며, 카메라 각도·구간 경계·잘못된 물체 검출의 영향은 별도 확인이 필요합니다.</p><button type="button" disabled={loading} onClick={() => run(true)} className="mt-2 min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-60">{loading ? "다시 계산 중…" : "클럽 관측 다시 계산"}</button></details>
     </> : <><p className="text-sm text-muted-foreground">{sidecar?.observations?.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? "임팩트 후보 없이 계산해 구간 비교를 보류했어요. 임팩트 탭에서 후보를 확인한 뒤 다시 계산해 주세요. 추적 궤적은 영상 일치가 확인되면 표시됩니다." : sidecar?.status === "failed" && sidecar.errorCode === "BODY_UNAVAILABLE" ? CLUB_BODY_UNAVAILABLE_MESSAGE : sidecar?.observations ? "이 영상에서는 안정적으로 비교할 장면을 확보하지 못했습니다." : "클럽 관측을 계산하면 높이별 비교 장면을 볼 수 있습니다."}</p><button type="button" disabled={loading} onClick={() => run(sidecar?.status === "succeeded")} className="min-h-11 w-full rounded-lg bg-primary px-4 text-primary-foreground disabled:opacity-60">{loading ? "클럽 관측 중…" : sidecar?.status === "succeeded" ? "클럽 관측 다시 계산" : "클럽 관측 계산"}</button></>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>;

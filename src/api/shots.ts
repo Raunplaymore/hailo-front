@@ -520,7 +520,13 @@ function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observatio
       || values[0] <= 0 || values[0] >= 1 || values[1] < 0 || values[2] <= values[1] || values[4] > values[5]
       || !["steeper", "flatter", "unresolved", "pair_uncertain"].includes(test?.direction)
       || (test.direction === "steeper" && values[4] <= 0) || (test.direction === "flatter" && values[5] >= 0)) return [];
-    return [{ heightFraction: values[0], backswingMs: values[1], downswingMs: values[2], differenceDeg: values[3], lowerDeg: values[4], upperDeg: values[5], direction: test.direction }];
+    const larger = row.sensitivity.find((s: any) => s?.endpointRadiusPx === 10);
+    const bounds = larger?.differenceBoundsDeg;
+    const validBounds = Array.isArray(bounds) && bounds.length === 2 && bounds.every((v: any) => typeof v === "number" && Number.isFinite(v)) && bounds[0] <= bounds[1];
+    const uncertainAt10 = validBounds && ((larger.direction === "unresolved" && larger.pairAvailabilityStable === true && bounds[0] <= 0 && bounds[1] >= 0)
+      || (larger.direction === "pair_uncertain" && larger.pairAvailabilityStable === false));
+    return [{ heightFraction: values[0], backswingMs: values[1], downswingMs: values[2], differenceDeg: values[3], lowerDeg: values[4], upperDeg: values[5], direction: test.direction,
+      ...(["steeper", "flatter"].includes(test.direction) && uncertainAt10 ? { sensitiveTo10Px: true as const } : {}) }];
   });
   return { status: String(raw.status), levels, ...(raw.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? {reason: raw.reason} : {}) };
 }

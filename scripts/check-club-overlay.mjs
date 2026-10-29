@@ -144,6 +144,13 @@ assert.equal((clubHtml.match(/aria-pressed="true"/g)||[]).length,1,'default heig
 assert.match(clubHtml,/50%/); assert.match(clubHtml,/관측의 한계/);
 assert.match(clubHtml,/두 장면이 각각 백스윙과 다운스윙인지/);
 assert.match(clubHtml,/노란 선이 실제 클럽과 맞는지 확인하세요/);
+assert.match(clubHtml,/추정한 클럽 위치로 비교/);
+assert.doesNotMatch(clubHtml,/위치가 달라지면 비교가 불확실/, 'missing sensitivity must not claim a result');
+const sensitive = {...props, sidecar:{observations:{levels:[{...props.sidecar.observations.levels[2], sensitiveTo10Px:true}]}}};
+const sensitiveHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,sensitive));
+assert.match(sensitiveHtml,/위치가 달라지면 비교가 불확실/);
+assert.match(sensitiveHtml,/10px 오차를 가정하면 비교가 불확실/);
+assert.match(sensitiveHtml,/aria-live="polite"[^>]*>.*위치가 달라지면 비교가 불확실/, 'changes to the warning must reach screen readers');
 assert.match(clubHtml,/클럽 관측 다시 계산/);
 const emptyHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...props,sidecar:{status:'succeeded',observations:{levels:[]}}}));
 assert.match(emptyHtml,/클럽 관측 다시 계산/);

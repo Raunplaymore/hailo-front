@@ -155,6 +155,7 @@ export type ClubObservationLevel = {
   heightFraction: number; backswingMs: number; downswingMs: number;
   differenceDeg: number; lowerDeg: number; upperDeg: number;
   direction: "steeper" | "flatter" | "unresolved" | "pair_uncertain";
+  sensitiveTo10Px?: true;
 };
 export type DtlClubPointsV2Sidecar = {
   observations?: { status: string; levels: ClubObservationLevel[]; reason?: "IMPACT_CANDIDATE_UNAVAILABLE" } | null;

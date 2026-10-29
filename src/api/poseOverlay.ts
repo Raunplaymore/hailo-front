@@ -1,10 +1,10 @@
 import type { OverlayPoseFrame } from "@/types/shots";
-import type { ImpactReview } from "./impactReview";
+import type { VideoClock } from "./impactReview";
 import { client } from "./client";
 
 export type PoseOverlay = { status: "ready" | "unavailable"; poseFrames: OverlayPoseFrame[] };
 
-export function parsePoseOverlay(raw: unknown, jobId: string, review: ImpactReview): PoseOverlay {
+export function parsePoseOverlay(raw: unknown, jobId: string, review: VideoClock): PoseOverlay {
   const value = raw as {ok?: unknown; jobId?: unknown; videoSha256?: unknown; status?: unknown; timeSource?: unknown; poseFrames?: unknown};
   const frames = value?.poseFrames;
   if (!value || value.ok !== true || value.jobId !== jobId || value.videoSha256 !== review.videoSha256
@@ -25,7 +25,7 @@ export function parsePoseOverlay(raw: unknown, jobId: string, review: ImpactRevi
 }
 
 const pending = new Map<string, Promise<unknown>>();
-export function requestPoseOverlay(jobId: string, review: ImpactReview): Promise<PoseOverlay> {
+export function requestPoseOverlay(jobId: string, review: VideoClock): Promise<PoseOverlay> {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(jobId) || !/^[a-f0-9]{64}$/.test(review.videoSha256)) {
     return Promise.reject(new Error("영상 식별 정보를 확인할 수 없습니다."));
   }

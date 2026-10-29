@@ -7,9 +7,12 @@ const dir = await mkdtemp(join(tmpdir(), 'impact-review-'));
 try {
   const outfile = join(dir, 'review.mjs');
   await build({entryPoints: ['src/api/impactReview.ts'], bundle: true, platform: 'node', format: 'esm', outfile, define: {'import.meta.env': '{}'}, logLevel: 'silent'});
-  const {validateImpactReview, withImpactCandidate, impactReviewVideoUrl, frameIndexAtOrBefore, frameIndexForPresentedTime} = await import(outfile);
+  const {validateVideoClock,validateImpactReview, withImpactCandidate, impactReviewVideoUrl, frameIndexAtOrBefore, frameIndexForPresentedTime} = await import(outfile);
   const valid = {ok: true, jobId: 'job', status: 'reference_candidate', timingRevision: 3, modelSha256: '70b338b519565f870ed1fce044a0453f828773e53b9fa9d024391b3b4cf57733', videoSha256: 'a'.repeat(64), inputScopeConfirmed: false, publicValue: null, automaticCoachingReady: false, appliedToPrimary: false, requiresHumanConfirmation: true, frameTimesMs: [0, 33, 67, 100], candidate: {frameIndex: 2, timeMs: 67}};
   assert.equal(validateImpactReview(valid, 'job'), valid);
+  const clock={ok:true,jobId:'job',timingRevision:3,videoSha256:'a'.repeat(64),frameTimesMs:[0,33,67,100]};
+  assert.equal(validateVideoClock(clock,'job'),clock);
+  for(const patch of [{jobId:'other'},{videoSha256:'bad'},{timingRevision:2},{frameTimesMs:[1,33,67,100]},{frameTimesMs:[0,33,33,100]}]) assert.throws(()=>validateVideoClock({...clock,...patch},'job'));
   assert.equal(impactReviewVideoUrl('job'), '/api/analyze/job/review-video');
   assert.equal(impactReviewVideoUrl('job', valid.videoSha256), `/api/analyze/job/review-video?v=${valid.videoSha256}`);
   assert.equal(impactReviewVideoUrl('job', valid.videoSha256, true), `/api/analyze/job/review-video?v=${valid.videoSha256}&quality=original`);
@@ -52,15 +55,29 @@ try {
   assert.equal((unavailableVideo.match(/disabled=""/g)||[]).length,4,'seeking and selection stay disabled without playable video');
   const failed=render({...base,review:null,loading:false,error:'입력 부족'});
   assert.match(failed,/판정 보류/);assert.match(failed,/다시 시도/);
+  const fallback=render({...base,review:null,manualClock:clock,loading:false,error:'입력 부족'});
+  assert.match(fallback,/후보를 찾지 못했어요/);assert.match(fallback,/현재 장면으로 골반 확인/);
+  assert.match(fallback,/다음 프레임/);assert.doesNotMatch(fallback,/후보로 이동|후보 확인 표시/);
+  assert.match(render({...base,review:null,loading:false,error:'입력 부족',clockLoading:true}),/프레임을 확인하고 있어요/);
+  assert.match(render({...base,review:null,loading:false,error:'입력 부족',clockError:'시간축 오류'}),/영상 시각 다시 확인/);
   const playerBundle=join(dir,'analysis-player.cjs');
-  await build({stdin:{contents:`import {renderToStaticMarkup} from 'react-dom/server'; import {createElement} from 'react'; import {AnalysisPlayer} from './src/components/analysis/AnalysisPlayer.tsx'; export const render=()=>renderToStaticMarkup(createElement(AnalysisPlayer,{jobId:'job',videoUrl:'/video',isModalOpen:true}));`,resolveDir:process.cwd(),loader:'tsx'},
+  await build({stdin:{contents:`import {renderToStaticMarkup} from 'react-dom/server'; import {createElement} from 'react'; import {AnalysisPlayer} from './src/components/analysis/AnalysisPlayer.tsx'; export const render=(sidecar)=>renderToStaticMarkup(createElement(AnalysisPlayer,{jobId:'job',videoUrl:'/video',isModalOpen:true,dtlClubPointsV2:sidecar}));`,resolveDir:process.cwd(),loader:'tsx'},
     bundle:true,platform:'node',format:'cjs',outfile:playerBundle,define:{'import.meta.env':'{}','process.env.NODE_ENV':'"production"'},logLevel:'silent',
-    plugins:[{name:'stub-impact',setup(build){build.onResolve({filter:/^@\/hooks\/useImpactReview$/},()=>({path:'impact-stub',namespace:'test'}));build.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const useImpactReview = () => globalThis.__impactReviewFixture;',loader:'js'}));}}]});
+    plugins:[{name:'stub-impact',setup(build){
+      build.onResolve({filter:/^@\/hooks\/useImpactReview$/},()=>({path:'impact-stub',namespace:'test'}));
+      build.onResolve({filter:/^@\/hooks\/useVideoClock$/},()=>({path:'clock-stub',namespace:'test'}));
+      build.onLoad({filter:/.*/,namespace:'test'},args=>({contents:args.path==='impact-stub'?'export const useImpactReview = () => globalThis.__impactReviewFixture;':'export const useVideoClock = () => globalThis.__videoClockFixture ?? {clock:null,loading:false,error:null,retry(){}};',loader:'js'}));
+    }}]});
   const player=await import(playerBundle);
   globalThis.__impactReviewFixture={review:null,loading:true,error:null,retry(){}};
   assert.match(player.render(), /src="\/api\/analyze\/job\/review-video"/);
   globalThis.__impactReviewFixture={review:valid,loading:false,error:null,retry(){}};
   assert.ok(player.render().includes(`src="/api/analyze/job/review-video?v=${valid.videoSha256}"`), 'player must bind its video to the impact source');
+  globalThis.__impactReviewFixture={review:null,loading:false,error:'model failed',retry(){}};
+  globalThis.__videoClockFixture={clock,loading:false,error:null,retry(){}};
+  const sidecar={status:'succeeded',overlayVideoSha256:clock.videoSha256,pendingOverlay:{clubFrames:[{frame:1}],clubTimeSource:'video_pts'}};
+  assert.match(player.render(sidecar),/클럽 궤적은 임팩트 후보와 영상 일치가 확인되면 표시/,'a manual clock cannot unlock candidate-dependent club overlay');
   delete globalThis.__impactReviewFixture;
+  delete globalThis.__videoClockFixture;
   console.log('automatic impact response, selection and UI-state checks passed');
 } finally { await rm(dir, {recursive: true, force: true}); }

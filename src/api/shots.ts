@@ -533,6 +533,33 @@ function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observatio
 
 export const CLUB_BODY_UNAVAILABLE_MESSAGE = "자세 자료를 확인하지 못해 클럽 관측을 보류했어요. 업로드 탭에서 영상을 다시 선택해 새 기록으로 분석하거나 다시 촬영해 주세요.";
 
+export async function waitForExistingClubReview(jobId: string, signal: AbortSignal, waitForStart = false): Promise<DtlClubPointsV2Sidecar | null> {
+  let failures = 0;
+  // shortcut: stop after 90 polls; use a job status stream for longer processing.
+  for (let attempt = 0; attempt < 90 && !signal.aborted; attempt++) {
+    let raw: any, responded = false;
+    try {
+      raw = await client.get(`/api/analyze/${encodeURIComponent(jobId)}/club-review`, { signal });
+      responded = true;
+      failures = 0;
+    } catch (error) {
+      if (signal.aborted) return null;
+      if (++failures >= 3) throw error;
+    }
+    if (signal.aborted) return null;
+    if (responded) {
+      if (!raw || raw.ok !== true || raw.jobId !== jobId) throw new Error("다른 영상의 관측 응답입니다. 다시 시도해 주세요.");
+      if (raw.sidecar != null && (typeof raw.sidecar !== "object" || Array.isArray(raw.sidecar) || typeof raw.sidecar.status !== "string")) throw new Error("관측 작업 상태를 확인하지 못했습니다.");
+      const sidecar = normalizeAnalysis({ dtlClubPointsV2: raw.sidecar }, jobId).dtlClubPointsV2;
+      if (sidecar && ["succeeded", "failed"].includes(sidecar.status)) return sidecar;
+      if (sidecar && !["queued", "running"].includes(sidecar.status)) throw new Error("관측 작업 상태를 확인하지 못했습니다.");
+      if (!sidecar && !waitForStart) return null;
+    }
+    if (attempt < 89 && !signal.aborted) await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  return null;
+}
+
 export async function requestClubReview(jobId: string, signal: AbortSignal, refresh = false): Promise<DtlClubPointsV2Sidecar> {
   if (signal.aborted) throw new DOMException("Aborted", "AbortError");
   const url = `/api/analyze/${encodeURIComponent(jobId)}/club-review`;

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import type { ImpactReview } from "@/api/impactReview";
+import type { VideoClock } from "@/api/impactReview";
 import { requestPoseOverlay, type PoseOverlay } from "@/api/poseOverlay";
 
-export function usePoseOverlay(jobId?: string, review?: ImpactReview | null) {
-  const [state, setState] = useState<{jobId?: string; review?: ImpactReview | null; pose: PoseOverlay | null; loading: boolean; error: string | null}>({pose:null,loading:false,error:null});
+export function usePoseOverlay(jobId?: string, review?: VideoClock | null) {
+  const [state, setState] = useState<{jobId?: string; review?: VideoClock | null; pose: PoseOverlay | null; loading: boolean; error: string | null}>({pose:null,loading:false,error:null});
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;

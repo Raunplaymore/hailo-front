@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
 import { frameIndexForPresentedTime, impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
 import { useImpactReview } from "@/hooks/useImpactReview";
+import { useVideoClock } from "@/hooks/useVideoClock";
 import { usePoseOverlay } from "@/hooks/usePoseOverlay";
 import { ImpactReview } from "./ImpactReview";
 import { CoachingReview, PelvisContourOverlay } from "./CoachingReview";
@@ -64,28 +65,31 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const [originalQuality, setOriginalQuality] = useState(false);
   const [tool, setTool] = useState<"coaching" | "impact" | "club">("coaching");
   const impactState = useImpactReview(jobId);
-  const poseState = usePoseOverlay(jobId, impactState.review);
+  const manualClockState = useVideoClock(jobId, Boolean(impactState.error));
+  const videoClock = impactState.review ?? manualClockState.clock;
+  const poseState = usePoseOverlay(jobId, videoClock);
   const displayEvents = withImpactCandidate(events, impactState.review, Boolean(jobId));
   const candidateVideoHash = impactState.review?.videoSha256;
-  const reviewVideoUrl = jobId ? impactReviewVideoUrl(jobId, candidateVideoHash, originalQuality) : videoUrl;
+  const videoSha256 = videoClock?.videoSha256;
+  const reviewVideoUrl = jobId ? impactReviewVideoUrl(jobId, videoSha256, originalQuality) : videoUrl;
   const [impactSelection, setImpactSelection] = useState<{jobId: string; videoSha256: string; frameIndex: number; timeMs: number} | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
-  const selectedImpact = impactSelection && impactState.review && impactSelection.jobId === jobId
-    && impactSelection.videoSha256 === candidateVideoHash
-    && impactState.review.frameTimesMs[impactSelection.frameIndex] === impactSelection.timeMs ? impactSelection : null;
+  const selectedImpact = impactSelection && videoClock && impactSelection.jobId === jobId
+    && impactSelection.videoSha256 === videoSha256
+    && videoClock.frameTimesMs[impactSelection.frameIndex] === impactSelection.timeMs ? impactSelection : null;
   const coachingImpactMs = selectedImpact?.timeMs ?? impactState.review?.candidate.timeMs;
   const addressMs = Math.max(100, events?.address?.timeMs ?? 200);
   const [coaching, setCoaching] = useState<{key:string; result:CoachingResult|null}>({key:"",result:null});
   const [reviewRange, setReviewRange] = useState<{ startMs: number; endMs: number } | null>(null);
   const [guideKind, setGuideKind] = useState<GuideKind | null>(null);
-  const guideKey = `${jobId}:${candidateVideoHash ?? "pending"}:${addressMs}:${selectedImpact ? `selected:${selectedImpact.frameIndex}` : `candidate:${coachingImpactMs}`}`;
+  const guideKey = `${jobId}:${videoSha256 ?? "pending"}:${addressMs}:${selectedImpact ? `selected:${selectedImpact.frameIndex}` : `candidate:${coachingImpactMs}`}`;
   const onCoaching = useCallback((result: CoachingResult | null) => setCoaching({key:guideKey,result}),[guideKey]);
   const coachingResult = coaching.key === guideKey ? coaching.result : null;
   const movementGuide = coachingResult?.movementGuide ?? null;
   const contour = tool === "coaching" && !guideKind ? coachingResult?.evidence : null;
   const clearReview = useCallback(() => setReviewRange(null), []);
   useEffect(() => { setGuideKind(null); setReviewRange(null); }, [guideKey]);
-  useEffect(() => { setImpactSelection(null); setSelectionError(null); }, [jobId, videoUrl, candidateVideoHash]);
+  useEffect(() => { setImpactSelection(null); setSelectionError(null); }, [jobId, videoUrl, videoSha256]);
   useEffect(() => { setTool("coaching"); setOriginalQuality(false); }, [jobId, videoUrl]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const presentedFrame = useRef<{video: HTMLVideoElement; src: string; timeMs: number; expectedDisplayTime: number} | null>(null);
@@ -199,8 +203,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
 
   const chooseImpactAtCurrentTime = () => {
     const video = videoRef.current;
-    const review = impactState.review;
-    if (!jobId || !review || !video || !videoPlayable || video.seeking || video.readyState < 2) {
+    const clock = videoClock;
+    if (!jobId || !clock || !video || !videoPlayable || video.seeking || video.readyState < 2) {
       setSelectionError("영상이 준비된 뒤 다시 선택해 주세요.");
       return;
     }
@@ -213,19 +217,19 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     // shortcut: matching timestamps do not prove identical decoded images; validate playback on physical devices.
     const index = frame?.video === video && frame.src === reviewVideoUrl && Number.isFinite(frame.expectedDisplayTime)
       && frame.expectedDisplayTime <= performance.now()
-      ? frameIndexForPresentedTime(review.frameTimesMs, video.currentTime * 1000, frame.timeMs) : null;
+      ? frameIndexForPresentedTime(clock.frameTimesMs, video.currentTime * 1000, frame.timeMs) : null;
     if (index === null) {
       setSelectionError(typeof video.requestVideoFrameCallback === "function"
         ? "화면 장면을 확인할 수 없어요. 이전·다음 프레임으로 이동한 뒤 다시 선택해 주세요."
         : "이 브라우저에서는 표시된 장면을 확인할 수 없습니다. 다른 브라우저에서 다시 시도해 주세요.");
       return;
     }
-    const chosenMs = review.frameTimesMs[index];
+    const chosenMs = clock.frameTimesMs[index];
     if (chosenMs === undefined || chosenMs - addressMs < 230) {
       setSelectionError("준비 자세보다 뒤의 타격 장면을 선택해 주세요.");
       return;
     }
-    setImpactSelection({ jobId, videoSha256: review.videoSha256, frameIndex: index, timeMs: chosenMs });
+    setImpactSelection({ jobId, videoSha256: clock.videoSha256, frameIndex: index, timeMs: chosenMs });
     setSelectionError(null);
     seekTime(chosenMs);
     setTool("coaching");
@@ -266,7 +270,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             frameTimes={clubOverlay?.clubFrames.map(frame => frame.timeMs)}
             reviewRange={reviewRange}
             onClearReview={clearReview}
-            onRetry={jobId ? impactState.retry : undefined}
+            onRetry={jobId ? (impactState.error ? manualClockState.retry : impactState.retry) : undefined}
           >
             <FrameSyncedOverlays src={reviewVideoUrl!} videoRef={videoRef} timeMs={timeMs} overlay={poseOverlay} clubOverlay={clubOverlay}
               events={displayEvents} playable={videoPlayable} bounds={overlayBounds} layers={layers} contour={contour} guideKind={guideKind} movementGuide={movementGuide} />
@@ -290,12 +294,12 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           {([["coaching", "몸"], ["club", "클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 border-b-2 px-2 text-sm font-semibold", tool === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
         </div>}
         <div ref={analysisScrollRef} className="analysis-scroll space-y-3" role="region" aria-label="분석 내용" tabIndex={0}>
-        {clubVideoUnverified && Boolean(clubSidecar?.pendingOverlay?.clubFrames.length) && <p className="text-xs text-muted-foreground" role="status">클럽 궤적은 영상 일치가 확인되면 표시됩니다.</p>}
+        {clubVideoUnverified && Boolean(clubSidecar?.pendingOverlay?.clubFrames.length) && <p className="text-xs text-muted-foreground" role="status">클럽 궤적은 임팩트 후보와 영상 일치가 확인되면 표시됩니다.</p>}
         {jobId && tool !== "club" && !contour && !guideKind && (impactState.loading || poseState.loading
           ? <p className="text-xs text-muted-foreground" role="status">자세 선의 영상 시각을 확인하고 있어요.</p>
-          : !impactState.review || poseState.error || poseState.pose?.status === "unavailable"
+          : !videoClock || poseState.error || poseState.pose?.status === "unavailable"
             ? <div className="text-xs text-muted-foreground" role="status"><p>영상과 자세 시각을 확인하지 못해 관절 표시를 보류했습니다.</p>
-              <button type="button" className="min-h-11 font-semibold underline" onClick={impactState.review ? poseState.retry : impactState.retry}>다시 확인</button></div> : null)}
+              <button type="button" className="min-h-11 font-semibold underline" onClick={impactState.error ? manualClockState.retry : videoClock ? poseState.retry : impactState.retry}>다시 확인</button></div> : null)}
         {!jobId && Boolean(overlay?.poseFrames.length) && <p className="text-xs text-muted-foreground">자세 선의 영상 시각은 확인되지 않았습니다. 실제 장면과 맞는지 살펴보세요.</p>}
         {contour ? <p className="text-xs text-muted-foreground">노란 점선: 준비 자세 · 초록 선: 추적된 뒤쪽 윤곽 · 추정 공 방향: {contour.ballDirection === "right" ? "오른쪽" : "왼쪽"}</p> : guideKind ? <p className="text-xs text-muted-foreground">점선: 시작 기준 · 실선과 점: 현재 추적 위치</p> : poseOverlay && tool !== "club" ? (
           <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground" aria-label="자세 관절 색상 안내: 왼쪽은 파랑, 오른쪽은 주황, 가시성이 낮으면 숨김">
@@ -309,12 +313,12 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           <div hidden={tool !== "coaching"}>
             {selectedImpact && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 p-3" role="status">
               <p className="text-sm">직접 선택한 장면 · {(selectedImpact.timeMs / 1000).toFixed(3)}초 기준</p>
-              <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setImpactSelection(null); clearReview(); }}>자동 후보로 되돌리기</button>
+              <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setImpactSelection(null); clearReview(); }}>{impactState.review ? "자동 후보로 되돌리기" : "선택 취소"}</button>
             </div>}
-            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={candidateVideoHash} addressMs={addressMs} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} playable={videoPlayable} onResult={onCoaching} onEvidence={showEvidence} onSeek={seekTime} />
+            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={videoSha256} addressMs={addressMs} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} playable={videoPlayable} onResult={onCoaching} onEvidence={showEvidence} onSeek={seekTime} />
           </div>
           {tool === "coaching" && <details><summary className="text-sm font-semibold">머리·골반 움직임 직접 확인</summary><MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} selectedImpact={Boolean(selectedImpact)} /><CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} /></details>}
-          {tool === "impact" && <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}
+        {tool === "impact" && <ImpactReview key={`${jobId}:${videoSha256 ?? "pending"}`} review={impactState.review} manualClock={manualClockState.clock} clockLoading={manualClockState.loading} clockError={manualClockState.error} onClockRetry={manualClockState.retry} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}
         </>}
 
         {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}

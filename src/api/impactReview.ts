@@ -1,30 +1,45 @@
 import type { AnalysisResult } from "@/types/shots";
 import { API_BASE, client } from "./client";
 
-export type ImpactReview = {
+export type VideoClock = {
   jobId: string;
-  status: "reference_candidate";
   timingRevision: 3;
   videoSha256: string;
-  inputScopeConfirmed: boolean;
-  candidate: { frameIndex: number; timeMs: number };
   frameTimesMs: number[];
 };
 
-export function validateImpactReview(raw: any, jobId: string): ImpactReview {
+export type ImpactReview = VideoClock & {
+  status: "reference_candidate";
+  inputScopeConfirmed: boolean;
+  candidate: { frameIndex: number; timeMs: number };
+};
+
+export function validateVideoClock(raw: any, jobId: string): VideoClock {
   const times = raw?.frameTimesMs;
+  if (raw?.ok !== true || raw.jobId !== jobId || raw.timingRevision !== 3
+    || !/^[a-f0-9]{64}$/.test(raw.videoSha256 ?? "") || !Array.isArray(times) || times.length < 4 || times.length > 7200
+    || times[0] !== 0 || !times.every((t: unknown, i: number) => typeof t === "number" && Number.isFinite(t) && t >= 0 && t <= 30000 && (i === 0 || t > times[i - 1]))) {
+    throw new Error("영상의 프레임 시각을 확인하지 못했습니다. 다시 시도해 주세요.");
+  }
+  return raw as VideoClock;
+}
+
+export function validateImpactReview(raw: any, jobId: string): ImpactReview {
+  const { frameTimesMs: times } = validateVideoClock(raw, jobId);
   const index = raw?.candidate?.frameIndex;
-  if (raw?.ok !== true || raw.jobId !== jobId || raw.status !== "reference_candidate"
-    || raw.timingRevision !== 3
+  if (raw.status !== "reference_candidate"
     || raw.modelSha256 !== "70b338b519565f870ed1fce044a0453f828773e53b9fa9d024391b3b4cf57733"
     || raw.publicValue !== null || raw.automaticCoachingReady !== false || raw.appliedToPrimary !== false
-    || !/^[a-f0-9]{64}$/.test(raw.videoSha256 ?? "") || raw.inputScopeConfirmed !== false
-    || raw.requiresHumanConfirmation !== true || !Array.isArray(times) || times.length < 4 || times.length > 7200
-    || !times.every((t: unknown, i: number) => typeof t === "number" && Number.isFinite(t) && t >= 0 && t <= 30000 && (i === 0 || t > times[i - 1]))
+    || raw.inputScopeConfirmed !== false || raw.requiresHumanConfirmation !== true
     || !Number.isInteger(index) || index < 0 || index >= times.length || times[index] !== raw.candidate.timeMs) {
     throw new Error("검수 후보 응답을 확인할 수 없습니다. 다시 시도해 주세요.");
   }
   return raw as ImpactReview;
+}
+
+export async function requestVideoClock(jobId: string, signal: AbortSignal): Promise<VideoClock> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(jobId)) throw new Error("영상 식별 정보를 확인할 수 없습니다.");
+  return validateVideoClock(await client.get(`/api/analyze/${encodeURIComponent(jobId)}/video-clock`, { signal }), jobId);
 }
 
 export async function requestImpactReview(jobId: string): Promise<ImpactReview> {

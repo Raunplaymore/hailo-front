@@ -40,14 +40,16 @@ try {
   assert.equal(requests.length,2);
   // Completed status contains the result: no second result request is needed.
   requests.length=0;
-  globalThis.fetch=async url=>{requests.push(String(url));return {ok:true,status:200,text:async()=>JSON.stringify({jobId:'done',status:'done',analysis:{jobId:'done',status:'succeeded',analysisVersion:'hailo-coach-service7-v16',events:{impact:{timeMs:2905}},metrics:{tempo:{}}}})};};
+  globalThis.fetch=async url=>{requests.push(String(url));return {ok:true,status:200,text:async()=>JSON.stringify(String(url).endsWith('/club-review')
+    ? {ok:true,jobId:'done',sidecar:null}
+    : {jobId:'done',status:'done',analysis:{jobId:'done',status:'succeeded',analysisVersion:'hailo-coach-service7-v16',events:{impact:{timeMs:2905}},metrics:{tempo:{}}}})};};
   reset(); useAnalysis({id:'done',jobId:'done',filename:'done.mov',status:'succeeded',analysis:null});
   const cleanups=effects.map(effect=>effect());
   await new Promise(setImmediate);
-  assert.equal(requests.length,1); assert.equal(requests[0],'/api/analyze/done');
+  assert.deepEqual(requests,['/api/analyze/done','/api/analyze/done/club-review'], 'one primary result and one read-only check for an existing sidecar');
   cleanups.forEach(cleanup=>cleanup?.());
   const app=await readFile('src/App.tsx','utf8');
   assert.match(app,/activeOnly: true/);
   assert.doesNotMatch(app,/return status === "succeeded" && Boolean\(shot.analysis\)/);
-  console.log('summary list, one in-flight request, active-only merge and single result fetch passed');
+  console.log('summary list, one in-flight request, active-only merge, single result fetch and bounded sidecar check passed');
 } finally {await rm(dir,{recursive:true,force:true});}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnalysisResult, JobStatus, Shot } from "../types/shots";
-import { fetchAnalysisResult, fetchAnalysisStatus } from "../api/shots";
+import { fetchAnalysisResult, fetchAnalysisStatus, waitForExistingClubReview } from "../api/shots";
 
 type UseAnalysisResult = {
   analysis: AnalysisResult | null;
@@ -36,6 +36,7 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
   useEffect(() => {
     let cancelled = false;
     let timer: number | undefined;
+    const clubAbort = new AbortController();
 
     const existingAnalysis = selected?.analysis ?? null;
     const statusHint = selected?.status ?? existingAnalysis?.status;
@@ -53,6 +54,20 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
       return () => undefined;
     }
 
+    const followClub = (result: AnalysisResult | null) => {
+      const clubStatus = result?.dtlClubPointsV2?.status;
+      if (!result || (clubStatus && !["queued", "running"].includes(clubStatus))) return;
+      const waitForStart = ["queued", "running"].includes(statusHint || "");
+      void waitForExistingClubReview(jobId, clubAbort.signal, waitForStart).then(async (sidecar) => {
+        if (!sidecar || cancelled) return;
+        const latest = await fetchAnalysisResult(jobId).catch(() => null);
+        if (cancelled) return;
+        setAnalysis(current => current?.jobId === jobId
+          ? { ...(latest?.jobId === jobId ? latest : current), dtlClubPointsV2: sidecar }
+          : current);
+      }).catch(error => { if (!cancelled) console.warn("club review status failed", error); });
+    };
+
     const poll = async () => {
       try {
         const { status: nextStatus, analysis: statusAnalysis, errorMessage } = await fetchAnalysisStatus(jobId);
@@ -68,6 +83,7 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
           if (cancelled) return;
           setAnalysis(result);
           setIsLoading(false);
+          followClub(result);
           return;
         }
 
@@ -93,7 +109,8 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
         isInferStyleAnalysis(existingAnalysis)
       ) {
         setIsLoading(false);
-        return () => undefined;
+        if (existingAnalysis.status === "succeeded") followClub(existingAnalysis);
+        return () => { cancelled = true; clubAbort.abort(); };
       }
     }
 
@@ -102,6 +119,7 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
 
     return () => {
       cancelled = true;
+      clubAbort.abort();
       if (timer) {
         window.clearTimeout(timer);
       }

@@ -220,6 +220,12 @@ try {
   const sideOverlay = { coordinateSpace: "normalized", clubTimeSource: "video_pts", poseFrames: [], clubFrames: [{ timeMs: 17, head: { x: .2, y: .3, confidence: .8 } }] };
   const side = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: sideOverlay } }, "side");
   assert.equal(side.dtlClubPointsV2.overlay.clubTimeSource, "video_pts");
+  const ambiguous = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',trackingQuality:{label:'reference',ambiguousClubHeadFrames:5}}},'ambiguous');
+  assert.equal(ambiguous.dtlClubPointsV2.trackingQuality.ambiguousClubHeadFrames, 5);
+  for (const invalid of [-1, 1.5, true, '3', null]) {
+    const value = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',trackingQuality:{label:'reference',ambiguousClubHeadFrames:invalid}}},'invalid-ambiguous');
+    assert.equal(value.dtlClubPointsV2.trackingQuality.ambiguousClubHeadFrames, null);
+  }
   assert.equal(side.dtlClubPointsV2.overlay.clubFrames[0].timeMs, 17);
   assert.equal(side.dtlClubPointsV2.overlayVideoSha256, undefined, 'legacy sidecars keep their existing behavior');
   const unbound = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',overlay:null,pendingOverlay:sideOverlay,overlayVideoSha256:'a'.repeat(64),

@@ -440,6 +440,7 @@ const normalizeTrackingQuality = (value: any): TrackingQualityMetrics | undefine
     ...base,
     frames: toOptionalNumber(value.frames),
     clubHeadFrames: toOptionalNumber(value.clubHeadFrames ?? value.club_head_frames),
+    ambiguousClubHeadFrames: typeof value.ambiguousClubHeadFrames === "number" && Number.isSafeInteger(value.ambiguousClubHeadFrames) && value.ambiguousClubHeadFrames >= 0 ? value.ambiguousClubHeadFrames : null,
     clubHandleFrames: toOptionalNumber(value.clubHandleFrames ?? value.club_handle_frames),
     clubFrames: toOptionalNumber(value.clubFrames ?? value.club_frames),
     ballFrames: toOptionalNumber(value.ballFrames ?? value.ball_frames),

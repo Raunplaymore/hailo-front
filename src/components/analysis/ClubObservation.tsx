@@ -14,6 +14,7 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
   useEffect(() => () => active.current?.abort(), []);
   useEffect(() => setPhase(null), [sidecar]);
   const levels = sidecar?.observations?.levels;
+  const ambiguousHeads = sidecar?.trackingQuality?.ambiguousClubHeadFrames;
   const selected = levels?.find(level => level.heightFraction === height) ?? levels?.[0];
   const run = async (refresh = false) => {
     active.current?.abort();
@@ -25,6 +26,8 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
   };
   return <section className="space-y-2 rounded-xl border border-border bg-card p-2" aria-label="클럽 구간 관측">
     <h3 className={levels?.length ? "sr-only" : "text-sm font-semibold"}>손과 클럽의 움직임</h3>
+    {sidecar?.status === "succeeded" && typeof ambiguousHeads === "number" && Number.isInteger(ambiguousHeads) && ambiguousHeads > 0 &&
+      <p className="text-xs leading-5 text-muted-foreground">헤드 후보가 둘 이상인 {ambiguousHeads}개 장면은 헤드 표시와 비교에서 제외했어요. 원본 영상으로 확인해 주세요.</p>}
     {sidecar?.status === "succeeded" && Boolean(sidecar.overlay?.clubFrames.length || sidecar.pendingOverlay?.clubFrames.length)
       && (sidecar.sourceFrameCoverage?.status !== "verified"
         ? <p className="text-xs leading-5 text-muted-foreground">클럽 분석에서 빠진 프레임은 확인하지 못했어요. 원본 영상과 함께 살펴보세요.</p>

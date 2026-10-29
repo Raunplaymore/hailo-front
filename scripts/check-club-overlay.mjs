@@ -158,6 +158,11 @@ const clubHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObserv
 const coverageProps = { ...props, sidecar: { ...props.sidecar, status:'succeeded', overlay:{clubFrames:[frame]}, sourceFrameCoverage:{status:'verified',missingFrames:1} } };
 const missingCoverage = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,coverageProps));
 assert.match(missingCoverage,/빠진 프레임 1개/);
+const ambiguousHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...coverageProps,sidecar:{...coverageProps.sidecar,trackingQuality:{ambiguousClubHeadFrames:5}}}));
+assert.match(ambiguousHtml,/헤드 후보가 둘 이상인 5개 장면/);
+const noAmbiguousHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...coverageProps,sidecar:{...coverageProps.sidecar,trackingQuality:{ambiguousClubHeadFrames:0}}}));
+assert.doesNotMatch(noAmbiguousHtml,/헤드 후보가 둘 이상인/);
+assert.doesNotMatch(missingCoverage,/헤드 후보가 둘 이상인/,'legacy results must not claim a count');
 const unknownCoverage = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...coverageProps,sidecar:{...coverageProps.sidecar,sourceFrameCoverage:{status:'unverified'}}}));
 assert.match(unknownCoverage,/빠진 프레임은 확인하지 못했어요/);
 const fullCoverage = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...coverageProps,sidecar:{...coverageProps.sidecar,sourceFrameCoverage:{status:'verified',missingFrames:0}}}));

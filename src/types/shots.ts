@@ -62,6 +62,7 @@ export type ReadinessMetrics = AnalysisMetricDetail & {
 export type TrackingQualityMetrics = AnalysisMetricDetail & {
   frames?: number | null;
   clubHeadFrames?: number | null;
+  ambiguousClubHeadFrames?: number | null;
   clubHandleFrames?: number | null;
   clubFrames?: number | null;
   ballFrames?: number | null;

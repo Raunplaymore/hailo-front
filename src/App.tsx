@@ -426,11 +426,17 @@ function MainApp() {
       : "";
 
   const {
-    analysis,
+    analysis: loadedAnalysis,
     status: jobStatus,
     isLoading: isAnalysisLoading,
     error: analysisError,
+    retry: retryAnalysis,
   } = useAnalysis(analysisTarget);
+  const analysisJobId = analysisTarget?.jobId ?? (selectedSession ? undefined : analysisTarget?.id);
+  const analysis = analysisJobId && loadedAnalysis?.jobId === analysisJobId ? loadedAnalysis : null;
+  const coachingReady = Boolean(analysis && !isAnalysisLoading
+    && (analysis.status === "succeeded" || analysis.status === "failed")
+    && (jobStatus === "succeeded" || jobStatus === "failed"));
 
   const openImpactReview = (shot: Shot) => {
     selectShot(shot);
@@ -1538,11 +1544,14 @@ function MainApp() {
           <div className="mx-auto max-w-5xl space-y-4">
             <div className="min-w-0">
               <AnalysisPlayer
-                jobId={analysisTarget?.jobId ?? (selectedSession ? undefined : analysisTarget?.id)}
+                jobId={analysisJobId}
                 videoUrl={selectedVideoUrl}
                 events={analysis?.events}
                 overlay={analysis?.overlay}
                 dtlClubPointsV2={analysis?.dtlClubPointsV2}
+                coachingReady={coachingReady}
+                analysisError={analysisError}
+                onRetryAnalysis={retryAnalysis}
                 isModalOpen={showVideoModal}
                 evidenceFocus={coachEvidenceFocus}
               />
@@ -1684,11 +1693,14 @@ function MainApp() {
               </Button>
             </div>
             <AnalysisPlayer
-              jobId={analysisTarget?.jobId ?? (selectedSession ? undefined : analysisTarget?.id)}
+              jobId={analysisJobId}
               videoUrl={selectedVideoUrl}
               events={analysis?.events}
               overlay={analysis?.overlay}
               dtlClubPointsV2={analysis?.dtlClubPointsV2}
+              coachingReady={coachingReady}
+              analysisError={analysisError}
+              onRetryAnalysis={retryAnalysis}
             />
           </div>
         </div>

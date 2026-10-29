@@ -7,6 +7,7 @@ type UseAnalysisResult = {
   status: JobStatus;
   isLoading: boolean;
   error: string | null;
+  retry: () => void;
 };
 
 const POLL_INTERVAL_MS = 1800;
@@ -32,19 +33,21 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
   const [status, setStatus] = useState<JobStatus>(selected?.analysis?.status ?? selected?.status ?? "idle");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     let timer: number | undefined;
     const clubAbort = new AbortController();
 
-    const existingAnalysis = selected?.analysis ?? null;
-    const statusHint = selected?.status ?? existingAnalysis?.status;
+    const providedAnalysis = selected?.analysis ?? null;
+    const statusHint = selected?.status ?? providedAnalysis?.status;
     const fallbackId =
       statusHint && statusHint !== "idle" && statusHint !== "not-analyzed"
         ? selected?.id
         : undefined;
-    const jobId = existingAnalysis?.jobId ?? selected?.jobId ?? fallbackId;
+    const jobId = selected?.jobId ?? providedAnalysis?.jobId ?? fallbackId;
+    const existingAnalysis = providedAnalysis?.jobId === jobId ? providedAnalysis : null;
     setAnalysis(existingAnalysis);
     setStatus(existingAnalysis?.status ?? selected?.status ?? "idle");
     setError(null);
@@ -124,7 +127,7 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
         window.clearTimeout(timer);
       }
     };
-  }, [selected?.id, selected?.analysis, selected?.jobId, selected?.status]);
+  }, [selected?.id, selected?.analysis, selected?.jobId, selected?.status, attempt]);
 
-  return { analysis, status, isLoading, error };
+  return { analysis, status, isLoading, error, retry: () => setAttempt(value => value + 1) };
 }

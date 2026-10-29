@@ -4,8 +4,10 @@ import { CoachingLesson } from "./CoachingLesson";
 
 const button = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
 export type ContourStatus = "checking" | "playing" | "shown" | "other" | "unverified";
-export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, playable, contourStatus, canRetryContour, onResult, onEvidence, onSeek, onRetryContour }: {
-  jobId: string; videoSha256?: string; addressMs: number; impactMs?: number; candidatePending: boolean; playable: boolean;
+export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, analysisReady, analysisError, onRetryAnalysis, playable, contourStatus, canRetryContour, onResult, onEvidence, onSeek, onRetryContour }: {
+  jobId: string; videoSha256?: string; addressMs: number; impactMs?: number; candidatePending: boolean; analysisReady: boolean; playable: boolean;
+  analysisError?: string | null;
+  onRetryAnalysis?: () => void;
   impactFrameIndex?: number; contourStatus?: ContourStatus; canRetryContour?: boolean;
   onResult: (value: Review | null) => void; onEvidence: (evidence: CoachingEvidence) => void; onSeek: (ms: number) => void;
   onRetryContour?: (ms: number) => void;
@@ -17,21 +19,23 @@ export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impact
   useEffect(() => {
     let cancelled = false;
     setResult(null); onResult(null); setError(null); setLoading(true);
-    if (candidatePending) return;
+    if (!analysisReady || candidatePending) return;
     if (!videoSha256 || impactMs === undefined) { setLoading(false); return; }
     requestCoachingReview(jobId, addressMs, impactMs, videoSha256, impactFrameIndex)
       .then(value => { if (!cancelled) { setResult(value); onResult(value); } })
       .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "근거 장면을 준비하지 못했습니다."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, attempt, onResult]);
+  }, [jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, analysisReady, attempt, onResult]);
 
   return <section aria-label="스윙 코칭" className="space-y-3">
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-xs font-semibold text-primary">이번 스윙에서 살펴볼 것</p>
       <h3 className="mt-1 text-lg font-semibold">골반이 돌아갈 공간</h3>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">후방에서 촬영한 한 번의 스윙에서 {impactFrameIndex === undefined ? "임팩트 후보" : "직접 선택한 장면"} 전 엉덩이 뒤쪽을 봅니다. 영상이 잘리거나 반복되면 구간이 틀릴 수 있어요. 공은 직접 감지하지 않고 준비 자세로 방향을 추정합니다. 원본에서 공 위치와 타격 장면을 확인해 주세요.</p>
-      {loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요…"}</p>
+      {!analysisReady ? analysisError ? <div role="status" className="mt-4 space-y-2 text-sm text-muted-foreground"><p>분석 결과를 불러오지 못해 골반 관찰을 준비하지 못했어요.</p>{onRetryAnalysis && <button type="button" className={button} onClick={onRetryAnalysis}>분석 결과 다시 불러오기</button>}</div>
+        : <p role="status" className="mt-4 text-sm text-muted-foreground">분석 결과를 확인하면 골반 관찰을 준비합니다.</p>
+        : loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요…"}</p>
         : error ? <div role="alert" className="mt-4 space-y-2"><p className="text-sm">{error}</p><button type="button" className={button} onClick={() => setAttempt(n => n + 1)}>근거 다시 불러오기</button></div>
         : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} selectedImpact={impactFrameIndex !== undefined} contourStatus={contourStatus} canRetryContour={canRetryContour} onRetryContour={onRetryContour} />}
     </div>

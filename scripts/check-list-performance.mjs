@@ -48,6 +48,15 @@ try {
   await new Promise(setImmediate);
   assert.deepEqual(requests,['/api/analyze/done','/api/analyze/done/club-review'], 'one primary result and one read-only check for an existing sidecar');
   cleanups.forEach(cleanup=>cleanup?.());
+  requests.length=0;
+  globalThis.fetch=async url=>{requests.push(String(url));return {ok:true,status:200,text:async()=>JSON.stringify({jobId:'new',status:'done',analysis:{jobId:'new',status:'succeeded',analysisVersion:'hailo-coach-service7-v16',events:{addressMs:0},metrics:{},dtlClubPointsV2:{status:'failed'}}})};};
+  const previous={jobId:'old',status:'succeeded',analysisVersion:'hailo-coach-service7-v16',events:{address:{timeMs:500}},metrics:{}};
+  const retried={id:'video',jobId:'new',filename:'video.mov',status:'queued',analysis:previous};
+  reset();useAnalysis(retried);const retryCleanups=effects.map(effect=>effect());
+  await new Promise(setImmediate);begin();const current=useAnalysis(retried);
+  assert.equal(requests[0],'/api/analyze/new','a new job must not reuse the prior analysis job ID');
+  assert.ok(requests.every(url=>!url.includes('/old')));assert.equal(current.analysis?.jobId,'new');
+  retryCleanups.forEach(cleanup=>cleanup?.());
   const app=await readFile('src/App.tsx','utf8');
   assert.match(app,/activeOnly: true/);
   assert.doesNotMatch(app,/return status === "succeeded" && Boolean\(shot.analysis\)/);

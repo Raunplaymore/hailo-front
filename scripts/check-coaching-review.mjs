@@ -35,6 +35,7 @@ try {
   const props={result,playable:true,onEvidence(){},onSeek(){}};
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/영상이 잘리거나 반복되면 구간이 틀릴 수/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/공은 직접 감지하지 않고 준비 자세로 방향을 추정/);
+  assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,analysisReady:false,analysisError:'failed',onRetryAnalysis(){},playable:true,onResult(){},onEvidence(){},onSeek(){}}),/분석 결과 다시 불러오기/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,impactFrameIndex:3,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/직접 선택한 장면/);
   const html=render('CoachingObservation',props);
   assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/화면상 윤곽만으로 얼리 익스텐션이나 교정 필요성을 확정하지 않습니다/);
@@ -143,5 +144,29 @@ try {
     assert.equal((await selected).evidence.impactMs,1100,'a timed-out request must not block a new selection');
     assert.equal(networkCalls,2);
   } finally {globalThis.fetch=originalFetch;globalThis.setTimeout=originalSetTimeout;globalThis.clearTimeout=originalClearTimeout;}
+  const gatefile=join(dir,'readiness.mjs');
+  await build({stdin:{contents:`export {CoachingReview} from './src/components/analysis/CoachingReview';export {begin,effects} from 'react';`,resolveDir:process.cwd(),loader:'tsx'},
+    bundle:true,platform:'node',format:'esm',outfile:gatefile,define:{'import.meta.env':'{}'},logLevel:'silent',plugins:[{name:'coaching-readiness-harness',setup(b){
+      b.onResolve({filter:/^react(?:\/jsx-runtime)?$/},args=>({path:args.path,namespace:'readiness'}));
+      b.onResolve({filter:/\.\/CoachingLesson$/},()=>({path:'lesson',namespace:'readiness'}));
+      b.onLoad({filter:/.*/,namespace:'readiness'},args=>({contents:args.path==='lesson'
+        ? 'export const CoachingLesson=()=>null;'
+        : args.path==='react/jsx-runtime' ? 'export const jsx=()=>null,jsxs=()=>null,Fragment="fragment";'
+        : `let slots=[],cursor=0;export let effects=[];export function begin(){cursor=0;effects=[];}
+           export function useState(initial){const i=cursor++;if(!(i in slots))slots[i]=initial;return [slots[i],v=>{slots[i]=typeof v==='function'?v(slots[i]):v;}];}
+           export function useEffect(effect){effects.push(effect);}`}));
+    }}]});
+  const gate=await import(gatefile);const gateRequests=[];let finishGate;
+  const gateResult=new Promise(resolve=>{finishGate=resolve;});
+  globalThis.fetch=async(_url,options)=>{gateRequests.push(JSON.parse(await options.body.text()));return {ok:true,status:200,text:async()=>JSON.stringify(unavailable)};};
+  try {
+    const gateProps={jobId:'job',videoSha256:'a'.repeat(64),addressMs:200,impactMs:1000,candidatePending:false,analysisReady:false,playable:true,
+      onResult:value=>{if(value)finishGate(value);},onEvidence(){},onSeek(){}};
+    const runGate=props=>{gate.begin();gate.CoachingReview(props);for(const effect of gate.effects)effect();};
+    runGate(gateProps);await new Promise(setImmediate);assert.equal(gateRequests.length,0,'do not request a provisional address');
+    runGate({...gateProps,analysisReady:true,candidatePending:true});await new Promise(setImmediate);assert.equal(gateRequests.length,0,'wait for the impact candidate');
+    runGate({...gateProps,analysisReady:true,addressMs:100});await gateResult;
+    assert.deepEqual(gateRequests.map(request=>request.addressMs),[100],'request once with the loaded address');
+  } finally {globalThis.fetch=originalFetch;}
   console.log('coaching contract, identity, evidence scope, unavailable UI, replay controls and duplicate-request checks passed');
 } finally { await rm(dir,{recursive:true,force:true}); }

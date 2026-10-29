@@ -33,6 +33,10 @@ try {
   assert.equal((pelvis.match(/role="img"/g) || []).length, 2);
   assert.match(pelvis, /단순화한 개념도/);
   assert.match(pelvis, /공 없이 천천히/);
+  assert.match(pelvis, /목표는 공을 보내는 방향입니다/);
+  assert.match(pelvis, /오른손 스윙은 왼쪽 엉덩이가 목표 쪽, 오른쪽이 반대쪽입니다/);
+  assert.match(pelvis, /작은 백스윙에서 목표 반대쪽 엉덩이를 뒤로 돌려봅니다/);
+  assert.match(pelvis, /목표 쪽 엉덩이가 뒤로 돌 공간을 만듭니다/);
   assert.match(pelvis, /href="https:\/\/www.titleist.com\/videos\/instruction\/early-extension-swing-fault"/);
   assert.match(head, /코 한 점의 이동에는 얼굴 회전이 섞입니다/);
   assert.match(head, /href="https:\/\/www.titleist.com\/videos\/instruction\/golf-myths-keep-your-head-still"/);

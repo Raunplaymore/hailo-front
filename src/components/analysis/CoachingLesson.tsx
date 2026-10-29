@@ -18,9 +18,10 @@ export function CoachingLesson({ topic }: { topic: "pelvis" | "head" }) {
         </figure>
         <div className="space-y-2 rounded-lg bg-muted/50 p-3">
           <h4 className="text-sm font-semibold">공 없이 천천히 느껴보기</h4>
-          <ol className="list-decimal space-y-2 pl-4 text-sm leading-6">
-            <li>편안하게 준비한 뒤, 작은 백스윙에서 뒤쪽 엉덩이가 뒤로 돌아가는 느낌을 찾습니다.</li>
-            <li>천천히 내려오며 앞쪽 엉덩이가 뒤로 돌아나갈 공간을 만듭니다.</li>
+          <p className="break-keep text-xs leading-5 text-muted-foreground">목표는 공을 보내는 방향입니다. 오른손 스윙은 왼쪽 엉덩이가 목표 쪽, 오른쪽이 반대쪽입니다.</p>
+          <ol className="list-decimal space-y-2 break-keep pl-4 text-sm leading-6">
+            <li>편하게 준비한 뒤, 작은 백스윙에서 목표 반대쪽 엉덩이를 뒤로 돌려봅니다.</li>
+            <li>천천히 내려오며 목표 쪽 엉덩이가 뒤로 돌 공간을 만듭니다.</li>
             <li>몸을 억지로 낮게 붙잡지 말고 자연스럽게 피니시합니다.</li>
           </ol>
           <p className="text-xs leading-5 text-muted-foreground">힘으로 엉덩이를 계속 뒤로 밀기보다 회전할 공간을 느껴보세요. 불편하면 멈추고 동작 범위를 줄이세요.</p>

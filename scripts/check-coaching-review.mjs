@@ -31,6 +31,7 @@ try {
   }
   const unavailable={...result,status:'unavailable',reason:'SILHOUETTE_UNRELIABLE',evidence:null};
   assert.equal(parseCoachingReview(unavailable,'job',1000).status,'unavailable');
+  assert.equal(parseCoachingReview({...unavailable,reason:'CAMERA_BACKGROUND_AMBIGUOUS'},'job',1000).reason,'CAMERA_BACKGROUND_AMBIGUOUS');
   assert.throws(()=>parseCoachingReview({...unavailable,evidence},'job',1000));
   const props={result,playable:true,onEvidence(){},onSeek(){}};
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/영상이 잘리거나 반복되면 구간이 틀릴 수/);
@@ -40,6 +41,7 @@ try {
   const html=render('CoachingObservation',props);
   assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/화면상 윤곽만으로 얼리 익스텐션이나 교정 필요성을 확정하지 않습니다/);
   assert.match(html,/추정 공 방향: 화면 오른쪽/);assert.match(html,/공 위치를 확인할 수 없다면 이 관찰을 해석하지 마세요/);
+  assert.match(html,/배경이 움직이면 기준선이 어긋날 수 있어요/);
   assert.match(render('CoachingObservation',{...props,result:{...result,evidence:{...evidence,ballDirection:'left'}}}),/추정 공 방향: 화면 왼쪽/);
   assert.match(html,/영상에서도 이동이 보인다면 아래 교습 원리와 연습/);
   const selectedHtml=render('CoachingObservation',{...props,selectedImpact:true});
@@ -54,6 +56,7 @@ try {
   assert.match(render('CoachingObservation',{...props,contourStatus:'shown'}),/영상이 멈춘 측정 장면에서만/);
   const neutral=render('CoachingObservation',{...props,result:{...result,evidence:{...evidence,observation:'no_clear_shift'}}});
   assert.match(neutral,/스윙 전체가 좋다는 판정은 아닙니다/);
+  assert.match(neutral,/배경이 움직이면 기준선이 어긋날 수 있어요/);
   assert.doesNotMatch(render('CoachingObservation',{...props,result:unavailable}),/근거 구간 천천히 보기/);
   assert.match(render('PelvisContourOverlay',{evidence,timeMs:860}),/stroke="#34d399"/);
   assert.match(render('PelvisContourOverlay',{evidence,timeMs:860.9}),/stroke="#34d399"/,'allow sub-frame timestamp rounding');
@@ -74,6 +77,10 @@ try {
   assert.doesNotMatch(render('PelvisContourOverlay',{evidence:{...similarity,points:similarity.points.filter(p=>p.timeMs!==860)},timeMs:860}),/stroke="#fbbf24"/,'do not bridge excluded frames');
   assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'PHASE_COVERAGE_INSUFFICIENT'}}),/장면이 부족/);
   assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'BALL_DIRECTION_UNCLEAR'}}),/준비 자세로 공 방향을 추정하기 어렵습니다/);
+  assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'CAMERA_MOTION_OR_BACKGROUND_UNCLEAR'}}),/움직이지 않는 배경이 보이도록/);
+  const backgroundAmbiguous=render('CoachingObservation',{...props,result:{...unavailable,reason:'CAMERA_BACKGROUND_AMBIGUOUS'}});
+  assert.match(backgroundAmbiguous,/배경 보정에 따라 골반 위치가 달라져 관찰을 보류/);
+  assert.doesNotMatch(backgroundAmbiguous,/근거 구간 천천히 보기/);
   const heightUncertain=render('CoachingObservation',{...props,result:{...unavailable,reason:'PELVIS_HEIGHT_UNCERTAIN'}});
   assert.match(heightUncertain,/윤곽을 잰 높이가 달라 비교를 보류/);
   assert.doesNotMatch(heightUncertain,/근거 구간 천천히 보기/);

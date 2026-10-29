@@ -48,8 +48,10 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
   selectedImpact?: boolean; contourStatus?: ContourStatus; canRetryContour?: boolean; onRetryContour?: (ms: number) => void;
 }) {
   const evidence = result?.evidence;
-  const recovery = result?.reason === "CAMERA_MOTION_OR_BACKGROUND_UNCLEAR"
-    ? "카메라 움직임을 보정할 만큼 안정적인 배경을 확보하지 못했습니다. 다음 촬영에서는 카메라를 고정하고 배경이 보이도록 잡아 주세요."
+  const recovery = result?.reason === "CAMERA_BACKGROUND_AMBIGUOUS"
+    ? "배경 보정에 따라 골반 위치가 달라져 관찰을 보류했어요. 원본 영상을 확인하고 카메라와 배경이 고정된 상태로 다시 촬영해 주세요."
+    : result?.reason === "CAMERA_MOTION_OR_BACKGROUND_UNCLEAR"
+    ? "카메라 움직임을 보정할 만큼 안정적인 배경을 확보하지 못했습니다. 다음 촬영에서는 카메라를 고정하고 움직이지 않는 배경이 보이도록 잡아 주세요."
     : result?.reason === "BALL_DIRECTION_UNCLEAR"
       ? "준비 자세로 공 방향을 추정하기 어렵습니다. 후방에서 준비 자세와 손이 함께 보이도록 촬영해 주세요."
       : result?.reason === "PHASE_COVERAGE_INSUFFICIENT"
@@ -72,6 +74,7 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
       <p className="text-xs font-semibold text-muted-foreground">영상에서 관찰한 움직임</p>
       <p className="mt-1 text-sm font-medium leading-6">{result.summary}</p>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">추정 공 방향: 화면 {evidence.ballDirection === "right" ? "오른쪽" : "왼쪽"}. 원본과 다르거나 공 위치를 확인할 수 없다면 이 관찰을 해석하지 마세요.</p>
+      <p className="mt-2 text-xs leading-5 text-muted-foreground">배경이 움직이면 기준선이 어긋날 수 있어요. 원본에서 배경도 확인해 주세요.</p>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">{evidence.observation === "toward_ball"
         ? "얼리 익스텐션을 살펴볼 때 확인하는 방향입니다. 영상에서도 이동이 보인다면 아래 교습 원리와 연습을 참고해 보세요. 화면상 윤곽만으로 얼리 익스텐션이나 교정 필요성을 확정하지 않습니다."
         : "이 구간의 관찰 결과이며, 스윙 전체가 좋다는 판정은 아닙니다."}</p>
@@ -87,7 +90,7 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
     <details className="text-xs text-muted-foreground">
       <summary className="min-h-12 cursor-pointer py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">관찰 범위와 근거</summary>
       <p className="leading-5">옷을 포함한 골반 뒤쪽 윤곽의 화면상 위치를 검사했습니다. 시작 기준선과 현재 윤곽선을 영상 위에 표시합니다. {selectedImpact ? "임팩트 기준은 직접 선택한 장면" : "임팩트는 모델의 후보"}이며 공 방향도 준비 자세에서 추정합니다. 윤곽 관찰을 골프 진단으로 사용하는 정확도는 아직 검증 중입니다.</p>
-      <p className="mt-2 leading-5">{evidence.cameraMotion === "similarity_corrected" ? "배경을 기준으로 카메라의 작은 이동·회전·크기 변화를 보정했습니다." : evidence.cameraMotion === "translation_corrected" ? "배경을 기준으로 작은 카메라 이동을 보정했습니다." : "배경이 안정적인 구간을 검사했습니다."}</p>
+      <p className="mt-2 leading-5">{evidence.cameraMotion === "similarity_corrected" ? "배경을 기준으로 카메라의 작은 이동·회전·크기 변화를 보정하려고 했습니다." : evidence.cameraMotion === "translation_corrected" ? "배경을 기준으로 작은 카메라 이동을 보정하려고 했습니다." : "배경이 안정적인 구간을 검사했습니다."}</p>
       {!!result.excludedFrames?.length && <p className="mt-2 leading-5">불확실한 {result.excludedFrames.length}개 장면은 제외했습니다. 필요한 구간이 남아 있는 경우에만 관찰 결과를 표시합니다.</p>}
       <p className="mt-2 leading-5">검사 구간 {(evidence.startMs / 1000).toFixed(2)}–{(evidence.endMs / 1000).toFixed(2)}초 · 측정 변화 {evidence.shiftPx.toFixed(1)}px · 구분 한계 {evidence.noisePx.toFixed(1)}px ({evidence.width}×{evidence.height} 영상 기준)</p>
     </details>

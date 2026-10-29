@@ -28,7 +28,8 @@ try {
     assert.doesNotMatch(html, /진단 완료|확정 진단|교정 성공|type="checkbox"|기준으로 저장/);
   }
   assert.match(pelvis, /골반이 돌아갈 공간/);
-  assert.match(pelvis, /다운스윙에서 골반이 공 쪽으로/);
+  assert.match(pelvis, /몸이 일찍 펴지며 골반이 준비 자세보다 공 쪽으로/);
+  assert.match(pelvis, /공간이 줄어들 수 있습니다/);
   assert.equal((pelvis.match(/role="img"/g) || []).length, 2);
   assert.match(pelvis, /단순화한 개념도/);
   assert.match(pelvis, /공 없이 천천히/);

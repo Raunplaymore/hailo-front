@@ -49,6 +49,7 @@ try {
   assert.match(ready,/0.067/); assert.match(ready,/후보로 이동/);
   assert.match(ready,/스윙 한 번을 촬영한 영상 기준/);
   assert.match(ready,/잘렸거나 여러 스윙이 이어지거나 연습 동작이면 후보가 틀릴 수/);
+  assert.match(ready,/느리게 저장한 영상에서도 후보가 어긋날 수/);
   assert.match(ready,/현재 장면으로 골반 확인/);assert.match(ready,/정답 라벨로 저장하지 않습니다/);
   assert.match(render({...base,review:valid,loading:false,selectionError:'장면을 다시 선택'}),/role="alert"[^>]*>장면을 다시 선택/);
   const unavailableVideo=render({...base,review:valid,loading:false,playable:false});

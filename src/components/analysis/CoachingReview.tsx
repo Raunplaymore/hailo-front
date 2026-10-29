@@ -67,7 +67,7 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
       <p className="mt-1 text-sm font-medium leading-6">{result.summary}</p>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">추정 공 방향: 화면 {evidence.ballDirection === "right" ? "오른쪽" : "왼쪽"}. 원본과 다르거나 공 위치를 확인할 수 없다면 이 관찰을 해석하지 마세요.</p>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">{evidence.observation === "toward_ball"
-        ? "얼리 익스텐션을 살펴볼 때 확인하는 방향입니다. 영상에서도 이동이 보인다면 아래 교습 원리와 연습을 참고해 보세요. 이 관찰만으로 원인이나 교정 필요성을 확정하지 않습니다."
+        ? "얼리 익스텐션을 살펴볼 때 확인하는 방향입니다. 영상에서도 이동이 보인다면 아래 교습 원리와 연습을 참고해 보세요. 화면상 윤곽만으로 얼리 익스텐션이나 교정 필요성을 확정하지 않습니다."
         : "이 구간의 관찰 결과이며, 스윙 전체가 좋다는 판정은 아닙니다."}</p>
     </div>
     <button type="button" className={`${button} w-full border-primary bg-primary text-primary-foreground hover:bg-primary/90`} disabled={!playable} onClick={() => onEvidence(evidence)}>근거 구간 천천히 보기</button>

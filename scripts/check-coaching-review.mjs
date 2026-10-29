@@ -37,7 +37,7 @@ try {
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/공은 직접 감지하지 않고 준비 자세로 방향을 추정/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,impactFrameIndex:3,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/직접 선택한 장면/);
   const html=render('CoachingObservation',props);
-  assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/원인이나 교정 필요성을 확정하지 않습니다/);
+  assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/화면상 윤곽만으로 얼리 익스텐션이나 교정 필요성을 확정하지 않습니다/);
   assert.match(html,/추정 공 방향: 화면 오른쪽/);assert.match(html,/공 위치를 확인할 수 없다면 이 관찰을 해석하지 마세요/);
   assert.match(render('CoachingObservation',{...props,result:{...result,evidence:{...evidence,ballDirection:'left'}}}),/추정 공 방향: 화면 왼쪽/);
   assert.match(html,/영상에서도 이동이 보인다면 아래 교습 원리와 연습/);

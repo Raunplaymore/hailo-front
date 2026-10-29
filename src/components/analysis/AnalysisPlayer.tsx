@@ -273,6 +273,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             onRetry={jobId ? (impactState.error ? manualClockState.retry : impactState.retry) : undefined}
           >
             <FrameSyncedOverlays src={reviewVideoUrl!} videoRef={videoRef} timeMs={timeMs} overlay={poseOverlay} clubOverlay={clubOverlay}
+              clubFrameClockVerified={Boolean(candidateVideoHash && clubSidecar?.sourceFrameCoverage?.status === "verified" && clubSidecar.overlayVideoSha256 === candidateVideoHash)}
               events={displayEvents} playable={videoPlayable} bounds={overlayBounds} layers={layers} contour={contour} guideKind={guideKind} movementGuide={movementGuide} />
             <details className="absolute right-2 top-2 z-10">
               <summary className="cursor-pointer list-none rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs font-semibold text-white [&::-webkit-details-marker]:hidden">영상 옵션</summary>
@@ -366,8 +367,9 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   );
 }
 
-function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, events, playable, bounds, layers, contour, guideKind, movementGuide }: {
+function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, clubFrameClockVerified, events, playable, bounds, layers, contour, guideKind, movementGuide }: {
   src: string; videoRef: RefObject<HTMLVideoElement | null>; timeMs: number; overlay?: AnalysisOverlay | null; clubOverlay?: AnalysisOverlay | null;
+  clubFrameClockVerified?: boolean;
   events?: AnalysisResult["events"]; playable: boolean; bounds: OverlayBounds | null; layers: Record<"pose" | "hands" | "club" | "events", boolean>;
   contour?: CoachingEvidence | null; guideKind: GuideKind | null; movementGuide: MovementGuide | null;
 }) {
@@ -393,14 +395,17 @@ function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, even
       for (const event of ["pause", "seeking", "emptied", "error"]) video.removeEventListener(event, clear);
     };
   }, [enabled, src, videoRef]);
-  const clock = presented?.video === videoRef.current && presented.src === src ? presented.timeMs : timeMs;
+  const hasPresentedFrame = presented?.video === videoRef.current && presented.src === src;
+  const clock = hasPresentedFrame ? presented.timeMs : timeMs;
+  // shortcut: 1 microsecond covers source-clock rounding; validate again if timestamp precision changes.
+  const clubClock = clock + (hasPresentedFrame && clubFrameClockVerified ? .001 : 0);
   const poseFrames = useMemo(() => [...(overlay?.poseFrames ?? [])].sort((a, b) => a.timeMs - b.timeMs), [overlay?.poseFrames]);
   const activePose = useMemo(() => nearestAt(poseFrames, clock), [poseFrames, clock]);
   const visiblePose = useMemo(() => poseFrames.slice(frameBound(poseFrames, clock - HAND_TRAIL_DURATION_MS), frameBound(poseFrames, clock, true)), [poseFrames, clock]);
-  const visibleClub = useMemo(() => (clubOverlay?.clubFrames ?? []).filter((frame) => frame.timeMs <= clock && frame.timeMs >= clock - CLUB_TRAIL_DURATION_MS), [clubOverlay, clock]);
+  const visibleClub = useMemo(() => (clubOverlay?.clubFrames ?? []).filter((frame) => frame.timeMs <= clubClock && frame.timeMs >= clock - CLUB_TRAIL_DURATION_MS), [clubOverlay, clock, clubClock]);
   if (!enabled || !bounds) return null;
   return <div className="pointer-events-none absolute" style={bounds} data-overlay-time-ms={clock}>
-    {(overlay || clubOverlay) && <div className="absolute inset-0"><OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={clock} layers={contour || (guideKind && movementGuide?.tracks?.[guideKind]) ? { ...layers, pose: false, hands: false, events: false } : layers} /></div>}
+    {(overlay || clubOverlay) && <div className="absolute inset-0"><OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={clock} clubTimeMs={clubClock} layers={contour || (guideKind && movementGuide?.tracks?.[guideKind]) ? { ...layers, pose: false, hands: false, events: false } : layers} /></div>}
     {movementGuide?.status === "ready" && guideKind && <div className="absolute inset-0"><MovementGuideOverlay guide={movementGuide} kind={guideKind} timeMs={clock} /></div>}
     {contour && <div className="absolute inset-0"><PelvisContourOverlay evidence={contour} timeMs={clock} /></div>}
   </div>;
@@ -471,12 +476,12 @@ function validPosePoint(point: unknown): point is [number, number, number] {
     && Number.isFinite(point[2]) && point[2] >= .15;
 }
 
-function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { pose?: AnalysisOverlay["poseFrames"][number]; poseFrames: AnalysisOverlay["poseFrames"]; clubFrames: AnalysisOverlay["clubFrames"]; events?: AnalysisResult["events"]; timeMs: number; layers: Record<"pose" | "hands" | "club" | "events", boolean> }) {
+function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, clubTimeMs = timeMs, layers }: { pose?: AnalysisOverlay["poseFrames"][number]; poseFrames: AnalysisOverlay["poseFrames"]; clubFrames: AnalysisOverlay["clubFrames"]; events?: AnalysisResult["events"]; timeMs: number; clubTimeMs?: number; layers: Record<"pose" | "hands" | "club" | "events", boolean> }) {
   const hands = pose ? [pose.keypoints.left_wrist, pose.keypoints.right_wrist].filter(validPosePoint) : [];
   const latestClub = clubFrames.at(-1);
-  const visibleShaft = latestClub && timeMs - latestClub.timeMs <= 50
-    && (latestClub.headValidUntilMs === undefined || timeMs < latestClub.headValidUntilMs)
-    && (latestClub.handleValidUntilMs === undefined || timeMs < latestClub.handleValidUntilMs)
+  const visibleShaft = latestClub && clubTimeMs - latestClub.timeMs <= 50
+    && (latestClub.headValidUntilMs === undefined || clubTimeMs < latestClub.headValidUntilMs)
+    && (latestClub.handleValidUntilMs === undefined || clubTimeMs < latestClub.handleValidUntilMs)
     && [latestClub.head, latestClub.handle].every((point) => point
       && (point.confidence ?? 0) >= CLUB_TRAIL_MIN_CONFIDENCE
       && Number.isFinite(point.x) && Number.isFinite(point.y));

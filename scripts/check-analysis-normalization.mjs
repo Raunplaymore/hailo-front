@@ -242,6 +242,17 @@ try {
   assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[0].handleValidUntilMs,26);
   assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[1].headValidUntilMs,undefined);
   assert.equal(marked.dtlClubPointsV2.overlay.clubFrames[1].handleValidUntilMs,undefined);
+  const boundCoverage = {status:'succeeded',overlayVideoSha256:'a'.repeat(64),pendingOverlay:sideOverlay};
+  const covered = normalizeAnalysis({dtlClubPointsV2:{...boundCoverage,sourceFrameCoverage:{status:'verified',missingFrames:1}}},'covered');
+  assert.equal(covered.dtlClubPointsV2.sourceFrameCoverage.status,'verified');
+  assert.equal(covered.dtlClubPointsV2.sourceFrameCoverage.missingFrames,1);
+  for (const value of [undefined,{status:'verified',missingFrames:-1},{status:'verified',missingFrames:7201},{status:'verified',missingFrames:true},{status:'unknown',missingFrames:0}]) {
+    assert.equal(normalizeAnalysis({dtlClubPointsV2:{...boundCoverage,sourceFrameCoverage:value}},'bad-coverage').dtlClubPointsV2.sourceFrameCoverage.status,'unverified');
+  }
+  for (const invalid of [{...boundCoverage,overlayVideoSha256:undefined},{...boundCoverage,overlayVideoSha256:'bad'},
+    {...boundCoverage,pendingOverlay:null},{...boundCoverage,pendingOverlay:{...sideOverlay,clubTimeSource:undefined}}]) {
+    assert.equal(normalizeAnalysis({dtlClubPointsV2:{...invalid,sourceFrameCoverage:{status:'verified',missingFrames:1}}},'unbound-coverage').dtlClubPointsV2.sourceFrameCoverage.status,'unverified');
+  }
   const legacy = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: { ...sideOverlay, clubTimeSource: undefined } } }, "legacy");
   assert.equal(legacy.dtlClubPointsV2.overlay.clubTimeSource, undefined);
   const observation = { revision: 1, status: "research_observation", automaticCoachingReady: false, levels: [{

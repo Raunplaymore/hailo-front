@@ -162,6 +162,7 @@ export type DtlClubPointsV2Sidecar = {
   overlay?: AnalysisOverlay | null;
   pendingOverlay?: AnalysisOverlay | null;
   overlayVideoSha256?: string | null;
+  sourceFrameCoverage?: { status: "verified"; missingFrames: number } | { status: "unverified" };
   status: "queued" | "running" | "succeeded" | "failed" | string;
   model?: string | null;
   processingMs?: number | null;

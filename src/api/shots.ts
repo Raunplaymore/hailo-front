@@ -700,6 +700,16 @@ export const normalizeAnalysis = (
           model: typeof rawDtlClubPointsV2.model === "string" ? rawDtlClubPointsV2.model : null,
           overlay: normalizeOverlay(rawDtlClubPointsV2.overlay),
           pendingOverlay: normalizeOverlay(rawDtlClubPointsV2.pendingOverlay),
+          sourceFrameCoverage: rawDtlClubPointsV2.sourceFrameCoverage?.status === "verified"
+            && /^[a-f0-9]{64}$/.test(rawDtlClubPointsV2.overlayVideoSha256 ?? "")
+            && rawDtlClubPointsV2.pendingOverlay?.clubTimeSource === "video_pts"
+            && Array.isArray(rawDtlClubPointsV2.pendingOverlay?.clubFrames)
+            && rawDtlClubPointsV2.pendingOverlay.clubFrames.length > 0
+            && Number.isSafeInteger(rawDtlClubPointsV2.sourceFrameCoverage?.missingFrames)
+            && rawDtlClubPointsV2.sourceFrameCoverage.missingFrames >= 0
+            && rawDtlClubPointsV2.sourceFrameCoverage.missingFrames <= 7200
+            ? { status: "verified", missingFrames: rawDtlClubPointsV2.sourceFrameCoverage.missingFrames }
+            : { status: "unverified" },
           ...(Object.prototype.hasOwnProperty.call(rawDtlClubPointsV2, "overlayVideoSha256") ? {
             overlayVideoSha256: typeof rawDtlClubPointsV2.overlayVideoSha256 === "string" && /^[a-f0-9]{64}$/.test(rawDtlClubPointsV2.overlayVideoSha256)
               ? rawDtlClubPointsV2.overlayVideoSha256 : null,

@@ -8,7 +8,7 @@ export function CoachingLesson({ topic }: { topic: "pelvis" | "head" }) {
     <div className="space-y-4 border-t border-border px-4 pb-4 pt-3">
       <p className="text-xs leading-5 text-muted-foreground">내 영상의 판정과 별개인 일반 교습 안내입니다.</p>
       {pelvis ? <>
-        <p className="text-sm leading-6">얼리 익스텐션은 다운스윙에서 골반이 공 쪽으로 밀려 나오는 움직임입니다. 골반이 뒤쪽 공간에서 돌아가면 팔과 클럽이 지나갈 공간을 확보하는 데 도움이 됩니다.</p>
+        <p className="text-sm leading-6">얼리 익스텐션은 다운스윙에서 몸이 일찍 펴지며 골반이 준비 자세보다 공 쪽으로 가까워지는 패턴을 말합니다. 이때 팔과 클럽이 지나갈 공간이 줄어들 수 있습니다.</p>
         <figure className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <PelvisIllustration thrust={false} />

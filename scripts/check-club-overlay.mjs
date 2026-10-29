@@ -19,12 +19,16 @@ const point = { x: .2, y: .4, confidence: .8 };
 const render = (frame, timeMs = 100) => renderToStaticMarkup(React.createElement(context.OverlaySvg, {
   clubFrames: [frame], poseFrames: [], timeMs, layers: { club: true },
 }));
+const renderVerified = (frame, timeMs, clubTimeMs) => renderToStaticMarkup(React.createElement(context.OverlaySvg, {
+  clubFrames: [frame], poseFrames: [], timeMs, clubTimeMs, layers: { club: true },
+}));
 const frame = { timeMs: 100, head: point, handle: { ...point, x: .5 } };
 assert.match(render(frame), /<line /);
 assert.doesNotMatch(render(frame, 151), /<line /, 'stale shaft must disappear');
 assert.match(render({ ...frame, headValidUntilMs: 117 },116), /<line /);
 assert.doesNotMatch(render({ ...frame, headValidUntilMs: 117 },117), /<line /, 'a known missing head hides the shaft from that frame');
 assert.doesNotMatch(render({ ...frame, handleValidUntilMs: 117 },117), /<line /, 'a known missing grip hides the shaft from that frame');
+assert.doesNotMatch(renderVerified({ ...frame, headValidUntilMs: 117 },116.9997,117.0007), /<line /, 'sub-microsecond clock rounding must not retain a stale shaft');
 assert.doesNotMatch(render({ ...frame, handle: undefined }), /<line /);
 assert.doesNotMatch(render({ ...frame, handle: { ...point, confidence: .1 } }), /<line /);
 assert.doesNotMatch(render({ ...frame, head: { ...point, x: NaN } }), /<line /);
@@ -129,6 +133,18 @@ clockVideo.paused=false;const late=clockVideo.callbacks.values().next().value;
 const nextVideo=fakeVideo();ref.current=nextVideo;clockProps.src='second';renderClock();late(0,{mediaTime:1});
 assert.equal(renderClock().props['data-overlay-time-ms'],200,'a callback from the old video cannot update the new overlay');
 nextVideo.deliver(900);assert.equal(renderClock().props['data-overlay-time-ms'],900);
+clockProps.clubFrameClockVerified=true;
+clockProps.clubOverlay={clubFrames:[{timeMs:2051.667,head:point,handle:point},{timeMs:2068.333,head:point,handle:point}]};
+nextVideo.deliver(2051.666666667);
+let frameNode=renderClock().children[0].children[0];
+assert.equal(frameNode.props.clubFrames.length,1,'a verified source frame must survive sub-microsecond clock rounding');
+assert.equal(frameNode.props.clubFrames[0].timeMs,2051.667);
+clockProps.clubFrameClockVerified=false;
+frameNode=renderClock().children[0].children[0];
+assert.equal(frameNode.props.clubFrames.length,0,'an unverified timeline must not use the tolerance');
+clockProps.clubFrameClockVerified=true;clockProps.timeMs=2051.666666667;nextVideo.listeners.pause();
+frameNode=renderClock().children[0].children[0];
+assert.equal(frameNode.props.clubFrames.length,0,'an unconfirmed presented frame must not use the tolerance');
 clockProps.playable=false;assert.equal(renderClock(),null,'unavailable video must hide overlays');
 console.log('overlay clock follows displayed frames, clears stale frames and isolates video switches');
 
@@ -139,6 +155,13 @@ const clubContext = vm.createContext({React, useState:React.useState, useEffect:
 vm.runInContext(clubCode.code, clubContext);
 const props = {jobId:'fixture', playable:true, onSeek(){}, onResult(){}, sidecar:{observations:{levels:[.2,.35,.5,.65,.8].map(heightFraction=>({heightFraction, direction:'steeper', backswingMs:1000, downswingMs:1700}))}}};
 const clubHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,props));
+const coverageProps = { ...props, sidecar: { ...props.sidecar, status:'succeeded', overlay:{clubFrames:[frame]}, sourceFrameCoverage:{status:'verified',missingFrames:1} } };
+const missingCoverage = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,coverageProps));
+assert.match(missingCoverage,/빠진 프레임 1개/);
+const unknownCoverage = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...coverageProps,sidecar:{...coverageProps.sidecar,sourceFrameCoverage:{status:'unverified'}}}));
+assert.match(unknownCoverage,/빠진 프레임은 확인하지 못했어요/);
+const fullCoverage = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...coverageProps,sidecar:{...coverageProps.sidecar,sourceFrameCoverage:{status:'verified',missingFrames:0}}}));
+assert.doesNotMatch(fullCoverage,/빠진 프레임/);
 assert.equal((clubHtml.match(/>백스윙/g)||[]).length,1,'only one phase pair should be displayed');
 assert.equal((clubHtml.match(/aria-pressed="true"/g)||[]).length,1,'default height selected');
 assert.match(clubHtml,/50%/); assert.match(clubHtml,/관측의 한계/);

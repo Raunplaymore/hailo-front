@@ -25,6 +25,12 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
   };
   return <section className="space-y-2 rounded-xl border border-border bg-card p-2" aria-label="클럽 구간 관측">
     <h3 className={levels?.length ? "sr-only" : "text-sm font-semibold"}>손과 클럽의 움직임</h3>
+    {sidecar?.status === "succeeded" && Boolean(sidecar.overlay?.clubFrames.length || sidecar.pendingOverlay?.clubFrames.length)
+      && (sidecar.sourceFrameCoverage?.status !== "verified"
+        ? <p className="text-xs leading-5 text-muted-foreground">클럽 분석에서 빠진 프레임은 확인하지 못했어요. 원본 영상과 함께 살펴보세요.</p>
+        : sidecar.sourceFrameCoverage.missingFrames > 0
+          ? <p className="text-xs leading-5 text-muted-foreground">클럽 분석에서 빠진 프레임 {sidecar.sourceFrameCoverage.missingFrames}개는 선을 연결하지 않았어요.</p>
+          : null)}
     {levels?.length ? <>
       <p className="sr-only">손 높이: 시작 0% → 최고점 후보 100%</p>
       <div className="grid grid-cols-5 gap-1" role="group" aria-label="비교할 손 높이">

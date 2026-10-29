@@ -402,7 +402,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
         {tool === "impact" && <ImpactReview key={`${jobId}:${videoSha256 ?? "pending"}`} review={impactState.review} manualClock={manualClockState.clock} clockLoading={manualClockState.loading} clockError={manualClockState.error} onClockRetry={manualClockState.retry} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}
         </>}
 
-        {tool === "club" && legacyGripHidden && <p role="status" className="text-xs leading-5 text-muted-foreground">기존 추적의 그립 위치를 확인할 수 없어 노란 그립·샤프트 선을 숨겼어요. 클럽 관측을 계산해 보세요.</p>}
+        {legacyGripHidden && (!jobId || tool === "club") && <p role="status" className="text-xs leading-5 text-muted-foreground">기존 추적의 그립 위치를 확인할 수 없어 노란 그립·샤프트 선을 숨겼어요. {jobId ? "클럽 관측을 계산해 보세요." : "Pi의 분석 화면에서 클럽 관측을 확인해 보세요."}</p>}
         {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
         {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} overlay={clubOverlay === legacyClubOverlay ? null : clubOverlay} /></details>}
         <div className="space-y-2">

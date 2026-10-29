@@ -115,6 +115,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const [layers, setLayers] = useState({ pose: true, hands: true, club: true, events: true });
   const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(null);
   const [contourStatus, setContourStatus] = useState<ContourStatus>("checking");
+  const [motionNotice, setMotionNotice] = useState<string | null>(null);
   const canRetryContour = Boolean(contour && videoClock && videoRef.current && typeof videoRef.current.requestVideoFrameCallback === "function"
     && videoClock.frameTimesMs.filter(time => Math.abs(time - contour.focusMs) <= 1.1).length === 1);
   const legacyClubOverlay = useMemo(() => overlay ? {
@@ -354,7 +355,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             <FrameSyncedOverlays src={reviewVideoUrl!} videoRef={videoRef} timeMs={timeMs} overlay={poseOverlay} clubOverlay={clubOverlay}
               clubFrameClockVerified={Boolean(candidateVideoHash && clubSidecar?.sourceFrameCoverage?.status === "verified" && clubSidecar.overlayVideoSha256 === candidateVideoHash)}
               events={displayEvents} playable={videoPlayable} bounds={overlayBounds} layers={layers} contour={contour} guideKind={guideKind} movementGuide={movementGuide}
-              frameTimes={videoClock?.frameTimesMs} presentedFrame={presentedFrame} onContourStatus={setContourStatus} />
+              frameTimes={videoClock?.frameTimesMs} presentedFrame={presentedFrame} onContourStatus={setContourStatus} onMotionNotice={setMotionNotice} requireFrameConfirmation={Boolean(jobId)} />
             <details className="absolute right-2 top-2 z-10">
               <summary className="cursor-pointer list-none rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs font-semibold text-white [&::-webkit-details-marker]:hidden">영상 옵션</summary>
               <div className="mt-1 grid max-h-[25vh] gap-1 overflow-y-auto rounded-lg border border-white/15 bg-black/95 p-1.5">
@@ -375,7 +376,9 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           {([["coaching", "몸"], ["club", "클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 border-b-2 px-2 text-sm font-semibold", tool === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
         </div>}
         <div ref={analysisScrollRef} className="analysis-scroll space-y-3" role="region" aria-label="분석 내용" tabIndex={0}>
+        {motionNotice && <p role="status" className="text-xs leading-5 text-muted-foreground">{motionNotice}</p>}
         {clubVideoUnverified && Boolean(clubSidecar?.pendingOverlay?.clubFrames.length) && <p className="text-xs text-muted-foreground" role="status">클럽 궤적은 임팩트 후보와 영상 일치가 확인되면 표시됩니다.</p>}
+        {jobId && tool === "club" && Boolean(clubOverlay?.clubFrames.length) && <p className="text-xs text-muted-foreground">재생 중 선은 장면과 조금 어긋날 수 있어요. 확인할 때 잠시 멈춰 주세요.</p>}
         {jobId && tool !== "club" && !contour && !guideKind && (impactState.loading || poseState.loading
           ? <p className="text-xs text-muted-foreground" role="status">자세 선의 영상 시각을 확인하고 있어요.</p>
           : !videoClock || poseState.error || poseState.pose?.status === "unavailable"
@@ -448,44 +451,69 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   );
 }
 
-function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, clubFrameClockVerified, events, playable, bounds, layers, contour, guideKind, movementGuide, frameTimes, presentedFrame, onContourStatus }: {
+function frameWithinPlayingTolerance(times: number[], index: number | null, timeMs: number) {
+  return index !== null && Number.isFinite(timeMs) && timeMs >= times[Math.max(0, index - 2)] && (index + 3 >= times.length || timeMs < times[index + 3]);
+}
+
+function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, clubFrameClockVerified, events, playable, bounds, layers, contour, guideKind, movementGuide, frameTimes, presentedFrame, onContourStatus, onMotionNotice, requireFrameConfirmation }: {
   src: string; videoRef: RefObject<HTMLVideoElement | null>; timeMs: number; overlay?: AnalysisOverlay | null; clubOverlay?: AnalysisOverlay | null;
   clubFrameClockVerified?: boolean;
   events?: AnalysisResult["events"]; playable: boolean; bounds: OverlayBounds | null; layers: Record<"pose" | "hands" | "club" | "events", boolean>;
   contour?: CoachingEvidence | null; guideKind: GuideKind | null; movementGuide: MovementGuide | null;
   frameTimes?: number[]; presentedFrame: RefObject<{video: HTMLVideoElement; src: string; timeMs: number; expectedDisplayTime: number} | null>;
   onContourStatus: (status: ContourStatus) => void;
+  onMotionNotice: (message: string | null) => void;
+  requireFrameConfirmation?: boolean;
 }) {
-  const [presented, setPresented] = useState<{ video: HTMLVideoElement; src: string; timeMs: number } | null>(null);
+  const [presented, setPresented] = useState<{ video: HTMLVideoElement; src: string; timeMs: number; frameIndex: number | null } | null>(null);
   const [contourFrame, setContourFrame] = useState<{ video: HTMLVideoElement; src: string; timeMs: number } | null>(null);
+  const [pausedFrame, setPausedFrame] = useState<{ video: HTMLVideoElement; src: string; timeMs: number } | null>(null);
   const enabled = Boolean(playable && bounds && (overlay || clubOverlay || contour || (guideKind && movementGuide?.status === "ready")));
   useEffect(() => {
     const video = videoRef.current;
     setPresented(null);
     if (!enabled || !video || typeof video.requestVideoFrameCallback !== "function") return;
-    let active = true;
+    let active = true, watchdog = 0, frameIndex: number | null = null;
     let callback: number;
-    const clear = () => setPresented(null);
+    const clear = () => { if (watchdog) cancelAnimationFrame(watchdog); watchdog = 0; frameIndex = null; setPresented(null); };
+    const watch = () => {
+      watchdog = 0;
+      if (!active || video.paused || video.seeking) return;
+      if (frameTimes && frameIndex !== null && !frameWithinPlayingTolerance(frameTimes, frameIndex, video.currentTime * 1000)) {
+        frameIndex = null; setPresented(null);
+      }
+      watchdog = requestAnimationFrame(watch);
+    };
+    const watchPlayback = () => { if (requireFrameConfirmation && frameTimes && !watchdog) watchdog = requestAnimationFrame(watch); };
     const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
       if (!active) return;
-      if (!video.seeking && Number.isFinite(metadata.mediaTime)) setPresented({video, src, timeMs: metadata.mediaTime * 1000});
+      if (!video.seeking && Number.isFinite(metadata.mediaTime)) {
+        const time = metadata.mediaTime * 1000;
+        frameIndex = frameTimes ? frameIndexForPresentedTime(frameTimes, time + 2, time) : null;
+        setPresented({video, src, timeMs: time, frameIndex});
+      }
       callback = video.requestVideoFrameCallback(onFrame);
     };
     for (const event of ["pause", "seeking", "emptied", "error"]) video.addEventListener(event, clear);
+    video.addEventListener("play", watchPlayback);
     callback = video.requestVideoFrameCallback(onFrame);
+    if (!video.paused) watchPlayback();
     return () => {
       active = false;
+      if (watchdog) cancelAnimationFrame(watchdog);
       video.cancelVideoFrameCallback?.(callback);
       for (const event of ["pause", "seeking", "emptied", "error"]) video.removeEventListener(event, clear);
+      video.removeEventListener("play", watchPlayback);
     };
-  }, [enabled, src, videoRef]);
+  }, [enabled, frameTimes, requireFrameConfirmation, src, videoRef]);
   useEffect(() => {
     const video = videoRef.current;
     setContourFrame(null);
-    if (!contour || !video) return;
-    if (!frameTimes || typeof video.requestVideoFrameCallback !== "function") { onContourStatus("unverified"); return; }
+    setPausedFrame(null);
+    if (!enabled || !video || (!contour && !requireFrameConfirmation)) return;
+    if (!frameTimes || typeof video.requestVideoFrameCallback !== "function") { if (contour) onContourStatus("unverified"); return; }
     let active = true, request = 0, generation = 0;
-    const clear = () => { generation++; cancelAnimationFrame(request); setContourFrame(null); onContourStatus(video.paused ? "checking" : "playing"); };
+    const clear = () => { generation++; cancelAnimationFrame(request); setContourFrame(null); setPausedFrame(null); if (contour) onContourStatus(video.paused ? "checking" : "playing"); };
     const observe = () => {
       clear();
       if (!video.paused || video.seeking || video.readyState < 2) return;
@@ -498,17 +526,20 @@ function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, club
           ? frameIndexForPresentedTime(frameTimes, video.currentTime * 1000, frame.timeMs) : null;
         if (index !== null) {
           const time = frameTimes[index];
-          const samples = contour.points.filter(point => Math.abs(point.timeMs - time) <= 1.1);
-          const sample = samples[0];
-          const unique = samples.length === 1
-            && (index === 0 || Math.abs(sample.timeMs - frameTimes[index - 1]) > 1.1)
-            && (index === frameTimes.length - 1 || Math.abs(sample.timeMs - frameTimes[index + 1]) > 1.1);
-          if (unique) { setContourFrame({video, src, timeMs: time}); onContourStatus("shown"); }
-          else onContourStatus(samples.length ? "unverified" : "other");
+          setPausedFrame({video, src, timeMs: time});
+          if (contour) {
+            const samples = contour.points.filter(point => Math.abs(point.timeMs - time) <= 1.1);
+            const sample = samples[0];
+            const unique = samples.length === 1
+              && (index === 0 || Math.abs(sample.timeMs - frameTimes[index - 1]) > 1.1)
+              && (index === frameTimes.length - 1 || Math.abs(sample.timeMs - frameTimes[index + 1]) > 1.1);
+            if (unique) { setContourFrame({video, src, timeMs: time}); onContourStatus("shown"); }
+            else onContourStatus(samples.length ? "unverified" : "other");
+          }
           return;
         }
         if (performance.now() < deadline) request = requestAnimationFrame(check);
-        else onContourStatus("unverified");
+        else if (contour) onContourStatus("unverified");
       };
       request = requestAnimationFrame(check);
     };
@@ -520,19 +551,39 @@ function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, club
       for (const event of ["pause", "seeked", "loadeddata", "canplay"]) video.removeEventListener(event, observe);
       for (const event of ["play", "seeking", "emptied", "error"]) video.removeEventListener(event, clear);
     };
-  }, [contour, frameTimes, onContourStatus, presentedFrame, src, videoRef]);
+  }, [enabled, contour, frameTimes, onContourStatus, presentedFrame, requireFrameConfirmation, src, videoRef]);
   const hasPresentedFrame = presented?.video === videoRef.current && presented.src === src;
-  const clock = hasPresentedFrame ? presented.timeMs : timeMs;
+  const video = videoRef.current;
+  const hasPausedFrame = Boolean(video?.paused && !video.seeking && frameTimes && pausedFrame?.video === video && pausedFrame.src === src
+    && frameIndexForPresentedTime(frameTimes, video.currentTime * 1000, pausedFrame.timeMs) !== null);
+  // shortcut: allow two source frames of playback/compositor skew; validate on physical devices.
+  const hasPlayingFrame = Boolean(video && !video.paused && !video.seeking && frameTimes && hasPresentedFrame
+    && frameWithinPlayingTolerance(frameTimes, presented.frameIndex, video.currentTime * 1000));
+  const showMotion = !requireFrameConfirmation || hasPausedFrame || hasPlayingFrame;
+  const clock = hasPausedFrame ? pausedFrame!.timeMs : hasPresentedFrame ? presented.timeMs : timeMs;
   // shortcut: 1 microsecond covers source-clock rounding; validate again if timestamp precision changes.
-  const clubClock = clock + (hasPresentedFrame && clubFrameClockVerified ? .001 : 0);
+  const clubClock = clock + ((hasPausedFrame || hasPresentedFrame) && clubFrameClockVerified ? .001 : 0);
   const poseFrames = useMemo(() => [...(overlay?.poseFrames ?? [])].sort((a, b) => a.timeMs - b.timeMs), [overlay?.poseFrames]);
   const activePose = useMemo(() => nearestAt(poseFrames, clock), [poseFrames, clock]);
   const visiblePose = useMemo(() => poseFrames.slice(frameBound(poseFrames, clock - HAND_TRAIL_DURATION_MS), frameBound(poseFrames, clock, true)), [poseFrames, clock]);
   const visibleClub = useMemo(() => (clubOverlay?.clubFrames ?? []).filter((frame) => frame.timeMs <= clubClock && frame.timeMs >= clock - CLUB_TRAIL_DURATION_MS), [clubOverlay, clock, clubClock]);
+  const hasMotion = Boolean(((layers.pose || layers.hands) && poseFrames.length) || (layers.club && clubOverlay?.clubFrames.length)
+    || (layers.events && events && Object.keys(events).length) || (guideKind && movementGuide?.status === "ready"));
+  const notice = enabled && bounds && !showMotion && !contour && hasMotion
+    ? typeof video?.requestVideoFrameCallback !== "function" ? "이 브라우저는 영상 장면 확인을 지원하지 않아 선을 숨겼어요. 다른 브라우저에서 확인해 주세요."
+      : !frameTimes ? "영상의 프레임 시각을 확인할 수 없어 선을 숨겼어요."
+        : "영상 장면을 확인 중입니다. 선이 보이지 않으면 재생하거나 앞뒤 프레임으로 이동해 주세요."
+    : null;
+  useEffect(() => {
+    if (!notice || video?.paused) { onMotionNotice(notice); return; }
+    const timer = setTimeout(() => onMotionNotice(notice), 250);
+    return () => clearTimeout(timer);
+  }, [notice, onMotionNotice, video?.paused]);
+  useEffect(() => () => onMotionNotice(null), [onMotionNotice]);
   if (!enabled || !bounds) return null;
   return <div className="pointer-events-none absolute" style={bounds} data-overlay-time-ms={clock}>
-    {(overlay || clubOverlay) && <div className="absolute inset-0"><OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={clock} clubTimeMs={clubClock} layers={contour || (guideKind && movementGuide?.tracks?.[guideKind]) ? { ...layers, pose: false, hands: false, events: false } : layers} /></div>}
-    {movementGuide?.status === "ready" && guideKind && <div className="absolute inset-0"><MovementGuideOverlay guide={movementGuide} kind={guideKind} timeMs={clock} /></div>}
+    {showMotion && (overlay || clubOverlay) && <div className="absolute inset-0"><OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={clock} clubTimeMs={clubClock} layers={contour || (guideKind && movementGuide?.tracks?.[guideKind]) ? { ...layers, pose: false, hands: false, events: false } : layers} /></div>}
+    {showMotion && movementGuide?.status === "ready" && guideKind && <div className="absolute inset-0"><MovementGuideOverlay guide={movementGuide} kind={guideKind} timeMs={clock} /></div>}
     {contour && contourFrame?.video === videoRef.current && contourFrame.src === src && <div className="absolute inset-0"><PelvisContourOverlay evidence={contour} timeMs={contourFrame.timeMs} /></div>}
   </div>;
 }

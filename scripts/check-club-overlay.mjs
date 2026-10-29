@@ -110,17 +110,21 @@ assert.equal(JSON.stringify(context.handTrailSegments(dense,'left_wrist',32).map
 console.log('pose rendering hides low-confidence, invalid and distant observations without bridging hand gaps');
 
 // Exercise the overlay clock separately from the slower playback controls.
-const clockStart = source.indexOf('function FrameSyncedOverlays('), clockEnd = source.indexOf('\nfunction ClubTrackingEvidence', clockStart);
+const clockStart = source.indexOf('function frameWithinPlayingTolerance('), clockEnd = source.indexOf('\nfunction ClubTrackingEvidence', clockStart);
 assert.ok(clockStart >= 0 && clockEnd > clockStart);
 const clockCode = await esbuild.transform(source.slice(clockStart, clockEnd), {loader:'tsx', jsx:'transform'});
 const clockSlots = []; let clockCursor = 0, clockEffects = [];
 const clockState = initial => { const i=clockCursor++; if (!(i in clockSlots)) clockSlots[i]={value:initial}; return [clockSlots[i].value, value=>{clockSlots[i].value=typeof value==='function'?value(clockSlots[i].value):value;}]; };
 const clockEffect = (effect,deps) => { const i=clockCursor++, old=clockSlots[i]; if (!old || deps.some((v,j)=>!Object.is(v,old.deps[j]))) clockEffects.push(()=>{old?.cleanup?.();clockSlots[i]={deps,cleanup:effect()};}); };
 const clockReact = {createElement:(type,props,...children)=>({type,props:props||{},children})};
+const noticeTimers=new Map();let nextNoticeTimer=0;
 const clockContext=vm.createContext({React:clockReact,useState:clockState,useEffect:clockEffect,useMemo:fn=>fn(),nearestAt:()=>undefined,
+  setTimeout:fn=>{const id=++nextNoticeTimer;noticeTimers.set(id,fn);return id;},clearTimeout:id=>noticeTimers.delete(id),
   OverlaySvg:()=>null,MovementGuideOverlay:()=>null,PelvisContourOverlay:()=>null,HAND_TRAIL_DURATION_MS:800,CLUB_TRAIL_DURATION_MS:550,POSE_FRAME_MAX_DISTANCE_MS:50,FRAME_CONFIRM_TIMEOUT_MS:1200});
 vm.runInContext(helpers.code,clockContext);
 vm.runInContext(clockCode.code, clockContext);
+assert.equal(clockContext.frameWithinPlayingTolerance([0,10,20,30],0,NaN),false);
+assert.equal(clockContext.frameWithinPlayingTolerance([0,10,20,30],3,Infinity),false);
 function fakeVideo() {
   const callbacks=new Map(),listeners={}, video={paused:false,seeking:false,callbacks,listeners,nextId:0,
     requestVideoFrameCallback(fn){const id=++this.nextId;callbacks.set(id,fn);return id;},cancelVideoFrameCallback(id){callbacks.delete(id);},
@@ -128,8 +132,9 @@ function fakeVideo() {
     deliver(ms){const [id,fn]=callbacks.entries().next().value;callbacks.delete(id);fn(0,{mediaTime:ms/1000});},
   }; return video;
 }
+let motionNotice=null;
 const clockVideo=fakeVideo(), ref={current:clockVideo}, clockProps={src:'first',videoRef:ref,timeMs:200,overlay:{poseFrames:[],clubFrames:[]},
-  playable:true,bounds:{left:0,top:0,width:100,height:100},layers:{pose:true,hands:true,club:true,events:true},contour:null,guideKind:null,movementGuide:null};
+  playable:true,bounds:{left:0,top:0,width:100,height:100},layers:{pose:true,hands:true,club:true,events:true},contour:null,guideKind:null,movementGuide:null,onMotionNotice:value=>{motionNotice=value;}};
 function renderClock(){clockCursor=0;clockEffects=[];const node=clockContext.FrameSyncedOverlays(clockProps);clockEffects.forEach(effect=>effect());return node;}
 assert.equal(renderClock().props['data-overlay-time-ms'],200);
 clockVideo.deliver(700);assert.equal(renderClock().props['data-overlay-time-ms'],700,'overlay must follow the presented frame');
@@ -143,6 +148,12 @@ assert.equal(renderClock().props['data-overlay-time-ms'],200,'a callback from th
 nextVideo.deliver(900);assert.equal(renderClock().props['data-overlay-time-ms'],900);
 clockProps.clubFrameClockVerified=true;
 clockProps.clubOverlay={clubFrames:[{timeMs:2051.667,head:point,handle:point},{timeMs:2068.333,head:point,handle:point}]};
+clockProps.timeMs=2051.667;clockProps.requireFrameConfirmation=true;clockProps.presentedFrame={current:null};
+clockProps.onContourStatus=()=>{};nextVideo.paused=true;nextVideo.listeners.pause();
+const unconfirmedFrame=renderClock();
+assert.equal(Boolean(unconfirmedFrame.children[0]),false,'an unconfirmed playback position must not display a club observation');
+assert.ok(motionNotice,'an unconfirmed frame explains why the motion overlay is hidden');
+clockProps.requireFrameConfirmation=false;nextVideo.paused=false;renderClock();
 nextVideo.deliver(2051.666666667);
 let frameNode=renderClock().children[0].children[0];
 assert.equal(frameNode.props.clubFrames.length,1,'a verified source frame must survive sub-microsecond clock rounding');
@@ -195,6 +206,60 @@ renderClock();tick(2301);assert.equal(hasContour(renderClock()),false);assert.eq
 contourVideo.requestVideoFrameCallback=undefined;clockProps.src='unsupported';renderClock();
 assert.equal(hasContour(renderClock()),false);assert.equal(contourStatus,'unverified','unsupported browsers retain the unannotated video');
 console.log('pelvis contour requires a confirmed measured frame and withholds stale, ambiguous and unsupported cases');
+
+const hasMotion=node=>Boolean(node && typeof node==='object' && (node.type===clockContext.OverlaySvg || node.children?.some(hasMotion)));
+contourVideo.requestVideoFrameCallback=()=>1;contourVideo.currentTime=.8601;
+frameRef.current=null;
+Object.assign(clockProps,{src:'motion',contour:null,requireFrameConfirmation:true,frameTimes:[0,860,876.667],
+  overlay:{poseFrames:[],clubFrames:[]},clubOverlay:{clubFrames:[{timeMs:860,head:point,handle:point}]},timeMs:860.1});
+assert.equal(hasMotion(renderClock()),false,'a paused position without a frame callback cannot show a motion overlay');
+tick(4000);assert.equal(hasMotion(renderClock()),false,'a stalled callback stays withheld');
+frameRef.current={video:contourVideo,src:'motion',timeMs:860,expectedDisplayTime:3999};
+contourVideo.emit('seeked');tick(4001);
+assert.equal(hasMotion(renderClock()),true,'a matching displayed frame restores the motion overlay');
+assert.equal(renderClock().props['data-overlay-time-ms'],860,'paused motion uses the confirmed source time');
+contourVideo.currentTime=.876767;
+assert.equal(hasMotion(renderClock()),false,'changing the playback position cannot reuse a previous confirmed frame');
+contourVideo.emit('seeking');frameRef.current={video:contourVideo,src:'motion',timeMs:860,expectedDisplayTime:3999};
+contourVideo.emit('seeked');tick(4002);
+assert.equal(hasMotion(renderClock()),false,'a stale callback cannot authorize a different paused frame');
+clockProps.frameTimes=undefined;
+assert.equal(hasMotion(renderClock()),false,'a missing source timeline stays withheld');
+
+const playVideo=fakeVideo();playVideo.currentTime=.8601;playVideo.readyState=2;ref.current=playVideo;
+Object.assign(clockProps,{src:'play',frameTimes:[0,860,876.667,893.333,910,926.667,943.333,960],presentedFrame:{current:null}});
+assert.equal(hasMotion(renderClock()),false,'playing without a displayed frame stays withheld');
+playVideo.deliver(858.433);
+assert.equal(hasMotion(renderClock()),true,'a callback within the existing 2ms source-clock tolerance remains visible');
+playVideo.deliver(860);
+assert.equal(hasMotion(renderClock()),true,'a matching frame callback restores the playing overlay');
+playVideo.currentTime=.876767;
+assert.equal(hasMotion(renderClock()),true,'one-frame compositor skew remains visible during playback');
+playVideo.currentTime=.893433;
+assert.equal(hasMotion(renderClock()),true,'two-frame compositor skew remains visible during playback');
+playVideo.currentTime=.9101;
+assert.ok(clockSlots[0].value,'a playing callback has been retained');
+tick(4003);assert.equal(clockSlots[0].value,null,'the watchdog clears a stale overlay without waiting for timeupdate');
+assert.equal(hasMotion(renderClock()),false,'a stalled playback callback cannot keep showing the previous frame');
+assert.equal(motionNotice,null,'a brief playback interruption must not immediately shift the layout');
+playVideo.deliver(910);
+assert.equal(hasMotion(renderClock()),true,'a later matching callback restores playback');
+assert.equal(noticeTimers.size,0,'a recovered frame cancels the pending warning');
+playVideo.currentTime=.9601;tick(4004);renderClock();
+assert.equal(noticeTimers.size,1,'a sustained playback interruption schedules guidance');
+const delayedNotice=[...noticeTimers.values()];noticeTimers.clear();delayedNotice.forEach(fn=>fn());
+assert.match(motionNotice,/영상 장면을 확인 중/,'a sustained interruption explains the hidden overlay');
+playVideo.deliver(960);assert.equal(hasMotion(renderClock()),true);assert.equal(motionNotice,null);
+playVideo.paused=true;playVideo.requestVideoFrameCallback=undefined;clockProps.src='no-callback';
+const unsupportedMotion=renderClock();
+assert.equal(hasMotion(unsupportedMotion),false,'unsupported browsers must withhold Pi motion overlays');
+assert.match(motionNotice,/다른 브라우저/,'unsupported browsers get actionable guidance');
+clockProps.layers={pose:false,hands:false,club:false,events:false};
+renderClock();assert.equal(motionNotice,null,'hidden layers must not produce a misleading warning');
+clockProps.layers={pose:true,hands:true,club:true,events:true};
+clockProps.requireFrameConfirmation=false;
+assert.equal(hasMotion(renderClock()),true,'the existing unbound NAS display remains available');
+console.log('motion overlays require matching playback frames and recover without changing saved observations');
 
 // Render the real selector to catch missing levels and accidental repeated cards.
 const clubSource = fs.readFileSync('src/components/analysis/ClubObservation.tsx', 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function');

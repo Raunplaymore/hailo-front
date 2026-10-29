@@ -118,14 +118,20 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const [motionNotice, setMotionNotice] = useState<string | null>(null);
   const canRetryContour = Boolean(contour && videoClock && videoRef.current && typeof videoRef.current.requestVideoFrameCallback === "function"
     && videoClock.frameTimesMs.filter(time => Math.abs(time - contour.focusMs) <= 1.1).length === 1);
-  const legacyClubOverlay = useMemo(() => overlay ? {
+  const legacyClubOverlay = useMemo<AnalysisOverlay | null | undefined>(() => overlay ? {
     ...overlay, clubFrames: overlay.clubFrames.map(({ handle: _handle, ...frame }) => frame),
   } : overlay, [overlay]);
+  const gripReviewCount = clubSidecar?.trackingQuality?.ambiguousClubHandleFrames;
+  const needsGripRecheck = clubSidecar?.status === "succeeded" &&
+    (typeof gripReviewCount !== "number" || !Number.isSafeInteger(gripReviewCount) || gripReviewCount < 0);
   const clubVideoUnverified = clubSidecar?.overlayVideoSha256 !== undefined && clubSidecar.overlayVideoSha256 !== candidateVideoHash;
-  const clubOverlay = clubSidecar?.overlayVideoSha256 !== undefined
+  const selectedClubOverlay = clubSidecar?.overlayVideoSha256 !== undefined
     ? (!clubVideoUnverified && clubSidecar.status === "succeeded" && clubSidecar.pendingOverlay?.clubTimeSource === "video_pts" ? clubSidecar.pendingOverlay : null)
     : clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts" ? clubSidecar.overlay : legacyClubOverlay;
-  const legacyGripHidden = clubOverlay === legacyClubOverlay && Boolean(overlay?.clubFrames.some(frame => frame.handle));
+  const clubOverlay = useMemo(() => needsGripRecheck && selectedClubOverlay && selectedClubOverlay !== legacyClubOverlay
+    ? {...selectedClubOverlay, clubFrames: selectedClubOverlay.clubFrames.map(({ handle: _handle, ...frame }) => frame)} : selectedClubOverlay,
+  [needsGripRecheck, selectedClubOverlay, legacyClubOverlay]);
+  const legacyGripHidden = selectedClubOverlay === legacyClubOverlay && Boolean(overlay?.clubFrames.some(frame => frame.handle));
   const clubFrameTimes = useMemo(() => clubOverlay?.clubFrames.map(frame => frame.timeMs), [clubOverlay]);
   const useClubFrameTimes = Boolean(clubFrameTimes?.length && (tool === "club" || !videoClock));
 
@@ -406,6 +412,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
         </>}
 
         {legacyGripHidden && (!jobId || tool === "club") && <p role="status" className="text-xs leading-5 text-muted-foreground">기존 추적의 그립 위치를 확인할 수 없어 노란 그립·샤프트 선을 숨겼어요. {jobId ? "클럽 관측을 계산해 보세요." : "Pi의 분석 화면에서 클럽 관측을 확인해 보세요."}</p>}
+        {!jobId && needsGripRecheck && selectedClubOverlay !== legacyClubOverlay && Boolean(selectedClubOverlay?.clubFrames.some(frame => frame.handle)) && <p role="status" className="text-xs leading-5 text-muted-foreground">이전에 저장된 그립은 후보 확인 전 결과라 숨겼어요. Pi 분석 화면에서 클럽 관측을 다시 계산해 주세요.</p>}
         {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
         {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} overlay={clubOverlay === legacyClubOverlay ? null : clubOverlay} /></details>}
         <div className="space-y-2">
@@ -598,7 +605,7 @@ function ClubTrackingEvidence({ sidecar, overlay }: { sidecar?: DtlClubPointsV2S
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold text-cyan-100">DTL V2 클럽 추적</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{overlay?.clubTimeSource === "video_pts" ? "파란 선은 헤드 궤적, 노란 선은 그립과 샤프트의 추정 위치입니다. 두 점이 실제 클럽과 맞는지 영상에서 확인하세요." : "클럽 궤적과 영상의 일치를 아직 확인하지 못했습니다."}</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{overlay?.clubTimeSource === "video_pts" ? overlay.clubFrames.some(frame => frame.handle) ? "파란 선은 헤드 궤적, 노란 선은 그립과 샤프트의 추정 위치입니다. 두 점이 실제 클럽과 맞는지 영상에서 확인하세요." : "파란 선은 추정한 헤드 궤적입니다. 그립과 샤프트는 표시되지 않습니다." : "클럽 궤적과 영상의 일치를 아직 확인하지 못했습니다."}</p>
         </div>
         <span className={cn(
           "rounded-full border px-2 py-1 text-[11px] font-semibold",

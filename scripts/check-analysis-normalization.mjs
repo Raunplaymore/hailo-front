@@ -222,9 +222,13 @@ try {
   assert.equal(side.dtlClubPointsV2.overlay.clubTimeSource, "video_pts");
   const ambiguous = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',trackingQuality:{label:'reference',ambiguousClubHeadFrames:5}}},'ambiguous');
   assert.equal(ambiguous.dtlClubPointsV2.trackingQuality.ambiguousClubHeadFrames, 5);
-  for (const invalid of [-1, 1.5, true, '3', null]) {
+  const grip = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',trackingQuality:{label:'reference',ambiguousClubHandleFrames:3}}},'ambiguous-grip');
+  assert.equal(grip.dtlClubPointsV2.trackingQuality.ambiguousClubHandleFrames, 3);
+  for (const invalid of [-1, 1.5, true, '3', null, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
     const value = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',trackingQuality:{label:'reference',ambiguousClubHeadFrames:invalid}}},'invalid-ambiguous');
     assert.equal(value.dtlClubPointsV2.trackingQuality.ambiguousClubHeadFrames, null);
+    const badGrip = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',trackingQuality:{label:'reference',ambiguousClubHandleFrames:invalid}}},'invalid-grip');
+    assert.equal(badGrip.dtlClubPointsV2.trackingQuality.ambiguousClubHandleFrames, null);
   }
   assert.equal(side.dtlClubPointsV2.overlay.clubFrames[0].timeMs, 17);
   assert.equal(side.dtlClubPointsV2.overlayVideoSha256, undefined, 'legacy sidecars keep their existing behavior');

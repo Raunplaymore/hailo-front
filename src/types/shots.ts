@@ -157,8 +157,10 @@ export type ClubObservationLevel = {
   direction: "steeper" | "flatter" | "unresolved" | "pair_uncertain";
 };
 export type DtlClubPointsV2Sidecar = {
-  observations?: { status: string; levels: ClubObservationLevel[] } | null;
+  observations?: { status: string; levels: ClubObservationLevel[]; reason?: "IMPACT_CANDIDATE_UNAVAILABLE" } | null;
   overlay?: AnalysisOverlay | null;
+  pendingOverlay?: AnalysisOverlay | null;
+  overlayVideoSha256?: string | null;
   status: "queued" | "running" | "succeeded" | "failed" | string;
   model?: string | null;
   processingMs?: number | null;
@@ -169,6 +171,7 @@ export type DtlClubPointsV2Sidecar = {
   } | null;
   trackingQuality?: TrackingQualityMetrics | null;
   error?: string | null;
+  errorCode?: "BODY_UNAVAILABLE" | null;
   completedAt?: string | null;
 };
 

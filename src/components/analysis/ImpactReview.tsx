@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { ImpactReview as Review } from "@/api/impactReview";
+import { frameIndexAtOrBefore, ImpactReview as Review } from "@/api/impactReview";
 
-export function ImpactReview({ review, loading, error, onRetry, timeMs, onSeek, playable = true }: {
+export function ImpactReview({ review, loading, error, onRetry, timeMs, onSeek, onChooseCurrent, selectionError, playable = true }: {
   review: Review | null; loading: boolean; error: string | null;
-  onRetry: () => void; timeMs: number; onSeek: (timeMs: number) => void; playable?: boolean;
+  onRetry: () => void; timeMs: number; onSeek: (timeMs: number) => void;
+  onChooseCurrent: () => void; selectionError: string | null; playable?: boolean;
 }) {
   const [confirmed, setConfirmed] = useState(false);
-  const index = review ? review.frameTimesMs.reduce((best, t, i, times) =>
-    Math.abs(t - timeMs) < Math.abs(times[best] - timeMs) ? i : best, 0) : 0;
+  const index = review ? frameIndexAtOrBefore(review.frameTimesMs, timeMs) ?? 0 : 0;
   const buttonClass = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
   return <section className="space-y-2 rounded-xl border border-border p-3" aria-label="임팩트 후보 검수">
     <p className="text-xs leading-5 text-muted-foreground">오른손 후방에서 완전한 스윙 한 번을 촬영한 영상 기준입니다. 영상이 잘렸거나 여러 스윙이 이어지거나 연습 동작이면 후보가 틀릴 수 있으니 원본에서 확인하세요.</p>
@@ -23,6 +23,9 @@ export function ImpactReview({ review, loading, error, onRetry, timeMs, onSeek, 
         <button type="button" className={buttonClass} disabled={!playable || index === 0} onClick={() => onSeek(review.frameTimesMs[index - 1])}>이전 프레임</button>
         <button type="button" className={buttonClass} disabled={!playable || index === review.frameTimesMs.length - 1} onClick={() => onSeek(review.frameTimesMs[index + 1])}>다음 프레임</button>
       </div>
+      <p className="text-xs leading-5 text-muted-foreground">후보와 타격 장면이 다르면 영상을 멈추고 타격 장면을 선택하세요. 영상에 타격 장면이 없다면 다시 촬영해 주세요. 선택은 이 화면에서만 유지되며 정답 라벨로 저장하지 않습니다.</p>
+      <button type="button" className={`${buttonClass} w-full`} disabled={!playable} onClick={onChooseCurrent}>현재 장면으로 골반 확인</button>
+      {selectionError && <p role="alert" className="text-xs text-destructive">{selectionError}</p>}
       <details><summary className="text-xs text-muted-foreground">후보 확인 표시 및 분석 범위</summary>
       <label className="flex min-h-12 cursor-pointer items-center gap-2 text-sm">
         <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />

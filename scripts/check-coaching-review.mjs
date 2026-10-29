@@ -18,7 +18,7 @@ try {
   const evidence = { addressMs:100,startMs:500,endMs:1100,focusMs:860,impactMs:1000,width:270,height:480,
     cameraMotion:'translation_corrected',ballDirection:'right',baselineX:.3,baselineY:.6,noisePx:2,shiftPx:10.8,observation:'toward_ball',points };
   const result = {ok:true,jobId:'job',version:'dtl-coaching-review-v1',status:'ready',diagnosisStatus:'unvalidated',reason:null,
-    summary:'공에 닿기 전, 골반 뒤쪽 윤곽이 시작 기준선보다 공 쪽에 보입니다.',evidence};
+    summary:'검사한 구간에서 골반 뒤쪽 윤곽이 시작 기준선보다 추정한 공 방향에 보입니다.',evidence};
   const parsed = parseCoachingReview(result,'job',1000);
   assert.equal(parsed.evidence.endMs, 920, 'legacy replay must stop at the last measured pre-impact frame');
   assert.equal(evidence.endMs, 1100, 'normalization must not mutate the source response');
@@ -34,9 +34,13 @@ try {
   assert.throws(()=>parseCoachingReview({...unavailable,evidence},'job',1000));
   const props={result,playable:true,onEvidence(){},onSeek(){}};
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/영상이 잘리거나 스윙이 반복되면 구간이 틀릴 수/);
+  assert.match(render('CoachingReview',{jobId:'job',addressMs:100,impactFrameIndex:3,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/직접 선택한 장면/);
   const html=render('CoachingObservation',props);
   assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/원인이나 교정 필요성을 확정하지 않습니다/);
   assert.match(html,/영상에서도 이동이 보인다면 아래 교습 원리와 연습/);
+  const selectedHtml=render('CoachingObservation',{...props,selectedImpact:true});
+  assert.match(selectedHtml,/임팩트 기준은 직접 선택한 장면/);
+  assert.doesNotMatch(selectedHtml,/임팩트는 모델의 후보/);
   assert.doesNotMatch(html,/checkbox|연습 전과 비교|기준으로 저장|진단 완료|교정 성공/);
   assert.match(render('CoachingObservation',{...props,playable:false}),/disabled=""/);
   const neutral=render('CoachingObservation',{...props,result:{...result,evidence:{...evidence,observation:'no_clear_shift'}}});
@@ -50,9 +54,17 @@ try {
   assert.equal(parseCoachingReview({...result,evidence:similarity},'job',1000).evidence.endMs,920);
   assert.throws(()=>parseCoachingReview({...result,evidence:{...evidence,cameraMotion:'similarity_corrected'}},'job',1000));
   assert.throws(()=>parseCoachingReview({...result,excludedFrames:[{timeMs:NaN,reason:'bad'}]},'job',1000));
+  const guidePoints=Array.from({length:25},(_,i)=>({timeMs:100+i*40,x:.4+i*.002,y:.4}));
+  const guide={version:'movement-guide-v1',status:'ready',width:270,height:480,impactMs:1000,
+    tracks:{pelvis:{baseline:guidePoints[0],points:guidePoints,focusTimeMs:900,phase:'before'}}};
+  assert.equal(parseCoachingReview({...result,movementGuide:guide},'job',1000).movementGuide.impactMs,1000);
+  assert.throws(()=>parseCoachingReview({...result,movementGuide:{...guide,impactMs:1050}},'job',1000),'reject an overlay for a different impact');
   assert.match(render('PelvisContourOverlay',{evidence:similarity,timeMs:860}),/x1="0.3" x2="0.32"/);
   assert.doesNotMatch(render('PelvisContourOverlay',{evidence:{...similarity,points:similarity.points.filter(p=>p.timeMs!==860)},timeMs:860}),/stroke="#fbbf24"/,'do not bridge excluded frames');
   assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'PHASE_COVERAGE_INSUFFICIENT'}}),/장면이 부족/);
+  const heightUncertain=render('CoachingObservation',{...props,result:{...unavailable,reason:'PELVIS_HEIGHT_UNCERTAIN'}});
+  assert.match(heightUncertain,/윤곽을 잰 높이가 달라 비교를 보류/);
+  assert.doesNotMatch(heightUncertain,/근거 구간 천천히 보기/);
   const player=render('AnalysisVideoPlayer',{src:'/video.mp4',videoRef:{current:null},mediaRef:{current:null},currentTimeMs:0,onTimeChange(){},reviewRange:{startMs:500,endMs:1100},onClearReview(){}});
   assert.match(player,/0.5배 반복/);assert.match(player,/전체 영상 보기/);
   let count=0, resolve;
@@ -73,5 +85,52 @@ try {
     await new Promise(done=>setTimeout(done,0));assert.equal(count,2,'reopening rechecks server freshness');resolve();await c;
     await assert.rejects(requestCoachingReview('job',100,200,'a'.repeat(64)));
   } finally {globalThis.fetch=originalFetch;}
+  const requests=[], releases=[];
+  globalThis.fetch=async(_url,options)=>{
+    const body=JSON.parse(await options.body.text());requests.push(body);
+    await new Promise(done=>releases.push(done));
+    const response=body.impactFrameIndex === undefined ? result : {...result,evidence:{...evidence,impactMs:1100}};
+    return {ok:true,status:200,text:async()=>JSON.stringify(response)};
+  };
+  try {
+    const automatic=requestCoachingReview('job',100,1000,'a'.repeat(64));
+    const selected=requestCoachingReview('job',100,1100,'a'.repeat(64),8);
+    await new Promise(done=>setTimeout(done,0));
+    assert.equal(requests.length,1,'selected review waits while this video is still being observed');
+    releases.shift()();await automatic;await new Promise(done=>setTimeout(done,0));
+    assert.equal(requests.length,2);assert.equal(requests[1].impactFrameIndex,8);
+    assert.equal(requests[1].comparisonMs,1020);assert.equal(requests[1].impactMs,undefined);
+    releases.shift()();assert.equal((await selected).evidence.impactMs,1100);
+    await assert.rejects(requestCoachingReview('job',100,1100,'a'.repeat(64),-1));
+  } finally {globalThis.fetch=originalFetch;}
+  let crossJobCalls=0, releaseFirst;
+  globalThis.fetch=async(url)=>{
+    crossJobCalls++;
+    if(crossJobCalls===1)await new Promise(done=>releaseFirst=done);
+    return {ok:true,status:200,text:async()=>JSON.stringify({...result,jobId:url.includes('/job2/')?'job2':'job'})};
+  };
+  try {
+    const first=requestCoachingReview('job',100,1000,'a'.repeat(64));
+    const second=requestCoachingReview('job2',100,1000,'a'.repeat(64));
+    await new Promise(done=>setTimeout(done,0));assert.equal(crossJobCalls,1,'the Pi observer also serializes different videos');
+    releaseFirst();await first;assert.equal((await second).jobId,'job2');assert.equal(crossJobCalls,2);
+  } finally {globalThis.fetch=originalFetch;}
+  const originalSetTimeout=globalThis.setTimeout, originalClearTimeout=globalThis.clearTimeout;
+  const timers=[];let networkCalls=0;
+  globalThis.setTimeout=(fn,delay,...args)=>{if(delay!==35000)return originalSetTimeout(fn,delay,...args);const timer={fn};timers.push(timer);return timer;};
+  globalThis.clearTimeout=timer=>{if(!timers.includes(timer))originalClearTimeout(timer);};
+  globalThis.fetch=async(_url,options)=>{
+    networkCalls++;
+    if(networkCalls===1)return new Promise((_,reject)=>options.signal.addEventListener('abort',()=>reject(new Error('aborted'))));
+    return {ok:true,status:200,text:async()=>JSON.stringify({...result,evidence:{...evidence,impactMs:1100}})};
+  };
+  try {
+    const stalled=requestCoachingReview('job',100,1000,'a'.repeat(64));
+    const selected=requestCoachingReview('job',100,1100,'a'.repeat(64),8);
+    timers[0].fn();
+    await assert.rejects(stalled,/시간이 초과/);
+    assert.equal((await selected).evidence.impactMs,1100,'a timed-out request must not block a new selection');
+    assert.equal(networkCalls,2);
+  } finally {globalThis.fetch=originalFetch;globalThis.setTimeout=originalSetTimeout;globalThis.clearTimeout=originalClearTimeout;}
   console.log('coaching contract, identity, evidence scope, unavailable UI, replay controls and duplicate-request checks passed');
 } finally { await rm(dir,{recursive:true,force:true}); }

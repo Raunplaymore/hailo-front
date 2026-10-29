@@ -3,8 +3,9 @@ import { requestCoachingReview, type CoachingReview as Review, type CoachingEvid
 import { CoachingLesson } from "./CoachingLesson";
 
 const button = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
-export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, candidatePending, playable, onResult, onEvidence, onSeek }: {
+export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, playable, onResult, onEvidence, onSeek }: {
   jobId: string; videoSha256?: string; addressMs: number; impactMs?: number; candidatePending: boolean; playable: boolean;
+  impactFrameIndex?: number;
   onResult: (value: Review | null) => void; onEvidence: (evidence: CoachingEvidence) => void; onSeek: (ms: number) => void;
 }) {
   const [result, setResult] = useState<Review | null>(null);
@@ -16,28 +17,29 @@ export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, candid
     setResult(null); onResult(null); setError(null); setLoading(true);
     if (candidatePending) return;
     if (!videoSha256 || impactMs === undefined) { setLoading(false); return; }
-    requestCoachingReview(jobId, addressMs, impactMs, videoSha256)
+    requestCoachingReview(jobId, addressMs, impactMs, videoSha256, impactFrameIndex)
       .then(value => { if (!cancelled) { setResult(value); onResult(value); } })
       .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "근거 장면을 준비하지 못했습니다."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [jobId, videoSha256, addressMs, impactMs, candidatePending, attempt, onResult]);
+  }, [jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, attempt, onResult]);
 
   return <section aria-label="스윙 코칭" className="space-y-3">
     <div className="rounded-xl border border-border bg-card p-4">
       <p className="text-xs font-semibold text-primary">이번 스윙에서 살펴볼 것</p>
       <h3 className="mt-1 text-lg font-semibold">골반이 돌아갈 공간</h3>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">후방에서 촬영한 완전한 스윙 한 번을 기준으로, 임팩트 후보 전 엉덩이 뒤쪽의 움직임을 봅니다. 영상이 잘리거나 스윙이 반복되면 구간이 틀릴 수 있어요. 임팩트 후보와 추정 공 방향은 원본에서 확인해 주세요.</p>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">후방에서 촬영한 완전한 스윙 한 번을 기준으로, {impactFrameIndex === undefined ? "임팩트 후보" : "직접 선택한 장면"} 전 엉덩이 뒤쪽의 움직임을 봅니다. 영상이 잘리거나 스윙이 반복되면 구간이 틀릴 수 있어요. 타격 장면과 추정 공 방향은 원본에서 확인해 주세요.</p>
       {loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요…"}</p>
         : error ? <div role="alert" className="mt-4 space-y-2"><p className="text-sm">{error}</p><button type="button" className={button} onClick={() => setAttempt(n => n + 1)}>근거 다시 불러오기</button></div>
-        : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} />}
+        : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} selectedImpact={impactFrameIndex !== undefined} />}
     </div>
     <CoachingLesson topic="pelvis" />
   </section>;
 }
 
-export function CoachingObservation({ result, playable, onEvidence, onSeek }: {
+export function CoachingObservation({ result, playable, onEvidence, onSeek, selectedImpact = false }: {
   result: Review | null; playable: boolean; onEvidence: (evidence: CoachingEvidence) => void; onSeek: (ms: number) => void;
+  selectedImpact?: boolean;
 }) {
   const evidence = result?.evidence;
   const recovery = result?.reason === "CAMERA_MOTION_OR_BACKGROUND_UNCLEAR"
@@ -50,7 +52,9 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek }: {
           ? "골반 뒤쪽 윤곽을 구분하기 어렵습니다. 몸 전체와 엉덩이 뒤쪽이 가리지 않게 촬영해 주세요."
           : result?.reason === "ADDRESS_UNSTABLE"
             ? "준비 자세의 기준선을 안정적으로 잡지 못했습니다. 스윙 시작 전 잠시 준비 자세를 유지해 주세요."
-            : "아래 교습 예시에서 확인할 움직임을 볼 수 있습니다. 자동으로 확인하지 못한 영상은 정상 판정으로 표시하지 않습니다.";
+            : result?.reason === "PELVIS_HEIGHT_UNCERTAIN"
+              ? "준비 자세와 관찰 장면에서 윤곽을 잰 높이가 달라 비교를 보류했어요. 영상을 직접 확인해 주세요."
+              : "아래 교습 예시에서 확인할 움직임을 볼 수 있습니다. 자동으로 확인하지 못한 영상은 정상 판정으로 표시하지 않습니다.";
   if (!result || result.status === "unavailable" || !evidence) {
     return <div className="mt-4 space-y-2" role="status">
       <p className="text-sm font-medium">{result?.summary || "임팩트 후보가 없어 골반 확인 구간을 준비하지 못했습니다."}</p>
@@ -73,7 +77,7 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek }: {
     </div>
     <details className="text-xs text-muted-foreground">
       <summary className="min-h-12 cursor-pointer py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">관찰 범위와 근거</summary>
-      <p className="leading-5">옷을 포함한 골반 뒤쪽 윤곽의 화면상 위치를 검사했습니다. 시작 기준선과 현재 윤곽선을 영상 위에 표시합니다. 임팩트는 모델의 후보이며 공 방향도 준비 자세에서 추정합니다. 윤곽 관찰을 골프 진단으로 사용하는 정확도는 아직 검증 중입니다.</p>
+      <p className="leading-5">옷을 포함한 골반 뒤쪽 윤곽의 화면상 위치를 검사했습니다. 시작 기준선과 현재 윤곽선을 영상 위에 표시합니다. {selectedImpact ? "임팩트 기준은 직접 선택한 장면" : "임팩트는 모델의 후보"}이며 공 방향도 준비 자세에서 추정합니다. 윤곽 관찰을 골프 진단으로 사용하는 정확도는 아직 검증 중입니다.</p>
       <p className="mt-2 leading-5">{evidence.cameraMotion === "similarity_corrected" ? "배경을 기준으로 카메라의 작은 이동·회전·크기 변화를 보정했습니다." : evidence.cameraMotion === "translation_corrected" ? "배경을 기준으로 작은 카메라 이동을 보정했습니다." : "배경이 안정적인 구간을 검사했습니다."}</p>
       {!!result.excludedFrames?.length && <p className="mt-2 leading-5">불확실한 {result.excludedFrames.length}개 장면은 제외했습니다. 필요한 구간이 남아 있는 경우에만 관찰 결과를 표시합니다.</p>}
       <p className="mt-2 leading-5">검사 구간 {(evidence.startMs / 1000).toFixed(2)}–{(evidence.endMs / 1000).toFixed(2)}초 · 측정 변화 {evidence.shiftPx.toFixed(1)}px · 구분 한계 {evidence.noisePx.toFixed(1)}px ({evidence.width}×{evidence.height} 영상 기준)</p>

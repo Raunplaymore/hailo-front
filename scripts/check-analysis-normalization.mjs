@@ -221,6 +221,17 @@ try {
   const side = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: sideOverlay } }, "side");
   assert.equal(side.dtlClubPointsV2.overlay.clubTimeSource, "video_pts");
   assert.equal(side.dtlClubPointsV2.overlay.clubFrames[0].timeMs, 17);
+  assert.equal(side.dtlClubPointsV2.overlayVideoSha256, undefined, 'legacy sidecars keep their existing behavior');
+  const unbound = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',overlay:null,pendingOverlay:sideOverlay,overlayVideoSha256:'a'.repeat(64),
+    observations:{revision:1,status:'withheld',automaticCoachingReady:false,reason:'IMPACT_CANDIDATE_UNAVAILABLE',levels:[]}}},'unbound');
+  assert.equal(unbound.dtlClubPointsV2.overlayVideoSha256, 'a'.repeat(64));
+  assert.equal(unbound.dtlClubPointsV2.overlay, null);
+  assert.equal(unbound.dtlClubPointsV2.pendingOverlay.clubTimeSource, 'video_pts');
+  assert.equal(unbound.dtlClubPointsV2.observations.reason, 'IMPACT_CANDIDATE_UNAVAILABLE');
+  const badBinding = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',overlay:sideOverlay,overlayVideoSha256:'bad'}},'bad');
+  assert.equal(badBinding.dtlClubPointsV2.overlayVideoSha256, null, 'invalid binding must remain blocked');
+  assert.equal(normalizeAnalysis({dtlClubPointsV2:{status:'failed',errorCode:'BODY_UNAVAILABLE'}},'missing').dtlClubPointsV2.errorCode,'BODY_UNAVAILABLE');
+  assert.equal(normalizeAnalysis({dtlClubPointsV2:{status:'failed',errorCode:'other'}},'unknown').dtlClubPointsV2.errorCode,null);
   const marked = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: { ...sideOverlay,
     clubFrames: [{...sideOverlay.clubFrames[0], headBreakBefore:true, handleBreakBefore:true, headValidUntilMs:25, handleValidUntilMs:26},
       {timeMs:33,head:{x:.2,y:.3,confidence:.8},headBreakBefore:"true",headValidUntilMs:"40",handleValidUntilMs:NaN}] } } }, "marked");
@@ -274,6 +285,10 @@ try {
       globalThis.fetch = async (_url, options) => new Response(JSON.stringify(options.method === "POST" ? {ok:true,refreshId:"new"} : {ok:true,jobId:"review",refresh:{id:"new",status},sidecar:{status:"succeeded"}}));
       await assert.rejects(requestClubReview("review",new AbortController().signal,true),/다시 계산하지 못했습니다/);
     }
+    globalThis.fetch = async (_url,options) => new Response(JSON.stringify(options.method === "POST" ? {ok:true,refreshId:"new"} : {ok:true,jobId:"review",refresh:{id:"new",status:"failed",errorCode:"BODY_UNAVAILABLE"},sidecar:{status:"succeeded"}}));
+    await assert.rejects(requestClubReview("review",new AbortController().signal,true),/자세 자료를 확인하지 못해/);
+    globalThis.fetch = async (_url,options) => new Response(JSON.stringify(options.method === "POST" ? {ok:true} : {ok:true,jobId:"review",sidecar:{status:"failed",errorCode:"BODY_UNAVAILABLE"}}));
+    await assert.rejects(requestClubReview("review",new AbortController().signal),/자세 자료를 확인하지 못해/);
     globalThis.fetch = async (_url, options) => new Response(JSON.stringify(options.method === "POST" ? {ok:true,refreshId:"new"} : {ok:true,jobId:"review",refresh:{id:"other",status:"succeeded"},sidecar:{status:"succeeded"}}));
     await assert.rejects(requestClubReview("review",new AbortController().signal,true),/다른 관측 작업/);
     globalThis.fetch = async () => new Response(JSON.stringify({ok:true,sidecar:{status:"succeeded"}}));

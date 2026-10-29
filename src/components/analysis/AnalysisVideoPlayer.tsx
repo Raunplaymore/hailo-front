@@ -57,6 +57,7 @@ export function AnalysisVideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [hasFrame, setHasFrame] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isImmersive, setIsImmersive] = useState(false);
   const [playbackError, setPlaybackError] = useState(false);
@@ -79,7 +80,7 @@ export function AnalysisVideoPlayer({
     };
     const nextFrame = () => {
       loop();
-      if (active) { onTimeChange(video.currentTime * 1000); frame = video.requestVideoFrameCallback(nextFrame); }
+      if (active) frame = video.requestVideoFrameCallback(nextFrame);
     };
     if (video.requestVideoFrameCallback) frame = video.requestVideoFrameCallback(nextFrame);
     video.addEventListener("timeupdate", loop);
@@ -97,6 +98,7 @@ export function AnalysisVideoPlayer({
     setScrubTime(null); pendingSeek.current = null; dragging.current = false;
     setIsPlaying(false);
     setIsReady(false);
+    setHasFrame(false);
     setHasError(false);
   }, [src]);
 
@@ -188,19 +190,21 @@ export function AnalysisVideoPlayer({
           onClick={() => void togglePlayback()}
           onKeyDown={handleVideoKeyDown}
           onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
+          onPause={(event) => { setIsPlaying(false); onTimeChange(event.currentTarget.currentTime * 1000); }}
           onEnded={() => setIsPlaying(false)}
           onWaiting={() => setBuffering(true)}
           onSeeking={() => setBuffering(true)}
-          onSeeked={() => setBuffering(false)}
-          onCanPlay={() => setBuffering(false)}
-          onPlaying={() => setBuffering(false)}
+          onSeeked={(event) => { setBuffering(false); onTimeChange(event.currentTarget.currentTime * 1000); }}
+          onLoadedData={() => setHasFrame(true)}
+          onCanPlay={() => { setBuffering(false); setHasFrame(true); }}
+          onPlaying={() => { setBuffering(false); setHasFrame(true); }}
           onTimeUpdate={(event) => onTimeChange(event.currentTarget.currentTime * 1000)}
           onLoadedMetadata={(event) => {
             const video = event.currentTarget;
             setDuration(Number.isFinite(video.duration) ? video.duration : 0);
             setIsMuted(video.muted);
             setIsReady(true);
+            setHasFrame(video.readyState >= 2);
             setHasError(false);
             onTimeChange(video.currentTime * 1000);
             onLoadedMetadata?.(video);
@@ -226,9 +230,9 @@ export function AnalysisVideoPlayer({
           </ControlButton>
         </div>
 
-        {(!isReady || buffering) && !hasError && !disabled ? (
-          <span className="pointer-events-none absolute bottom-14 left-2 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white/80 backdrop-blur">
-            {isReady ? "장면 불러오는 중…" : "영상 준비 중"}
+        {(!isReady || buffering || (!hasFrame && !isPlaying)) && !hasError && !disabled ? (
+          <span role="status" className="pointer-events-none absolute bottom-14 left-2 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white/80 backdrop-blur">
+            {!isReady ? "영상 준비 중" : buffering ? "장면 불러오는 중…" : "재생 버튼을 눌러 영상을 준비해 주세요"}
           </span>
         ) : null}
         {hasError ? (

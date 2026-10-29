@@ -1,7 +1,7 @@
 import { ClubObservation } from "./ClubObservation";
 import { MovementGuideControls, MovementGuideOverlay } from "./MovementGuide";
-import type { GuideKind } from "@/api/movementGuide";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { GuideKind, MovementGuide } from "@/api/movementGuide";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import {
   Card,
@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
-import { impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
+import { frameIndexForPresentedTime, impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
 import { useImpactReview } from "@/hooks/useImpactReview";
+import { usePoseOverlay } from "@/hooks/usePoseOverlay";
 import { ImpactReview } from "./ImpactReview";
 import { CoachingReview, PelvisContourOverlay } from "./CoachingReview";
 import { CoachingLesson } from "./CoachingLesson";
@@ -48,6 +49,10 @@ type ClubTrailPoint = HandTrailPoint;
 
 const HAND_TRAIL_DURATION_MS = 800;
 const HAND_TRAIL_MAX_GAP_MS = 120;
+// shortcut: render hand trails at roughly 60Hz; retain raw observations for exact timing.
+const HAND_TRAIL_MIN_SPACING_MS = 16;
+// shortcut: 50ms is a display window, not calibrated pose accuracy; validate against each sampling rate.
+const POSE_FRAME_MAX_DISTANCE_MS = 50;
 const CLUB_TRAIL_DURATION_MS = 550;
 const CLUB_TRAIL_MAX_GAP_MS = 120;
 const CLUB_TRAIL_MIN_CONFIDENCE = 0.3;
@@ -59,37 +64,50 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const [originalQuality, setOriginalQuality] = useState(false);
   const [tool, setTool] = useState<"coaching" | "impact" | "club">("coaching");
   const impactState = useImpactReview(jobId);
+  const poseState = usePoseOverlay(jobId, impactState.review);
   const displayEvents = withImpactCandidate(events, impactState.review, Boolean(jobId));
   const candidateVideoHash = impactState.review?.videoSha256;
   const reviewVideoUrl = jobId ? impactReviewVideoUrl(jobId, candidateVideoHash, originalQuality) : videoUrl;
+  const [impactSelection, setImpactSelection] = useState<{jobId: string; videoSha256: string; frameIndex: number; timeMs: number} | null>(null);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const selectedImpact = impactSelection && impactState.review && impactSelection.jobId === jobId
+    && impactSelection.videoSha256 === candidateVideoHash
+    && impactState.review.frameTimesMs[impactSelection.frameIndex] === impactSelection.timeMs ? impactSelection : null;
+  const coachingImpactMs = selectedImpact?.timeMs ?? impactState.review?.candidate.timeMs;
+  const addressMs = Math.max(100, events?.address?.timeMs ?? 200);
   const [coaching, setCoaching] = useState<{key:string; result:CoachingResult|null}>({key:"",result:null});
   const [reviewRange, setReviewRange] = useState<{ startMs: number; endMs: number } | null>(null);
   const [guideKind, setGuideKind] = useState<GuideKind | null>(null);
-  const guideKey = `${jobId}:${candidateVideoHash ?? "pending"}`;
+  const guideKey = `${jobId}:${candidateVideoHash ?? "pending"}:${addressMs}:${selectedImpact ? `selected:${selectedImpact.frameIndex}` : `candidate:${coachingImpactMs}`}`;
   const onCoaching = useCallback((result: CoachingResult | null) => setCoaching({key:guideKey,result}),[guideKey]);
   const coachingResult = coaching.key === guideKey ? coaching.result : null;
   const movementGuide = coachingResult?.movementGuide ?? null;
   const contour = tool === "coaching" && !guideKind ? coachingResult?.evidence : null;
   const clearReview = useCallback(() => setReviewRange(null), []);
   useEffect(() => { setGuideKind(null); setReviewRange(null); }, [guideKey]);
+  useEffect(() => { setImpactSelection(null); setSelectionError(null); }, [jobId, videoUrl, candidateVideoHash]);
   useEffect(() => { setTool("coaching"); setOriginalQuality(false); }, [jobId, videoUrl]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const presentedFrame = useRef<{video: HTMLVideoElement; src: string; timeMs: number; expectedDisplayTime: number} | null>(null);
   const analysisScrollRef = useRef<HTMLDivElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
   const [clubOverride, setClubOverride] = useState<{ jobId: string; value: DtlClubPointsV2Sidecar } | null>(null);
   const clubSidecar = clubOverride && clubOverride.jobId === jobId ? clubOverride.value : dtlClubPointsV2;
+  const poseOverlay = useMemo(() => {
+    if (!jobId) return overlay;
+    const poseFrames = poseState.pose?.status === "ready" ? poseState.pose.poseFrames : [];
+    if (!overlay && !poseFrames.length) return null;
+    return {coordinateSpace: "normalized" as const, poseFrames, clubFrames: overlay?.clubFrames ?? [], clubTimeSource: overlay?.clubTimeSource};
+  }, [jobId, overlay, poseState.pose]);
   const [videoStatus, setVideoStatus] = useState<{src?: string; ready: boolean}>({ready: false});
   const videoPlayable = videoStatus.src === reviewVideoUrl && videoStatus.ready;
   const [layers, setLayers] = useState({ pose: true, hands: true, club: true, events: true });
   const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(null);
-  const activePose = useMemo(() => nearestAt(overlay?.poseFrames ?? [], timeMs), [overlay, timeMs]);
-  const visiblePose = useMemo(() => (overlay?.poseFrames ?? []).filter((frame) => frame.timeMs <= timeMs && frame.timeMs >= timeMs - HAND_TRAIL_DURATION_MS), [overlay, timeMs]);
-  const clubOverlay = clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts"
-    ? clubSidecar.overlay : overlay;
-  const visibleClub = useMemo(() => (clubOverlay?.clubFrames ?? []).filter((frame) => (
-    frame.timeMs <= timeMs && frame.timeMs >= timeMs - CLUB_TRAIL_DURATION_MS
-  )), [clubOverlay, timeMs]);
+  const clubVideoUnverified = clubSidecar?.overlayVideoSha256 !== undefined && clubSidecar.overlayVideoSha256 !== candidateVideoHash;
+  const clubOverlay = clubSidecar?.overlayVideoSha256 !== undefined
+    ? (!clubVideoUnverified && clubSidecar.status === "succeeded" && clubSidecar.pendingOverlay?.clubTimeSource === "video_pts" ? clubSidecar.pendingOverlay : null)
+    : clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts" ? clubSidecar.overlay : overlay;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -101,6 +119,30 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     sync();
     return () => events.forEach((name) => video.removeEventListener(name, sync));
   }, [reviewVideoUrl, videoUrl]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    presentedFrame.current = null;
+    if (!video || !jobId || !reviewVideoUrl || typeof video.requestVideoFrameCallback !== "function") return;
+    let active = true;
+    let callback: number;
+    const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      if (!active) return;
+      presentedFrame.current = {video, src: reviewVideoUrl, timeMs: metadata.mediaTime * 1000, expectedDisplayTime: metadata.expectedDisplayTime};
+      callback = video.requestVideoFrameCallback(onFrame);
+    };
+    const clear = () => { presentedFrame.current = null; };
+    video.addEventListener("emptied", clear);
+    video.addEventListener("error", clear);
+    callback = video.requestVideoFrameCallback(onFrame);
+    return () => {
+      active = false;
+      video.cancelVideoFrameCallback?.(callback);
+      video.removeEventListener("emptied", clear);
+      video.removeEventListener("error", clear);
+      presentedFrame.current = null;
+    };
+  }, [jobId, reviewVideoUrl, videoUrl]);
 
   const syncOverlayBounds = () => {
     const video = videoRef.current;
@@ -155,6 +197,41 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     else apply();
   };
 
+  const chooseImpactAtCurrentTime = () => {
+    const video = videoRef.current;
+    const review = impactState.review;
+    if (!jobId || !review || !video || !videoPlayable || video.seeking || video.readyState < 2) {
+      setSelectionError("영상이 준비된 뒤 다시 선택해 주세요.");
+      return;
+    }
+    if (!video.paused) {
+      video.pause();
+      setSelectionError("영상을 일시 정지했어요. 타격 장면을 확인하고 다시 선택해 주세요.");
+      return;
+    }
+    const frame = presentedFrame.current;
+    // shortcut: matching timestamps do not prove identical decoded images; validate playback on physical devices.
+    const index = frame?.video === video && frame.src === reviewVideoUrl && Number.isFinite(frame.expectedDisplayTime)
+      && frame.expectedDisplayTime <= performance.now()
+      ? frameIndexForPresentedTime(review.frameTimesMs, video.currentTime * 1000, frame.timeMs) : null;
+    if (index === null) {
+      setSelectionError(typeof video.requestVideoFrameCallback === "function"
+        ? "화면 장면을 확인할 수 없어요. 이전·다음 프레임으로 이동한 뒤 다시 선택해 주세요."
+        : "이 브라우저에서는 표시된 장면을 확인할 수 없습니다. 다른 브라우저에서 다시 시도해 주세요.");
+      return;
+    }
+    const chosenMs = review.frameTimesMs[index];
+    if (chosenMs === undefined || chosenMs - addressMs < 230) {
+      setSelectionError("준비 자세보다 뒤의 타격 장면을 선택해 주세요.");
+      return;
+    }
+    setImpactSelection({ jobId, videoSha256: review.videoSha256, frameIndex: index, timeMs: chosenMs });
+    setSelectionError(null);
+    seekTime(chosenMs);
+    setTool("coaching");
+    if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0;
+  };
+
   const showEvidence = (evidence: CoachingEvidence) => {
     setGuideKind(null);
     setReviewRange({ startMs: evidence.startMs, endMs: evidence.endMs });
@@ -191,18 +268,13 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             onClearReview={clearReview}
             onRetry={jobId ? impactState.retry : undefined}
           >
-            {(overlay || clubOverlay) && videoPlayable && overlayBounds ? (
-              <div className="pointer-events-none absolute" style={overlayBounds}>
-                <OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={displayEvents} timeMs={timeMs} layers={contour || (guideKind && movementGuide?.tracks?.[guideKind]) ? { ...layers, pose: false, hands: false, events: false } : layers} />
-              </div>
-            ) : null}
-            {movementGuide?.status === "ready" && guideKind && videoPlayable && overlayBounds ? <div className="pointer-events-none absolute" style={overlayBounds}><MovementGuideOverlay guide={movementGuide} kind={guideKind} timeMs={timeMs} /></div> : null}
-            {contour && videoPlayable && overlayBounds && <div className="pointer-events-none absolute" style={overlayBounds}><PelvisContourOverlay evidence={contour} timeMs={timeMs} /></div>}
+            <FrameSyncedOverlays src={reviewVideoUrl!} videoRef={videoRef} timeMs={timeMs} overlay={poseOverlay} clubOverlay={clubOverlay}
+              events={displayEvents} playable={videoPlayable} bounds={overlayBounds} layers={layers} contour={contour} guideKind={guideKind} movementGuide={movementGuide} />
             <details className="absolute right-2 top-2 z-10">
               <summary className="cursor-pointer list-none rounded-lg border border-white/20 bg-black/70 px-3 py-2 text-xs font-semibold text-white [&::-webkit-details-marker]:hidden">영상 옵션</summary>
               <div className="mt-1 grid max-h-[25vh] gap-1 overflow-y-auto rounded-lg border border-white/15 bg-black/95 p-1.5">
                 {jobId && <button type="button" aria-pressed={originalQuality} onClick={() => { clearReview(); setOriginalQuality(value => !value); }} className="min-h-12 rounded-md px-3 text-left text-xs text-white">{originalQuality ? "빠른 재생으로 전환" : "분석 영상 화질로 전환"}</button>}
-                {overlay && ([['pose', '자세'], ['hands', '손'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={layers[key]} onClick={() => { setGuideKind(null); setLayers(current => ({ ...current, [key]: !current[key] })); }} className={cn("min-h-12 rounded-md px-3 text-left text-xs font-semibold", layers[key] ? "bg-primary text-primary-foreground" : "text-white/75")}>{label}</button>)}
+                {(poseOverlay || clubOverlay) && ([['pose', '자세'], ['hands', '손'], ['club', '클럽'], ['events', '이벤트']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={layers[key]} onClick={() => { setGuideKind(null); setLayers(current => ({ ...current, [key]: !current[key] })); }} className={cn("min-h-12 rounded-md px-3 text-left text-xs font-semibold", layers[key] ? "bg-primary text-primary-foreground" : "text-white/75")}>{label}</button>)}
               </div>
             </details>
           </AnalysisVideoPlayer>
@@ -218,23 +290,35 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
           {([["coaching", "몸"], ["club", "클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 border-b-2 px-2 text-sm font-semibold", tool === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
         </div>}
         <div ref={analysisScrollRef} className="analysis-scroll space-y-3" role="region" aria-label="분석 내용" tabIndex={0}>
-        {contour ? <p className="text-xs text-muted-foreground">노란 점선: 준비 자세 · 초록 선: 추적된 뒤쪽 윤곽 · 추정 공 방향: {contour.ballDirection === "right" ? "오른쪽" : "왼쪽"}</p> : guideKind ? <p className="text-xs text-muted-foreground">점선: 시작 기준 · 실선과 점: 현재 추적 위치</p> : overlay && tool !== "club" ? (
-          <p className="flex items-center gap-3 text-xs text-muted-foreground" aria-label="자세 관절 색상 안내: 왼쪽은 파랑, 오른쪽은 주황">
+        {clubVideoUnverified && Boolean(clubSidecar?.pendingOverlay?.clubFrames.length) && <p className="text-xs text-muted-foreground" role="status">클럽 궤적은 영상 일치가 확인되면 표시됩니다.</p>}
+        {jobId && tool !== "club" && !contour && !guideKind && (impactState.loading || poseState.loading
+          ? <p className="text-xs text-muted-foreground" role="status">자세 선의 영상 시각을 확인하고 있어요.</p>
+          : !impactState.review || poseState.error || poseState.pose?.status === "unavailable"
+            ? <div className="text-xs text-muted-foreground" role="status"><p>영상과 자세 시각을 확인하지 못해 관절 표시를 보류했습니다.</p>
+              <button type="button" className="min-h-11 font-semibold underline" onClick={impactState.review ? poseState.retry : impactState.retry}>다시 확인</button></div> : null)}
+        {!jobId && Boolean(overlay?.poseFrames.length) && <p className="text-xs text-muted-foreground">자세 선의 영상 시각은 확인되지 않았습니다. 실제 장면과 맞는지 살펴보세요.</p>}
+        {contour ? <p className="text-xs text-muted-foreground">노란 점선: 준비 자세 · 초록 선: 추적된 뒤쪽 윤곽 · 추정 공 방향: {contour.ballDirection === "right" ? "오른쪽" : "왼쪽"}</p> : guideKind ? <p className="text-xs text-muted-foreground">점선: 시작 기준 · 실선과 점: 현재 추적 위치</p> : poseOverlay && tool !== "club" ? (
+          <p className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground" aria-label="자세 관절 색상 안내: 왼쪽은 파랑, 오른쪽은 주황, 가시성이 낮으면 숨김">
             <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-blue-400" aria-hidden="true" />왼쪽 관절</span>
             <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-amber-400" aria-hidden="true" />오른쪽 관절</span>
+            <span>낮은 가시성은 숨김</span>
           </p>
         ) : null}
 
         {jobId && videoUrl && !isModalOpen && <>
           <div hidden={tool !== "coaching"}>
-            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={candidateVideoHash} addressMs={Math.max(100, events?.address?.timeMs ?? 200)} impactMs={impactState.review?.candidate.timeMs} candidatePending={impactState.loading} playable={videoPlayable} onResult={onCoaching} onEvidence={showEvidence} onSeek={seekTime} />
+            {selectedImpact && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/40 p-3" role="status">
+              <p className="text-sm">직접 선택한 장면 · {(selectedImpact.timeMs / 1000).toFixed(3)}초 기준</p>
+              <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setImpactSelection(null); clearReview(); }}>자동 후보로 되돌리기</button>
+            </div>}
+            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={candidateVideoHash} addressMs={addressMs} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} playable={videoPlayable} onResult={onCoaching} onEvidence={showEvidence} onSeek={seekTime} />
           </div>
-          {tool === "coaching" && <details><summary className="text-sm font-semibold">머리·골반 움직임 직접 확인</summary><MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} /><CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} /></details>}
-          {tool === "impact" && <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} />}
+          {tool === "coaching" && <details><summary className="text-sm font-semibold">머리·골반 움직임 직접 확인</summary><MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} selectedImpact={Boolean(selectedImpact)} /><CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} /></details>}
+          {tool === "impact" && <ImpactReview key={`${jobId}:${candidateVideoHash ?? "pending"}`} review={impactState.review} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}
         </>}
 
         {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
-        {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} /></details>}
+        {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} overlay={clubOverlay} /></details>}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 장면 · {jobId ? "임팩트는 추정 후보, 나머지는 연구 참고" : "연구 참고"}</p>
           <div className="grid min-w-0 grid-cols-5 gap-1">
@@ -278,7 +362,47 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   );
 }
 
-function ClubTrackingEvidence({ sidecar }: { sidecar?: DtlClubPointsV2Sidecar | null }) {
+function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, events, playable, bounds, layers, contour, guideKind, movementGuide }: {
+  src: string; videoRef: RefObject<HTMLVideoElement | null>; timeMs: number; overlay?: AnalysisOverlay | null; clubOverlay?: AnalysisOverlay | null;
+  events?: AnalysisResult["events"]; playable: boolean; bounds: OverlayBounds | null; layers: Record<"pose" | "hands" | "club" | "events", boolean>;
+  contour?: CoachingEvidence | null; guideKind: GuideKind | null; movementGuide: MovementGuide | null;
+}) {
+  const [presented, setPresented] = useState<{ video: HTMLVideoElement; src: string; timeMs: number } | null>(null);
+  const enabled = Boolean(playable && bounds && (overlay || clubOverlay || contour || (guideKind && movementGuide?.status === "ready")));
+  useEffect(() => {
+    const video = videoRef.current;
+    setPresented(null);
+    if (!enabled || !video || typeof video.requestVideoFrameCallback !== "function") return;
+    let active = true;
+    let callback: number;
+    const clear = () => setPresented(null);
+    const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
+      if (!active) return;
+      if (!video.seeking && Number.isFinite(metadata.mediaTime)) setPresented({video, src, timeMs: metadata.mediaTime * 1000});
+      callback = video.requestVideoFrameCallback(onFrame);
+    };
+    for (const event of ["pause", "seeking", "emptied", "error"]) video.addEventListener(event, clear);
+    callback = video.requestVideoFrameCallback(onFrame);
+    return () => {
+      active = false;
+      video.cancelVideoFrameCallback?.(callback);
+      for (const event of ["pause", "seeking", "emptied", "error"]) video.removeEventListener(event, clear);
+    };
+  }, [enabled, src, videoRef]);
+  const clock = presented?.video === videoRef.current && presented.src === src ? presented.timeMs : timeMs;
+  const poseFrames = useMemo(() => [...(overlay?.poseFrames ?? [])].sort((a, b) => a.timeMs - b.timeMs), [overlay?.poseFrames]);
+  const activePose = useMemo(() => nearestAt(poseFrames, clock), [poseFrames, clock]);
+  const visiblePose = useMemo(() => poseFrames.slice(frameBound(poseFrames, clock - HAND_TRAIL_DURATION_MS), frameBound(poseFrames, clock, true)), [poseFrames, clock]);
+  const visibleClub = useMemo(() => (clubOverlay?.clubFrames ?? []).filter((frame) => frame.timeMs <= clock && frame.timeMs >= clock - CLUB_TRAIL_DURATION_MS), [clubOverlay, clock]);
+  if (!enabled || !bounds) return null;
+  return <div className="pointer-events-none absolute" style={bounds} data-overlay-time-ms={clock}>
+    {(overlay || clubOverlay) && <div className="absolute inset-0"><OverlaySvg pose={activePose} poseFrames={visiblePose} clubFrames={visibleClub} events={events} timeMs={clock} layers={contour || (guideKind && movementGuide?.tracks?.[guideKind]) ? { ...layers, pose: false, hands: false, events: false } : layers} /></div>}
+    {movementGuide?.status === "ready" && guideKind && <div className="absolute inset-0"><MovementGuideOverlay guide={movementGuide} kind={guideKind} timeMs={clock} /></div>}
+    {contour && <div className="absolute inset-0"><PelvisContourOverlay evidence={contour} timeMs={clock} /></div>}
+  </div>;
+}
+
+function ClubTrackingEvidence({ sidecar, overlay }: { sidecar?: DtlClubPointsV2Sidecar | null; overlay?: AnalysisOverlay | null }) {
   if (!sidecar) return null;
   const isComplete = sidecar.status === "succeeded";
   const isFailed = sidecar.status === "failed";
@@ -288,7 +412,7 @@ function ClubTrackingEvidence({ sidecar }: { sidecar?: DtlClubPointsV2Sidecar | 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold text-cyan-100">DTL V2 클럽 추적</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{sidecar.overlay?.clubTimeSource === "video_pts" ? "파란 선은 헤드 궤적, 노란 선은 그립과 샤프트의 추정 위치입니다. 두 점이 실제 클럽과 맞는지 영상에서 확인하세요." : "클럽 관측 결과입니다. 이 기록에는 영상 시각과 맞춘 궤적이 아직 없습니다."}</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{overlay?.clubTimeSource === "video_pts" ? "파란 선은 헤드 궤적, 노란 선은 그립과 샤프트의 추정 위치입니다. 두 점이 실제 클럽과 맞는지 영상에서 확인하세요." : "클럽 궤적과 영상의 일치를 아직 확인하지 못했습니다."}</p>
         </div>
         <span className={cn(
           "rounded-full border px-2 py-1 text-[11px] font-semibold",
@@ -321,12 +445,30 @@ function EvidenceValue({ label, value }: { label: string; value: string }) {
   );
 }
 
+function frameBound<T extends { timeMs: number }>(frames: T[], timeMs: number, after = false): number {
+  let low = 0, high = frames.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (frames[mid].timeMs < timeMs || (after && frames[mid].timeMs === timeMs)) low = mid + 1;
+    else high = mid;
+  }
+  return low;
+}
+
 function nearestAt<T extends { timeMs: number }>(frames: T[], timeMs: number): T | undefined {
-  return frames.reduce<T | undefined>((best, frame) => !best || Math.abs(frame.timeMs - timeMs) < Math.abs(best.timeMs - timeMs) ? frame : best, undefined);
+  if (!Number.isFinite(timeMs)) return undefined;
+  const index = frameBound(frames, timeMs), before = frames[index - 1], after = frames[index];
+  const nearest = !before ? after : !after ? before : timeMs - before.timeMs <= after.timeMs - timeMs ? before : after;
+  return nearest && Math.abs(nearest.timeMs - timeMs) <= POSE_FRAME_MAX_DISTANCE_MS ? nearest : undefined;
+}
+
+function validPosePoint(point: unknown): point is [number, number, number] {
+  return Array.isArray(point) && point.length >= 3 && Number.isFinite(point[0]) && Number.isFinite(point[1])
+    && Number.isFinite(point[2]) && point[2] >= .15;
 }
 
 function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { pose?: AnalysisOverlay["poseFrames"][number]; poseFrames: AnalysisOverlay["poseFrames"]; clubFrames: AnalysisOverlay["clubFrames"]; events?: AnalysisResult["events"]; timeMs: number; layers: Record<"pose" | "hands" | "club" | "events", boolean> }) {
-  const hands = pose ? [pose.keypoints.left_wrist, pose.keypoints.right_wrist].filter((point): point is [number, number, number?] => Array.isArray(point) && (point[2] ?? 1) >= .15) : [];
+  const hands = pose ? [pose.keypoints.left_wrist, pose.keypoints.right_wrist].filter(validPosePoint) : [];
   const latestClub = clubFrames.at(-1);
   const visibleShaft = latestClub && timeMs - latestClub.timeMs <= 50
     && (latestClub.headValidUntilMs === undefined || timeMs < latestClub.headValidUntilMs)
@@ -352,14 +494,14 @@ function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, layers }: { 
         : <path key={`handle-${index}`} d={smoothPathFromPoints(segment)} stroke="#fbbf24" strokeWidth="0.006" strokeDasharray="0.014 0.01" />)}
     </g> : null}
     {layers.club && visibleShaft && latestClub?.head && latestClub.handle ? <line x1={latestClub.head.x} y1={latestClub.head.y} x2={latestClub.handle.x} y2={latestClub.handle.y} stroke="#fbbf24" strokeWidth="0.009" /> : null}
-    {layers.pose && pose ? SKELETON_LINKS.map(([from, to]) => { const a = pose.keypoints[from]; const b = pose.keypoints[to]; return Array.isArray(a) && Array.isArray(b) ? <line key={`${from}-${to}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#34d399" strokeWidth="0.006" /> : null; }) : null}
-    {layers.pose && pose ? Object.entries(pose.keypoints).map(([name, point]) => Array.isArray(point) && (point[2] ?? 1) >= .15 ? <circle key={name} cx={point[0]} cy={point[1]} r="0.009" fill={jointColor(name)} /> : null) : null}
+    {layers.pose && pose ? SKELETON_LINKS.map(([from, to]) => { const a = pose.keypoints[from]; const b = pose.keypoints[to]; return validPosePoint(a) && validPosePoint(b) ? <line key={`${from}-${to}`} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="#34d399" strokeWidth="0.006" /> : null; }) : null}
+    {layers.pose && pose ? Object.entries(pose.keypoints).map(([name, point]) => validPosePoint(point) ? <circle key={name} cx={point[0]} cy={point[1]} r="0.009" fill={jointColor(name)} /> : null) : null}
     {layers.hands ? (["left_wrist", "right_wrist"] as const).map((key) => {
-      const trail = handTrailSegments(poseFrames, key, timeMs);
+      const trail = handTrailPaths(poseFrames, key, timeMs);
       return <g key={key} fill="none" stroke="#fb7185" strokeLinecap="round">
-        {trail.map(({ from, to }) => {
-          const fade = Math.max(.08, 1 - (timeMs - to.timeMs) / HAND_TRAIL_DURATION_MS);
-          return <line key={`${from.timeMs}-${to.timeMs}`} x1={from.x} y1={from.y} x2={to.x} y2={to.y} strokeWidth={.002 + fade * .004} opacity={.08 + fade * .82} />;
+        {trail.map(({ bucket, path }) => {
+          const fade = (bucket + .5) / 6;
+          return <path key={bucket} d={path} strokeWidth={.002 + fade * .004} opacity={.08 + fade * .82} />;
         })}
       </g>;
     }) : null}
@@ -375,17 +517,30 @@ function jointColor(name: string) {
 }
 
 function handTrailSegments(poseFrames: AnalysisOverlay["poseFrames"], key: "left_wrist" | "right_wrist", timeMs: number) {
-  const points: HandTrailPoint[] = poseFrames
-    .filter((frame) => frame.timeMs >= timeMs - HAND_TRAIL_DURATION_MS && frame.timeMs <= timeMs)
-    .flatMap((frame) => {
-      const point = frame.keypoints[key];
-      return Array.isArray(point) && (point[2] ?? 1) >= .15 ? [{ timeMs: frame.timeMs, x: point[0], y: point[1] }] : [];
-    });
+  const segments: { from: HandTrailPoint; to: HandTrailPoint }[] = [];
+  let previous: HandTrailPoint | undefined;
+  for (const frame of poseFrames) {
+    if (frame.timeMs < timeMs - HAND_TRAIL_DURATION_MS || frame.timeMs > timeMs) continue;
+    const point = frame.keypoints[key];
+    if (!validPosePoint(point)) { previous = undefined; continue; }
+    const current = {timeMs: frame.timeMs, x: point[0], y: point[1]};
+    if (!previous || current.timeMs <= previous.timeMs || current.timeMs - previous.timeMs > HAND_TRAIL_MAX_GAP_MS) previous = current;
+    else if (current.timeMs - previous.timeMs >= HAND_TRAIL_MIN_SPACING_MS) {
+      segments.push({from: previous, to: current});
+      previous = current;
+    }
+  }
+  return segments;
+}
 
-  return points.slice(1).flatMap((to, index) => {
-    const from = points[index];
-    return to.timeMs - from.timeMs <= HAND_TRAIL_MAX_GAP_MS ? [{ from, to }] : [];
-  });
+function handTrailPaths(poseFrames: AnalysisOverlay["poseFrames"], key: "left_wrist" | "right_wrist", timeMs: number) {
+  const groups: string[][] = Array.from({length: 6}, () => []);
+  for (const {from, to} of handTrailSegments(poseFrames, key, timeMs)) {
+    const fade = Math.max(.08, 1 - (timeMs - to.timeMs) / HAND_TRAIL_DURATION_MS);
+    const bucket = Math.min(5, Math.floor(fade * 6));
+    groups[bucket].push(`M ${formatCoordinate(from.x)} ${formatCoordinate(from.y)} L ${formatCoordinate(to.x)} ${formatCoordinate(to.y)}`);
+  }
+  return groups.flatMap((parts, bucket) => parts.length ? [{bucket, path: parts.join(" ")}] : []);
 }
 
 function clubTrailSegments(clubFrames: AnalysisOverlay["clubFrames"], key: "head" | "handle") {

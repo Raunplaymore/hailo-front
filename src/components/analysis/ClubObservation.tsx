@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { requestClubReview } from "@/api/shots";
+import { CLUB_BODY_UNAVAILABLE_MESSAGE, requestClubReview } from "@/api/shots";
 import type { DtlClubPointsV2Sidecar } from "@/types/shots";
 
 export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: {
@@ -38,7 +38,7 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
         </div>
       </div>}
       <details className="text-xs text-muted-foreground"><summary className="cursor-pointer py-2">관측의 한계와 다시 계산</summary><p className="leading-5">손 높이가 비슷한 백스윙과 다운스윙 장면의 화면상 관측이며, 스윙의 정답·오류 판정은 아닙니다. 표시는 각 검출점에 5px 위치 오차를 가정하고 비교 프레임이 바뀔 가능성까지 계산한 결과입니다. 실제 오차를 측정한 정확도가 아니며, 카메라 각도·구간 경계·잘못된 물체 검출의 영향은 별도 확인이 필요합니다.</p><button type="button" disabled={loading} onClick={() => run(true)} className="mt-2 min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-60">{loading ? "다시 계산 중…" : "클럽 관측 다시 계산"}</button></details>
-    </> : <><p className="text-sm text-muted-foreground">{sidecar?.observations ? "이 영상에서는 안정적으로 비교할 장면을 확보하지 못했습니다." : "클럽 관측을 계산하면 높이별 비교 장면을 볼 수 있습니다."}</p><button type="button" disabled={loading} onClick={() => run(sidecar?.status === "succeeded")} className="min-h-11 w-full rounded-lg bg-primary px-4 text-primary-foreground disabled:opacity-60">{loading ? "클럽 관측 중…" : sidecar?.status === "succeeded" ? "클럽 관측 다시 계산" : "클럽 관측 계산"}</button></>}
+    </> : <><p className="text-sm text-muted-foreground">{sidecar?.observations?.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? "임팩트 후보 없이 계산해 구간 비교를 보류했어요. 임팩트 탭에서 후보를 확인한 뒤 다시 계산해 주세요. 추적 궤적은 영상 일치가 확인되면 표시됩니다." : sidecar?.status === "failed" && sidecar.errorCode === "BODY_UNAVAILABLE" ? CLUB_BODY_UNAVAILABLE_MESSAGE : sidecar?.observations ? "이 영상에서는 안정적으로 비교할 장면을 확보하지 못했습니다." : "클럽 관측을 계산하면 높이별 비교 장면을 볼 수 있습니다."}</p><button type="button" disabled={loading} onClick={() => run(sidecar?.status === "succeeded")} className="min-h-11 w-full rounded-lg bg-primary px-4 text-primary-foreground disabled:opacity-60">{loading ? "클럽 관측 중…" : sidecar?.status === "succeeded" ? "클럽 관측 다시 계산" : "클럽 관측 계산"}</button></>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>;
 }

@@ -35,7 +35,7 @@ jobs:
         run: npm run check:coach-ui
 
       - name: Check impact review contract
-        run: npm run check:impact-review
+        run: npm run check:impact-review && npm run check:pose-overlay
 
       - name: Check upload navigation
         run: npm run check:upload

@@ -40,6 +40,22 @@ export function impactReviewVideoUrl(jobId: string, videoSha256?: string, origin
   return `${API_BASE}/api/analyze/${encodeURIComponent(jobId)}/review-video${suffix ? `?${suffix}` : ""}`;
 }
 
+export function frameIndexAtOrBefore(times: number[], timeMs: number): number | null {
+  if (!times.length || !Number.isFinite(timeMs) || timeMs < times[0]) return null;
+  let index = 0;
+  while (index + 1 < times.length && times[index + 1] <= timeMs) index++;
+  return index;
+}
+
+export function frameIndexForPresentedTime(times: number[], currentTimeMs: number, presentedTimeMs: number): number | null {
+  const index = frameIndexAtOrBefore(times, currentTimeMs);
+  if (index === null || !Number.isFinite(presentedTimeMs)) return null;
+  const distance = Math.abs(times[index] - presentedTimeMs);
+  if (distance > 2 || (index > 0 && Math.abs(times[index - 1] - presentedTimeMs) <= distance + 0.001)
+    || (index + 1 < times.length && Math.abs(times[index + 1] - presentedTimeMs) <= distance + 0.001)) return null;
+  return index;
+}
+
 export function withImpactCandidate(events: AnalysisResult["events"] | undefined, review: ImpactReview | null, enabled: boolean): AnalysisResult["events"] | undefined {
   if (!enabled) return events;
   return { ...events, impact: review ? {

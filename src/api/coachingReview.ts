@@ -48,24 +48,40 @@ export function parseCoachingReview(raw: unknown, jobId: string, impactMs: numbe
     : null;
   const evidence = e && measuredEnd !== null && measuredEnd < e.endMs ? { ...e, endMs: measuredEnd } : e;
   if (evidence && evidence.focusMs > evidence.endMs) throw new Error("근거 장면과 분석 결과가 일치하지 않습니다.");
-  return { ...value, evidence, movementGuide: parseMovementGuide(value.movementGuide) };
+  const movementGuide = parseMovementGuide(value.movementGuide);
+  if (movementGuide?.status === "ready" && Math.abs(movementGuide.impactMs! - impactMs) > 1) {
+    throw new Error("움직임 확인 장면과 분석 기준이 일치하지 않습니다.");
+  }
+  return { ...value, evidence, movementGuide };
 }
 
-// Share only in-flight work; reopening a record rechecks server-side file freshness.
+// The Pi observer handles one request at a time; reopening still rechecks file freshness.
 const pending = new Map<string, Promise<CoachingReview>>();
-export function requestCoachingReview(jobId: string, addressMs: number, impactMs: number, videoSha256: string): Promise<CoachingReview> {
+let lastPending: Promise<CoachingReview> | null = null;
+export function requestCoachingReview(jobId: string, addressMs: number, impactMs: number, videoSha256: string, impactFrameIndex?: number): Promise<CoachingReview> {
   if (!jobId || !Number.isFinite(addressMs) || !Number.isFinite(impactMs) || addressMs < 0
-    || impactMs - addressMs < 230 || impactMs > 30000 || !/^[a-f0-9]{64}$/.test(videoSha256)) {
+    || impactMs - addressMs < 230 || impactMs > 30000 || !/^[a-f0-9]{64}$/.test(videoSha256)
+    || (impactFrameIndex !== undefined && (!Number.isSafeInteger(impactFrameIndex) || impactFrameIndex < 0))) {
     return Promise.reject(new Error("준비 자세와 임팩트 후보의 간격을 확인할 수 없습니다."));
   }
-  const key = JSON.stringify([jobId, addressMs, impactMs, videoSha256]);
+  const key = JSON.stringify([jobId, addressMs, impactMs, videoSha256, impactFrameIndex]);
   const current = pending.get(key);
   if (current) return current;
   const body = new Blob([JSON.stringify({ mode: "coaching", addressMs, comparisonMs: impactMs - 80,
-    viewpoint: "down_the_line", videoSha256 })], { type: "application/json" });
-  const work = client.post(`/api/analyze/${encodeURIComponent(jobId)}/practice-review`, body)
-    .then(raw => parseCoachingReview(raw, jobId, impactMs));
+    viewpoint: "down_the_line", videoSha256, ...(impactFrameIndex === undefined ? {} : { impactFrameIndex }) })], { type: "application/json" });
+  const run = () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 35000);
+    return client.post(`/api/analyze/${encodeURIComponent(jobId)}/practice-review`, body, controller.signal)
+      .then(raw => parseCoachingReview(raw, jobId, impactMs))
+      .catch(error => { if (controller.signal.aborted) throw new Error("분석 시간이 초과됐습니다. 다시 시도해 주세요."); throw error; })
+      .finally(() => clearTimeout(timeout));
+  };
+  const prior = lastPending;
+  const work = prior ? prior.catch(() => undefined).then(run) : run();
   pending.set(key, work);
-  void work.then(() => pending.delete(key), () => pending.delete(key));
+  lastPending = work;
+  const clear = () => { pending.delete(key); if (lastPending === work) lastPending = null; };
+  void work.then(clear, clear);
   return work;
 }

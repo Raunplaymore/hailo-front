@@ -66,7 +66,8 @@ assert.match(videoPlayerSource, /md:max-h-\[50vh\]/, "Analysis video height must
 assert.match(videoPlayerSource, /xl:max-h-\[52vh\]/, "Analysis video height must stay viewport-limited on wide layouts.");
 assert.match(playerSource, /video\.videoWidth \/ video\.videoHeight/, "Overlay bounds must use the source video's intrinsic aspect ratio.");
 assert.match(playerSource, /new ResizeObserver\(syncOverlayBounds\)/, "Overlay bounds must update when the player size changes.");
-assert.match(playerSource, /style=\{overlayBounds\}/, "Overlay must render only inside the object-contain video area.");
+assert.match(playerSource, /<FrameSyncedOverlays[\s\S]*?bounds=\{overlayBounds\}/, "The synced overlay must receive the object-contain bounds.");
+assert.match(playerSource, /className="pointer-events-none absolute" style=\{bounds\}/, "The synced overlay must render inside those bounds.");
 assert.match(playerSource, /HAND_TRAIL_DURATION_MS = 800/, "Hand overlay must keep the trail focused on recent movement.");
 assert.match(playerSource, /HAND_TRAIL_MAX_GAP_MS = 120/, "Hand overlay must avoid drawing through tracking gaps.");
 assert.match(playerSource, /strokeLinecap="round"/, "Hand trail segments must render as a smooth fading line.");

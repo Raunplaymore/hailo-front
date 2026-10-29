@@ -8,7 +8,12 @@ const source = fs.readFileSync('src/components/analysis/AnalysisPlayer.tsx', 'ut
 const start = source.indexOf('function OverlaySvg('), end = source.indexOf('\nfunction jointColor', start);
 const { code } = await esbuild.transform(source.slice(start, end), { loader: 'tsx', jsx: 'transform' });
 const context = vm.createContext({ React, CLUB_TRAIL_MIN_CONFIDENCE: .3,
-  clubTrailSegments: () => [], handTrailSegments: () => [], SKELETON_LINKS: [], EVENT_LABELS: {} });
+  POSE_FRAME_MAX_DISTANCE_MS:50, HAND_TRAIL_DURATION_MS:800, HAND_TRAIL_MAX_GAP_MS:120, HAND_TRAIL_MIN_SPACING_MS:16,
+  clubTrailSegments: () => [], handTrailSegments: () => [], SKELETON_LINKS: [], EVENT_LABELS: {}, jointColor:()=>"white" });
+const helperStart=source.indexOf('function frameBound'), helperEnd=source.indexOf('\nfunction OverlaySvg',helperStart);
+assert.ok(helperStart>=0 && helperEnd>helperStart);
+const helpers=await esbuild.transform(source.slice(helperStart,helperEnd),{loader:'tsx'});
+vm.runInContext(helpers.code,context);
 vm.runInContext(code, context);
 const point = { x: .2, y: .4, confidence: .8 };
 const render = (frame, timeMs = 100) => renderToStaticMarkup(React.createElement(context.OverlaySvg, {
@@ -23,12 +28,19 @@ assert.doesNotMatch(render({ ...frame, handleValidUntilMs: 117 },117), /<line /,
 assert.doesNotMatch(render({ ...frame, handle: undefined }), /<line /);
 assert.doesNotMatch(render({ ...frame, handle: { ...point, confidence: .1 } }), /<line /);
 assert.doesNotMatch(render({ ...frame, head: { ...point, x: NaN } }), /<line /);
-const choose = source.slice(source.indexOf('  const clubOverlay ='), source.indexOf('  const visibleClub ='));
-vm.runInContext(`function choose(overlay, clubSidecar) { ${choose} return clubOverlay; }`, context);
+const chooseStart = source.indexOf('  const clubVideoUnverified ='), chooseEnd = source.indexOf(';', source.indexOf('  const clubOverlay =', chooseStart));
+const choose = source.slice(chooseStart, chooseEnd + 1);
+vm.runInContext(`function choose(overlay, clubSidecar, candidateVideoHash) { ${choose} return clubOverlay; }`, context);
 const primary = { clubFrames: [] }, side = { clubFrames: [frame], clubTimeSource: 'video_pts' };
 assert.equal(context.choose(primary, { status: 'succeeded', overlay: side }), side);
 assert.equal(context.choose(primary, { status: 'failed', overlay: side }), primary);
 assert.equal(context.choose(primary, { status: 'succeeded', overlay: { clubFrames: [frame] } }), primary);
+const videoHash='a'.repeat(64), otherHash='b'.repeat(64);
+assert.equal(context.choose(primary, {status:'succeeded',pendingOverlay:side,overlayVideoSha256:videoHash}), null, 'an unbound fallback must not show on a video without a candidate');
+assert.equal(context.choose(primary, {status:'succeeded',pendingOverlay:side,overlayVideoSha256:videoHash}, otherHash), null, 'a different video cannot show the fallback trajectory');
+assert.equal(context.choose(primary, {status:'succeeded',pendingOverlay:side,overlayVideoSha256:videoHash}, videoHash), side, 'a verified matching video may show the saved trajectory');
+assert.equal(context.choose(primary, {status:'succeeded',pendingOverlay:side,overlayVideoSha256:null}, videoHash), null, 'malformed video identity must not unlock the overlay');
+assert.equal(context.choose(primary, {status:'succeeded',overlay:side,overlayVideoSha256:videoHash}, videoHash), null, 'a missing pending overlay must not fall back to unbound data');
 console.log('club overlay selection and rendered shaft guards passed');
 
 const trailSource = source.slice(source.indexOf('function clubTrailSegments('));
@@ -58,10 +70,72 @@ assert.equal((gapSvg.match(/<path /g)||[]).length,2,'the head path has two strok
 assert.match(gapSvg,/M 0\.3000 0\.4000/);
 console.log('club trails show missing observations as gaps and keep isolated points');
 
+context.SKELETON_LINKS=[['left_shoulder','left_elbow']];
+const renderPose=keypoints=>renderToStaticMarkup(React.createElement(context.OverlaySvg,{
+  pose:{timeMs:100,keypoints},poseFrames:[],clubFrames:[],timeMs:100,layers:{pose:true},
+}));
+const visible=[.2,.3,.9];
+assert.match(renderPose({left_shoulder:visible,left_elbow:[.4,.5,.9]}),/<line /);
+assert.doesNotMatch(renderPose({left_shoulder:visible,left_elbow:[.4,.5,.1]}),/<line /,'a low-visibility joint cannot make a bone');
+assert.doesNotMatch(renderPose({left_shoulder:visible,left_elbow:[.4,.5]}),/<line /,'unknown visibility cannot make a bone');
+assert.doesNotMatch(renderPose({left_shoulder:visible,left_elbow:[NaN,.5,.9]}),/<line /,'invalid coordinates cannot make a bone');
+assert.equal(context.nearestAt([{timeMs:0},{timeMs:200}],80),undefined,'a distant pose must not be projected into a gap');
+assert.equal(context.nearestAt([{timeMs:0},{timeMs:200}],40).timeMs,0);
+const handStart=source.indexOf('function handTrailSegments('), handEnd=source.indexOf('\nfunction clubTrailSegments',handStart);
+assert.ok(handStart>=0 && handEnd>handStart);
+const handCode=await esbuild.transform(source.slice(handStart,handEnd),{loader:'tsx'});vm.runInContext(handCode.code,context);
+context.formatCoordinate=value=>value.toFixed(4);
+const handFrames=[{timeMs:0,keypoints:{left_wrist:[.1,.2,.9]}},{timeMs:33,keypoints:{left_wrist:[.2,.2,.1]}},
+  {timeMs:66,keypoints:{left_wrist:[.3,.2,.9]}},{timeMs:99,keypoints:{left_wrist:[.4,.2,.9]}}];
+assert.equal(JSON.stringify(context.handTrailSegments(handFrames,'left_wrist',99).map(s=>[s.from.timeMs,s.to.timeMs])),'[[66,99]]','a low-visibility wrist must break the trail');
+assert.equal(context.handTrailPaths(handFrames,'left_wrist',99).map(p=>p.path).join(' '),'M 0.3000 0.2000 L 0.4000 0.2000','rendered paths must retain the break');
+const handsSvg=renderToStaticMarkup(React.createElement(context.OverlaySvg,{poseFrames:handFrames,clubFrames:[],timeMs:99,layers:{hands:true}}));
+assert.match(handsSvg,/d="M 0\.3000 0\.2000 L 0\.4000 0\.2000"/,'the player must render only the valid hand segment');
+const dense=Array.from({length:9},(_,i)=>({timeMs:i*4,keypoints:{left_wrist:[.1+i*.01,.2,.9]}}));
+assert.equal(JSON.stringify(context.handTrailSegments(dense,'left_wrist',32).map(s=>[s.from.timeMs,s.to.timeMs])),'[[0,16],[16,32]]','dense trails retain roughly one point per displayed frame');
+dense[2].keypoints={};
+assert.equal(JSON.stringify(context.handTrailSegments(dense,'left_wrist',32).map(s=>[s.from.timeMs,s.to.timeMs])),'[[12,28]]','downsampling must not bridge a known gap');
+console.log('pose rendering hides low-confidence, invalid and distant observations without bridging hand gaps');
+
+// Exercise the overlay clock separately from the slower playback controls.
+const clockStart = source.indexOf('function FrameSyncedOverlays('), clockEnd = source.indexOf('\nfunction ClubTrackingEvidence', clockStart);
+assert.ok(clockStart >= 0 && clockEnd > clockStart);
+const clockCode = await esbuild.transform(source.slice(clockStart, clockEnd), {loader:'tsx', jsx:'transform'});
+const clockSlots = []; let clockCursor = 0, clockEffects = [];
+const clockState = initial => { const i=clockCursor++; if (!(i in clockSlots)) clockSlots[i]={value:initial}; return [clockSlots[i].value, value=>{clockSlots[i].value=typeof value==='function'?value(clockSlots[i].value):value;}]; };
+const clockEffect = (effect,deps) => { const i=clockCursor++, old=clockSlots[i]; if (!old || deps.some((v,j)=>!Object.is(v,old.deps[j]))) clockEffects.push(()=>{old?.cleanup?.();clockSlots[i]={deps,cleanup:effect()};}); };
+const clockReact = {createElement:(type,props,...children)=>({type,props:props||{},children})};
+const clockContext=vm.createContext({React:clockReact,useState:clockState,useEffect:clockEffect,useMemo:fn=>fn(),nearestAt:()=>undefined,
+  OverlaySvg:()=>null,MovementGuideOverlay:()=>null,PelvisContourOverlay:()=>null,HAND_TRAIL_DURATION_MS:800,CLUB_TRAIL_DURATION_MS:550,POSE_FRAME_MAX_DISTANCE_MS:50});
+vm.runInContext(helpers.code,clockContext);
+vm.runInContext(clockCode.code, clockContext);
+function fakeVideo() {
+  const callbacks=new Map(),listeners={}, video={paused:false,seeking:false,callbacks,listeners,nextId:0,
+    requestVideoFrameCallback(fn){const id=++this.nextId;callbacks.set(id,fn);return id;},cancelVideoFrameCallback(id){callbacks.delete(id);},
+    addEventListener(event,fn){listeners[event]=fn;},removeEventListener(event,fn){if(listeners[event]===fn)delete listeners[event];},
+    deliver(ms){const [id,fn]=callbacks.entries().next().value;callbacks.delete(id);fn(0,{mediaTime:ms/1000});},
+  }; return video;
+}
+const clockVideo=fakeVideo(), ref={current:clockVideo}, clockProps={src:'first',videoRef:ref,timeMs:200,overlay:{poseFrames:[],clubFrames:[]},
+  playable:true,bounds:{left:0,top:0,width:100,height:100},layers:{pose:true,hands:true,club:true,events:true},contour:null,guideKind:null,movementGuide:null};
+function renderClock(){clockCursor=0;clockEffects=[];const node=clockContext.FrameSyncedOverlays(clockProps);clockEffects.forEach(effect=>effect());return node;}
+assert.equal(renderClock().props['data-overlay-time-ms'],200);
+clockVideo.deliver(700);assert.equal(renderClock().props['data-overlay-time-ms'],700,'overlay must follow the presented frame');
+clockVideo.seeking=true;clockVideo.listeners.seeking();assert.equal(renderClock().props['data-overlay-time-ms'],200,'seek clears the old frame');
+clockVideo.seeking=false;clockVideo.deliver(800);assert.equal(renderClock().props['data-overlay-time-ms'],800);
+clockVideo.paused=true;clockVideo.listeners.pause();assert.equal(renderClock().props['data-overlay-time-ms'],200,'pause uses the playback position until another frame is confirmed');
+clockVideo.deliver(850);assert.equal(renderClock().props['data-overlay-time-ms'],850,'a paused video must use its newly presented frame');
+clockVideo.paused=false;const late=clockVideo.callbacks.values().next().value;
+const nextVideo=fakeVideo();ref.current=nextVideo;clockProps.src='second';renderClock();late(0,{mediaTime:1});
+assert.equal(renderClock().props['data-overlay-time-ms'],200,'a callback from the old video cannot update the new overlay');
+nextVideo.deliver(900);assert.equal(renderClock().props['data-overlay-time-ms'],900);
+clockProps.playable=false;assert.equal(renderClock(),null,'unavailable video must hide overlays');
+console.log('overlay clock follows displayed frames, clears stale frames and isolates video switches');
+
 // Render the real selector to catch missing levels and accidental repeated cards.
 const clubSource = fs.readFileSync('src/components/analysis/ClubObservation.tsx', 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function');
 const clubCode = await esbuild.transform(clubSource, {loader:'tsx', jsx:'transform'});
-const clubContext = vm.createContext({React, useState:React.useState, useEffect:React.useEffect, useRef:React.useRef});
+const clubContext = vm.createContext({React, useState:React.useState, useEffect:React.useEffect, useRef:React.useRef, CLUB_BODY_UNAVAILABLE_MESSAGE:'자세 자료를 확인하지 못해'});
 vm.runInContext(clubCode.code, clubContext);
 const props = {jobId:'fixture', playable:true, onSeek(){}, onResult(){}, sidecar:{observations:{levels:[.2,.35,.5,.65,.8].map(heightFraction=>({heightFraction, direction:'steeper', backswingMs:1000, downswingMs:1700}))}}};
 const clubHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,props));
@@ -73,6 +147,11 @@ assert.match(clubHtml,/노란 선이 실제 클럽과 맞는지 확인하세요/
 assert.match(clubHtml,/클럽 관측 다시 계산/);
 const emptyHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...props,sidecar:{status:'succeeded',observations:{levels:[]}}}));
 assert.match(emptyHtml,/클럽 관측 다시 계산/);
+const noImpactHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...props,sidecar:{status:'succeeded',observations:{levels:[],reason:'IMPACT_CANDIDATE_UNAVAILABLE'}}}));
+assert.match(noImpactHtml,/임팩트 후보 없이 계산해 구간 비교를 보류/);
+assert.match(noImpactHtml,/영상 일치가 확인되면 표시/);
+const noBodyHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...props,sidecar:{status:'failed',errorCode:'BODY_UNAVAILABLE'}}));
+assert.match(noBodyHtml,/자세 자료를 확인하지 못해/);
 const noVideo = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,{...props,playable:false}));
 assert.equal((noVideo.match(/disabled=""/g)||[]).length,2,'scene controls require a playable video');
 assert.doesNotMatch(source,/scrollIntoView/,'changing scenes must not move the document');
@@ -85,7 +164,7 @@ const useState = initial => { const i = cursor++; if (!(i in slots)) slots[i] = 
 const useRef = initial => { const i = cursor++; if (!(i in slots)) slots[i] = {current:initial}; return slots[i]; };
 const useEffect = (effect, deps) => { const i = cursor++; if (!slots[i] || deps.some((value, index) => !Object.is(value, slots[i][index]))) { slots[i] = deps; effects.push(effect); } };
 const requestClubReview = () => new Promise((resolve, reject) => { resolveRefresh = resolve; rejectRefresh = reject; });
-const interactive = vm.createContext({React:fakeReact, useState, useRef, useEffect, requestClubReview, AbortController});
+const interactive = vm.createContext({React:fakeReact, useState, useRef, useEffect, requestClubReview, AbortController, CLUB_BODY_UNAVAILABLE_MESSAGE:'자세 자료를 확인하지 못해'});
 vm.runInContext(clubCode.code, interactive);
 const seeks = [];
 const first = {status:'succeeded', observations:{levels:[{heightFraction:.5,direction:'steeper',backswingMs:1000,downswingMs:1700}]}};

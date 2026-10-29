@@ -522,8 +522,10 @@ function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observatio
       || (test.direction === "steeper" && values[4] <= 0) || (test.direction === "flatter" && values[5] >= 0)) return [];
     return [{ heightFraction: values[0], backswingMs: values[1], downswingMs: values[2], differenceDeg: values[3], lowerDeg: values[4], upperDeg: values[5], direction: test.direction }];
   });
-  return { status: String(raw.status), levels };
+  return { status: String(raw.status), levels, ...(raw.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? {reason: raw.reason} : {}) };
 }
+
+export const CLUB_BODY_UNAVAILABLE_MESSAGE = "자세 자료를 확인하지 못해 클럽 관측을 보류했어요. 업로드 탭에서 영상을 다시 선택해 새 기록으로 분석하거나 다시 촬영해 주세요.";
 
 export async function requestClubReview(jobId: string, signal: AbortSignal, refresh = false): Promise<DtlClubPointsV2Sidecar> {
   if (signal.aborted) throw new DOMException("Aborted", "AbortError");
@@ -539,7 +541,7 @@ export async function requestClubReview(jobId: string, signal: AbortSignal, refr
     const sidecar = normalizeAnalysis({ dtlClubPointsV2: raw.sidecar }, jobId).dtlClubPointsV2;
     if (refresh) {
       if (raw.refresh?.id !== started.refreshId) throw new Error("다른 관측 작업이 시작됐습니다. 다시 시도해 주세요.");
-      if (["failed", "interrupted"].includes(raw.refresh.status)) throw new Error("클럽 관측을 다시 계산하지 못했습니다.");
+      if (["failed", "interrupted"].includes(raw.refresh.status)) throw new Error(raw.refresh.errorCode === "BODY_UNAVAILABLE" ? CLUB_BODY_UNAVAILABLE_MESSAGE : "클럽 관측을 다시 계산하지 못했습니다.");
       if (raw.refresh.status === "succeeded") {
         if (sidecar?.status === "succeeded") return sidecar;
         throw new Error("새 관측 결과를 확인하지 못했습니다.");
@@ -548,7 +550,7 @@ export async function requestClubReview(jobId: string, signal: AbortSignal, refr
       await new Promise(resolve => setTimeout(resolve, 2000));
       continue;
     }
-    if (sidecar?.status === "failed") throw new Error("클럽 관측을 완료하지 못했습니다. 다시 시도해 주세요.");
+    if (sidecar?.status === "failed") throw new Error(sidecar.errorCode === "BODY_UNAVAILABLE" ? CLUB_BODY_UNAVAILABLE_MESSAGE : "클럽 관측을 완료하지 못했습니다. 다시 시도해 주세요.");
     if (sidecar?.status === "succeeded") return sidecar;
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
@@ -664,6 +666,11 @@ export const normalizeAnalysis = (
           status: typeof rawDtlClubPointsV2.status === "string" ? rawDtlClubPointsV2.status : "queued",
           model: typeof rawDtlClubPointsV2.model === "string" ? rawDtlClubPointsV2.model : null,
           overlay: normalizeOverlay(rawDtlClubPointsV2.overlay),
+          pendingOverlay: normalizeOverlay(rawDtlClubPointsV2.pendingOverlay),
+          ...(Object.prototype.hasOwnProperty.call(rawDtlClubPointsV2, "overlayVideoSha256") ? {
+            overlayVideoSha256: typeof rawDtlClubPointsV2.overlayVideoSha256 === "string" && /^[a-f0-9]{64}$/.test(rawDtlClubPointsV2.overlayVideoSha256)
+              ? rawDtlClubPointsV2.overlayVideoSha256 : null,
+          } : {}),
           observations: normalizeClubObservations(rawDtlClubPointsV2.observations),
           processingMs: toOptionalNumber(rawDtlClubPointsV2.processingMs ?? rawDtlClubPointsV2.processing_ms),
           takeaway:
@@ -676,6 +683,7 @@ export const normalizeAnalysis = (
               : null,
           trackingQuality: normalizeTrackingQuality(rawDtlClubPointsV2.trackingQuality ?? rawDtlClubPointsV2.tracking_quality) ?? null,
           error: typeof rawDtlClubPointsV2.error === "string" ? rawDtlClubPointsV2.error : null,
+          errorCode: rawDtlClubPointsV2.errorCode === "BODY_UNAVAILABLE" ? "BODY_UNAVAILABLE" : null,
           completedAt: typeof rawDtlClubPointsV2.completedAt === "string" ? rawDtlClubPointsV2.completedAt : null,
         }
       : null;

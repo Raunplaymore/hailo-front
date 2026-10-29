@@ -1,7 +1,7 @@
 import { guideSegments, guidePointAt, type MovementGuide, type GuideKind } from "@/api/movementGuide";
 const labels = { head: "머리", pelvis: "골반" };
 const button = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold disabled:opacity-40";
-export function MovementGuideControls({ guide, active, onActive, onSeek, timeMs, playable = true }: { guide: MovementGuide | null; active: GuideKind | null; onActive: (kind: GuideKind | null) => void; onSeek: (ms: number) => void; timeMs: number; playable?: boolean }) {
+export function MovementGuideControls({ guide, active, onActive, onSeek, timeMs, selectedImpact = false, playable = true }: { guide: MovementGuide | null; active: GuideKind | null; onActive: (kind: GuideKind | null) => void; onSeek: (ms: number) => void; timeMs: number; selectedImpact?: boolean; playable?: boolean }) {
   const track = active ? guide?.tracks?.[active] : undefined;
   return <section aria-label="머리와 골반 움직임" className="space-y-2 rounded-xl border border-border p-3">
     {!guide ? <p className="text-sm text-muted-foreground">코칭에서 움직임의 준비 상태를 확인할 수 있습니다.</p> : guide.status === "unavailable" ? <p className="text-sm text-muted-foreground">현재 사용할 수 있는 머리·골반 기준선이 없습니다. 코칭에서 준비 상태를 확인해 주세요.</p> : <>
@@ -11,10 +11,10 @@ export function MovementGuideControls({ guide, active, onActive, onSeek, timeMs,
       </div>
       {track && <>
         {!guidePointAt(track,timeMs) && <p className="text-xs text-muted-foreground">현재 장면은 추적이 없어 시작 기준선만 표시합니다.</p>}
-        <p className="text-sm">{labels[active!]} 확인 장면 · 임팩트 후보 {track.phase === "before" ? "이전" : track.phase === "after" ? "이후" : "근처"}</p>
+        <p className="text-sm">{labels[active!]} 확인 장면 · {selectedImpact ? "선택 장면" : "임팩트 후보"} {track.phase === "before" ? "이전" : track.phase === "after" ? "이후" : "근처"}</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={button} disabled={!playable} onClick={() => onSeek(track.baseline.timeMs)}>시작 기준 자세</button>
-          {([[-100,"임팩트 전"],[100,"임팩트 후"]] as const).map(([offset,label]) => { const p = guidePointAt(track,guide.impactMs!+offset); return <button key={label} type="button" className={button} disabled={!playable || !p} onClick={() => p && onSeek(p.timeMs)}>{label}</button>; })}
+          {([-100,100] as const).map(offset => { const p = guidePointAt(track,guide.impactMs!+offset); return <button key={offset} type="button" className={button} disabled={!playable || !p} onClick={() => p && onSeek(p.timeMs)}>{selectedImpact ? "선택 장면" : "임팩트"} {offset < 0 ? "전" : "후"}</button>; })}
         </div>
         <p className="text-xs leading-5 text-muted-foreground">{active === "head" ? "점선 십자는 시작 구간의 코 위치입니다. 얼굴 회전도 위치 변화로 보일 수 있습니다." : "점선은 시작 구간의 골반 중심입니다. 엉덩이 윤곽선이나 실제 회전 깊이는 아닙니다."} 실선과 점은 현재 추적 위치입니다. 카메라 움직임도 화면상 변화에 포함됩니다.</p>
       </>}

@@ -80,6 +80,6 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 
 export const client = {
   get: <T>(url: string, options: RequestInit = {}) => request<T>(url, options),
-  post: <T>(url: string, body: BodyInit) =>
-    request<T>(url, { method: "POST", body }),
+  post: <T>(url: string, body: BodyInit, signal?: AbortSignal) =>
+    request<T>(url, { method: "POST", body, signal }),
 };

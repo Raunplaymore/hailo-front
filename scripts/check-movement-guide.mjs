@@ -20,6 +20,7 @@ try {
  const props={guide:g,active:'pelvis',timeMs:900,onActive(){},onSeek(){}};
  assert.match(render({...props,playable:false}), /disabled=""/);
  const html=render(props);assert.match(html,/골반 보기/);assert.match(html,/엉덩이 윤곽선이나 실제 회전 깊이는 아닙니다/);assert.match(html,/임팩트 전/);assert.match(html,/임팩트 후/);
+ const selected=render({...props,selectedImpact:true});assert.match(selected,/선택 장면 이전/);assert.match(selected,/선택 장면 전/);assert.doesNotMatch(selected,/임팩트 후보/);
  assert.match(html,/카메라 움직임도 화면상 변화에 포함/);
  assert.match(render({...props,guide:{version:g.version,status:'unavailable'}}),/기준선이 없습니다/);
  assert.match(render({...props,timeMs:1400}),/현재 장면은 추적이 없어/);

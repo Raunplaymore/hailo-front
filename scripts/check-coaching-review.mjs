@@ -46,10 +46,15 @@ try {
   assert.doesNotMatch(selectedHtml,/임팩트는 모델의 후보/);
   assert.doesNotMatch(html,/checkbox|연습 전과 비교|기준으로 저장|진단 완료|교정 성공/);
   assert.match(render('CoachingObservation',{...props,playable:false}),/disabled=""/);
+  assert.match(render('CoachingObservation',{...props,contourStatus:'other'}),/이 장면은 윤곽을 측정하지 않았어요/);
+  assert.match(render('CoachingObservation',{...props,contourStatus:'unverified'}),/표시된 장면을 확인하지 못해 선을 보류/);
+  assert.match(render('CoachingObservation',{...props,contourStatus:'shown'}),/영상이 멈춘 측정 장면에서만/);
   const neutral=render('CoachingObservation',{...props,result:{...result,evidence:{...evidence,observation:'no_clear_shift'}}});
   assert.match(neutral,/스윙 전체가 좋다는 판정은 아닙니다/);
   assert.doesNotMatch(render('CoachingObservation',{...props,result:unavailable}),/근거 구간 천천히 보기/);
   assert.match(render('PelvisContourOverlay',{evidence,timeMs:860}),/stroke="#34d399"/);
+  assert.match(render('PelvisContourOverlay',{evidence,timeMs:860.9}),/stroke="#34d399"/,'allow sub-frame timestamp rounding');
+  assert.doesNotMatch(render('PelvisContourOverlay',{evidence,timeMs:876.667}),/stroke="#34d399"/,'do not draw a sample on a different frame');
   assert.doesNotMatch(render('PelvisContourOverlay',{evidence,timeMs:2000}),/stroke="#34d399"/,'never carry stale contour outside sampled frames');
   assert.match(render('PelvisContourOverlay',{evidence,timeMs:860}),/x1="0.31"/);
   assert.doesNotMatch(render('PelvisContourOverlay',{evidence,timeMs:2000}),/stroke="#fbbf24"/);

@@ -148,6 +148,46 @@ assert.equal(frameNode.props.clubFrames.length,0,'an unconfirmed presented frame
 clockProps.playable=false;assert.equal(renderClock(),null,'unavailable video must hide overlays');
 console.log('overlay clock follows displayed frames, clears stale frames and isolates video switches');
 
+// Exercise contour availability using the real frame-clock mapper and video events.
+const impactSource=fs.readFileSync('src/api/impactReview.ts','utf8');
+const impactStart=impactSource.indexOf('export function frameIndexAtOrBefore'), impactEnd=impactSource.indexOf('\nexport function withImpactCandidate',impactStart);
+assert.ok(impactStart>=0 && impactEnd>impactStart);
+vm.runInContext((await esbuild.transform(impactSource.slice(impactStart,impactEnd).replace(/^export /gm,''),{loader:'ts'})).code,clockContext);
+let now=1000, nextAnimation=0; const animations=new Map();
+clockContext.performance={now:()=>now};
+clockContext.requestAnimationFrame=fn=>{const id=++nextAnimation;animations.set(id,fn);return id;};
+clockContext.cancelAnimationFrame=id=>animations.delete(id);
+const tick=ms=>{now=ms;const callbacks=[...animations.values()];animations.clear();callbacks.forEach(fn=>fn(ms));};
+const handlers=new Map();
+const contourVideo={paused:true,seeking:false,readyState:2,currentTime:.8601,
+  requestVideoFrameCallback:()=>1,cancelVideoFrameCallback(){},
+  addEventListener:(event,fn)=>{if(!handlers.has(event))handlers.set(event,new Set());handlers.get(event).add(fn);},
+  removeEventListener:(event,fn)=>handlers.get(event)?.delete(fn),
+  emit:event=>handlers.get(event)?.forEach(fn=>fn()),
+};
+const frameRef={current:{video:contourVideo,src:'contour',timeMs:860,expectedDisplayTime:900,duringSeek:true}};
+let contourStatus='';
+clockSlots.length=0;ref.current=contourVideo;
+Object.assign(clockProps,{src:'contour',playable:true,overlay:null,clubOverlay:null,contour:{points:[{timeMs:860}]},
+  frameTimes:[0,860,876.667],presentedFrame:frameRef,onContourStatus:status=>{contourStatus=status;}});
+const hasContour=node=>Boolean(node && typeof node==='object' && (node.type===clockContext.PelvisContourOverlay || node.children?.some(hasContour)));
+assert.equal(hasContour(renderClock()),false,'the playback clock alone cannot authorize a contour');
+tick(1001);assert.equal(hasContour(renderClock()),true,'a confirmed measured frame displays its contour');
+contourVideo.paused=false;contourVideo.emit('play');assert.equal(hasContour(renderClock()),false,'playing hides the discrete contour');
+contourVideo.paused=true;contourVideo.emit('pause');tick(1002);assert.equal(hasContour(renderClock()),true);
+contourVideo.seeking=true;contourVideo.emit('seeking');contourVideo.currentTime=.876767;
+frameRef.current={video:contourVideo,src:'contour',timeMs:876.667,expectedDisplayTime:900,duringSeek:true};
+contourVideo.seeking=false;contourVideo.emit('seeked');tick(1003);
+assert.equal(hasContour(renderClock()),false,'an unmeasured neighboring frame has no contour');assert.equal(contourStatus,'other');
+contourVideo.seeking=true;contourVideo.emit('seeking');contourVideo.currentTime=.8601;frameRef.current=null;
+contourVideo.seeking=false;contourVideo.emit('seeked');tick(2300);
+assert.equal(hasContour(renderClock()),false);assert.equal(contourStatus,'unverified','a missing new callback is not an observation');
+clockProps.frameTimes=[0,860,861,876.667];frameRef.current={video:contourVideo,src:'contour',timeMs:860,expectedDisplayTime:900,duringSeek:true};
+renderClock();tick(2301);assert.equal(hasContour(renderClock()),false);assert.equal(contourStatus,'unverified','an ambiguous source frame is withheld');
+contourVideo.requestVideoFrameCallback=undefined;clockProps.src='unsupported';renderClock();
+assert.equal(hasContour(renderClock()),false);assert.equal(contourStatus,'unverified','unsupported browsers retain the unannotated video');
+console.log('pelvis contour requires a confirmed measured frame and withholds stale, ambiguous and unsupported cases');
+
 // Render the real selector to catch missing levels and accidental repeated cards.
 const clubSource = fs.readFileSync('src/components/analysis/ClubObservation.tsx', 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function');
 const clubCode = await esbuild.transform(clubSource, {loader:'tsx', jsx:'transform'});

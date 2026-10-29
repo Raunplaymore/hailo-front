@@ -3,9 +3,10 @@ import { requestCoachingReview, type CoachingReview as Review, type CoachingEvid
 import { CoachingLesson } from "./CoachingLesson";
 
 const button = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
-export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, playable, onResult, onEvidence, onSeek }: {
+export type ContourStatus = "checking" | "playing" | "shown" | "other" | "unverified";
+export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, playable, contourStatus, onResult, onEvidence, onSeek }: {
   jobId: string; videoSha256?: string; addressMs: number; impactMs?: number; candidatePending: boolean; playable: boolean;
-  impactFrameIndex?: number;
+  impactFrameIndex?: number; contourStatus?: ContourStatus;
   onResult: (value: Review | null) => void; onEvidence: (evidence: CoachingEvidence) => void; onSeek: (ms: number) => void;
 }) {
   const [result, setResult] = useState<Review | null>(null);
@@ -31,15 +32,15 @@ export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impact
       <p className="mt-1 text-sm leading-6 text-muted-foreground">후방에서 촬영한 한 번의 스윙에서 {impactFrameIndex === undefined ? "임팩트 후보" : "직접 선택한 장면"} 전 엉덩이 뒤쪽을 봅니다. 영상이 잘리거나 반복되면 구간이 틀릴 수 있어요. 공은 직접 감지하지 않고 준비 자세로 방향을 추정합니다. 원본에서 공 위치와 타격 장면을 확인해 주세요.</p>
       {loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요…"}</p>
         : error ? <div role="alert" className="mt-4 space-y-2"><p className="text-sm">{error}</p><button type="button" className={button} onClick={() => setAttempt(n => n + 1)}>근거 다시 불러오기</button></div>
-        : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} selectedImpact={impactFrameIndex !== undefined} />}
+        : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} selectedImpact={impactFrameIndex !== undefined} contourStatus={contourStatus} />}
     </div>
     <CoachingLesson topic="pelvis" />
   </section>;
 }
 
-export function CoachingObservation({ result, playable, onEvidence, onSeek, selectedImpact = false }: {
+export function CoachingObservation({ result, playable, onEvidence, onSeek, selectedImpact = false, contourStatus = "checking" }: {
   result: Review | null; playable: boolean; onEvidence: (evidence: CoachingEvidence) => void; onSeek: (ms: number) => void;
-  selectedImpact?: boolean;
+  selectedImpact?: boolean; contourStatus?: ContourStatus;
 }) {
   const evidence = result?.evidence;
   const recovery = result?.reason === "CAMERA_MOTION_OR_BACKGROUND_UNCLEAR"
@@ -76,6 +77,7 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
       <button type="button" className={button} disabled={!playable} onClick={() => onSeek(evidence.addressMs)}>준비 자세</button>
       <button type="button" className={button} disabled={!playable} onClick={() => onSeek(evidence.focusMs)}>확인 장면 · {(evidence.focusMs / 1000).toFixed(2)}초</button>
     </div>
+    <p className="text-xs leading-5 text-muted-foreground" role="status">{contourStatus === "unverified" ? "표시된 장면을 확인하지 못해 선을 보류했어요. 영상을 직접 살펴봐 주세요." : contourStatus === "other" ? "이 장면은 윤곽을 측정하지 않았어요. ‘확인 장면’을 눌러 보세요." : contourStatus === "checking" ? "표시된 장면을 확인하고 있어요." : "노란 점선은 시작 기준, 초록 선은 추정 윤곽이에요. 영상이 멈춘 측정 장면에서만 표시됩니다."}</p>
     <details className="text-xs text-muted-foreground">
       <summary className="min-h-12 cursor-pointer py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">관찰 범위와 근거</summary>
       <p className="leading-5">옷을 포함한 골반 뒤쪽 윤곽의 화면상 위치를 검사했습니다. 시작 기준선과 현재 윤곽선을 영상 위에 표시합니다. {selectedImpact ? "임팩트 기준은 직접 선택한 장면" : "임팩트는 모델의 후보"}이며 공 방향도 준비 자세에서 추정합니다. 윤곽 관찰을 골프 진단으로 사용하는 정확도는 아직 검증 중입니다.</p>
@@ -88,7 +90,8 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
 
 export function PelvisContourOverlay({ evidence, timeMs }: { evidence: CoachingEvidence; timeMs: number }) {
   const point = evidence.points.reduce((best, p) => Math.abs(p.timeMs - timeMs) < Math.abs(best.timeMs - timeMs) ? p : best);
-  const current = Math.abs(point.timeMs - timeMs) <= 40 ? point : null;
+  // shortcut: 1.1ms covers source timestamp rounding; validate again if timestamp precision changes.
+  const current = Math.abs(point.timeMs - timeMs) <= 1.1 ? point : null;
   return <svg viewBox="0 0 1 1" preserveAspectRatio="none" className="block h-full w-full" aria-label="골반 뒤쪽 윤곽과 준비 자세 기준선">
     {current && <>
       <line x1={current.referenceTop?.[0] ?? current.referenceX} x2={current.referenceBottom?.[0] ?? current.referenceX} y1={current.referenceTop?.[1] ?? Math.max(0, current.referenceY - .16)} y2={current.referenceBottom?.[1] ?? Math.min(1, current.referenceY + .16)} stroke="#fbbf24" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeDasharray="5 4" />

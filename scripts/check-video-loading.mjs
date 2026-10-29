@@ -43,5 +43,16 @@ assert.equal(status(tree), null, 'the prompt also clears when a frame loads with
 video(tree).props.onWaiting(); tree=render();
 assert.equal(status(tree).children[0], '장면 불러오는 중…');
 video(tree).props.onCanPlay(); tree=render(); assert.equal(status(tree), null);
+props.frameTimes=[0,33.333,66.667];props.frameTimesSource='video';props.currentTimeMs=33.433;
+props.videoRef.current={currentTime:.033433,pause(){this.paused=true;}};
+let updatedMs=null;props.onTimeChange=value=>{updatedMs=value;};
+tree=render();
+const nextVideoFrame=find(tree,node=>node.props?.label==='다음 프레임');
+assert.ok(nextVideoFrame && !nextVideoFrame.props.disabled,'the source-video frame step is available without club tracking');
+nextVideoFrame.props.onClick();
+assert.ok(Math.abs(props.videoRef.current.currentTime*1000-66.767)<.001 && Math.abs(updatedMs-66.767)<.001,'the next button seeks to the next source frame');
+props.frameTimesSource='tracking';tree=render();
+assert.ok(find(tree,node=>node.props?.label==='다음 추적 프레임'),'club observations retain their tracking-frame label');
+assert.equal(find(tree,node=>node.props?.label==='다음 프레임'),null);
 video(tree).props.onError(); tree=render(); assert.equal(status(tree), null, 'the error state takes precedence');
 console.log('video first-frame guidance and playback/loading/error states passed');

@@ -112,6 +112,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const clubOverlay = clubSidecar?.overlayVideoSha256 !== undefined
     ? (!clubVideoUnverified && clubSidecar.status === "succeeded" && clubSidecar.pendingOverlay?.clubTimeSource === "video_pts" ? clubSidecar.pendingOverlay : null)
     : clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts" ? clubSidecar.overlay : overlay;
+  const clubFrameTimes = useMemo(() => clubOverlay?.clubFrames.map(frame => frame.timeMs), [clubOverlay]);
+  const useClubFrameTimes = Boolean(clubFrameTimes?.length && (tool === "club" || !videoClock));
 
   useEffect(() => {
     const video = videoRef.current;
@@ -267,7 +269,8 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
             disabled={isModalOpen}
             onTimeChange={setTimeMs}
             onLoadedMetadata={syncOverlayBounds}
-            frameTimes={clubOverlay?.clubFrames.map(frame => frame.timeMs)}
+            frameTimes={useClubFrameTimes ? clubFrameTimes : videoClock?.frameTimesMs}
+            frameTimesSource={useClubFrameTimes ? "tracking" : "video"}
             reviewRange={reviewRange}
             onClearReview={clearReview}
             onRetry={jobId ? (impactState.error ? manualClockState.retry : impactState.retry) : undefined}

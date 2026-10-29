@@ -72,12 +72,15 @@ try {
   const player=await import(playerBundle);
   globalThis.__impactReviewFixture={review:null,loading:true,error:null,retry(){}};
   assert.match(player.render(), /src="\/api\/analyze\/job\/review-video"/);
+  assert.doesNotMatch(player.render(), /aria-label="다음 프레임"/, 'unverified or missing frame clocks must not invent frame steps');
   globalThis.__impactReviewFixture={review:valid,loading:false,error:null,retry(){}};
   assert.ok(player.render().includes(`src="/api/analyze/job/review-video?v=${valid.videoSha256}"`), 'player must bind its video to the impact source');
+  assert.match(player.render(), /aria-label="다음 프레임"/, 'a verified source clock enables frame stepping without club tracking');
   globalThis.__impactReviewFixture={review:null,loading:false,error:'model failed',retry(){}};
   globalThis.__videoClockFixture={clock,loading:false,error:null,retry(){}};
   const sidecar={status:'succeeded',overlayVideoSha256:clock.videoSha256,pendingOverlay:{clubFrames:[{frame:1}],clubTimeSource:'video_pts'}};
   assert.match(player.render(sidecar),/클럽 궤적은 임팩트 후보와 영상 일치가 확인되면 표시/,'a manual clock cannot unlock candidate-dependent club overlay');
+  assert.match(player.render(sidecar),/aria-label="다음 프레임"/,'a verified manual video clock still enables source-frame stepping');
   delete globalThis.__impactReviewFixture;
   delete globalThis.__videoClockFixture;
   console.log('automatic impact response, selection and UI-state checks passed');

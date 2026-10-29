@@ -25,6 +25,7 @@ type AnalysisVideoPlayerProps = {
   mediaRef: RefObject<HTMLDivElement | null>;
   currentTimeMs: number;
   frameTimes?: number[];
+  frameTimesSource?: "video" | "tracking";
   disabled?: boolean;
   children?: ReactNode;
   onTimeChange: (timeMs: number) => void;
@@ -40,6 +41,7 @@ export function AnalysisVideoPlayer({
   mediaRef,
   currentTimeMs,
   frameTimes,
+  frameTimesSource = "tracking",
   disabled = false,
   children,
   onTimeChange,
@@ -256,7 +258,7 @@ export function AnalysisVideoPlayer({
           >
             {isPlaying ? <Pause className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
           </ControlButton>
-          {frameTimes?.length ? <ControlButton label="이전 추적 프레임" disabled={controlsDisabled || previousFrame == null} onClick={() => previousFrame != null && stepFrame(previousFrame)}><ChevronLeft className="size-4" /></ControlButton> : null}
+          {frameTimes?.length ? <ControlButton label={frameTimesSource === "video" ? "이전 프레임" : "이전 추적 프레임"} disabled={controlsDisabled || previousFrame == null} onClick={() => previousFrame != null && stepFrame(previousFrame)}><ChevronLeft className="size-4" /></ControlButton> : null}
           <div className="relative min-w-0 flex-1 pb-2">
           <input
             type="range"
@@ -282,7 +284,7 @@ export function AnalysisVideoPlayer({
           />
           <span className="pointer-events-none absolute inset-x-0 bottom-0 text-center text-[10px] tabular-nums text-white/70">{formatTime(currentSeconds)} / {formatTime(duration)}</span>
           </div>
-          {frameTimes?.length ? <ControlButton label="다음 추적 프레임" disabled={controlsDisabled || nextFrame == null} onClick={() => nextFrame != null && stepFrame(nextFrame)}><ChevronRight className="size-4" /></ControlButton> : null}
+          {frameTimes?.length ? <ControlButton label={frameTimesSource === "video" ? "다음 프레임" : "다음 추적 프레임"} disabled={controlsDisabled || nextFrame == null} onClick={() => nextFrame != null && stepFrame(nextFrame)}><ChevronRight className="size-4" /></ControlButton> : null}
         </div>
       </div>
     </div>

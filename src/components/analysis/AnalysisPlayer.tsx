@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
-import { frameIndexForPresentedTime, impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
+import { frameIndexAtOrBefore, frameIndexForPresentedTime, impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
 import { useImpactReview } from "@/hooks/useImpactReview";
 import { useVideoClock } from "@/hooks/useVideoClock";
 import { usePoseOverlay } from "@/hooks/usePoseOverlay";
@@ -87,8 +87,9 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const coachingResult = coaching.key === guideKey ? coaching.result : null;
   const movementGuide = coachingResult?.movementGuide ?? null;
   const contour = tool === "coaching" && !guideKind ? coachingResult?.evidence : null;
-  const clearReview = useCallback(() => setReviewRange(null), []);
-  useEffect(() => { setGuideKind(null); setReviewRange(null); }, [guideKey]);
+  const pendingContourRetry = useRef<(() => void) | null>(null);
+  const clearReview = useCallback(() => { pendingContourRetry.current?.(); pendingContourRetry.current = null; setReviewRange(null); }, []);
+  useEffect(() => { setGuideKind(null); clearReview(); }, [guideKey, clearReview]);
   useEffect(() => { setImpactSelection(null); setSelectionError(null); }, [jobId, videoUrl, videoSha256]);
   useEffect(() => { setTool("coaching"); setOriginalQuality(false); }, [jobId, videoUrl]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -109,12 +110,18 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const [layers, setLayers] = useState({ pose: true, hands: true, club: true, events: true });
   const [overlayBounds, setOverlayBounds] = useState<OverlayBounds | null>(null);
   const [contourStatus, setContourStatus] = useState<ContourStatus>("checking");
+  const canRetryContour = Boolean(contour && videoClock && videoRef.current && typeof videoRef.current.requestVideoFrameCallback === "function"
+    && videoClock.frameTimesMs.filter(time => Math.abs(time - contour.focusMs) <= 1.1).length === 1);
   const clubVideoUnverified = clubSidecar?.overlayVideoSha256 !== undefined && clubSidecar.overlayVideoSha256 !== candidateVideoHash;
   const clubOverlay = clubSidecar?.overlayVideoSha256 !== undefined
     ? (!clubVideoUnverified && clubSidecar.status === "succeeded" && clubSidecar.pendingOverlay?.clubTimeSource === "video_pts" ? clubSidecar.pendingOverlay : null)
     : clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts" ? clubSidecar.overlay : overlay;
   const clubFrameTimes = useMemo(() => clubOverlay?.clubFrames.map(frame => frame.timeMs), [clubOverlay]);
   const useClubFrameTimes = Boolean(clubFrameTimes?.length && (tool === "club" || !videoClock));
+
+  useEffect(() => {
+    return () => { pendingContourRetry.current?.(); pendingContourRetry.current = null; };
+  }, [jobId, reviewVideoUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -209,6 +216,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const seekTime = (nextMs: number) => {
     const video = videoRef.current;
     if (!video || !Number.isFinite(nextMs) || nextMs < 0) return;
+    pendingContourRetry.current?.(); pendingContourRetry.current = null;
     setReviewRange(null);
     video.pause();
     const apply = () => {
@@ -225,6 +233,40 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     };
     if (video.readyState < 1) video.addEventListener("loadedmetadata", apply, { once: true });
     else apply();
+  };
+
+  const retryContour = (targetMs: number) => {
+    const video = videoRef.current, clock = videoClock;
+    if (!video || !clock || !videoPlayable || !canRetryContour) return;
+    const indices = clock.frameTimesMs.flatMap((time, index) => Math.abs(time - targetMs) <= 1.1 ? [index] : []);
+    if (indices.length !== 1) return;
+    const current = frameIndexAtOrBefore(clock.frameTimesMs, video.currentTime * 1000);
+    const neighbor = [indices[0] + 1, indices[0] - 1].find(index => index >= 0 && index < clock.frameTimesMs.length && index !== current);
+    if (neighbor === undefined) return;
+    pendingContourRetry.current?.();
+    setReviewRange(null); video.pause();
+    let active = true, animation = 0, timer = 0;
+    const stop = () => { active = false; cancelAnimationFrame(animation); clearTimeout(timer); video.removeEventListener("seeked", onSeeked); };
+    const fail = () => { if (!active) return; stop(); if (pendingContourRetry.current === stop) pendingContourRetry.current = null; setContourStatus("unverified"); };
+    const onSeeked = () => {
+      if (!active) return;
+      const deadline = performance.now() + 1200;
+      const check = () => {
+        if (!active) return;
+        if (videoRef.current !== video || video.seeking || frameIndexAtOrBefore(clock.frameTimesMs, video.currentTime * 1000) !== neighbor) { stop(); if (pendingContourRetry.current === stop) pendingContourRetry.current = null; return; }
+        const frame = presentedFrame.current;
+        const index = frame?.video === video && frame.src === reviewVideoUrl && frame.expectedDisplayTime <= performance.now()
+          ? frameIndexForPresentedTime(clock.frameTimesMs, video.currentTime * 1000, frame.timeMs) : null;
+        if (index === neighbor) { stop(); if (pendingContourRetry.current === stop) pendingContourRetry.current = null; seekTime(targetMs); return; }
+        if (performance.now() < deadline) animation = requestAnimationFrame(check); else fail();
+      };
+      animation = requestAnimationFrame(check);
+    };
+    pendingContourRetry.current = stop;
+    video.addEventListener("seeked", onSeeked, { once: true });
+    timer = window.setTimeout(fail, 2500);
+    video.currentTime = (clock.frameTimesMs[neighbor] + .1) / 1000;
+    setTimeMs(video.currentTime * 1000);
   };
 
   const chooseImpactAtCurrentTime = () => {
@@ -263,6 +305,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   };
 
   const showEvidence = (evidence: CoachingEvidence) => {
+    clearReview();
     setGuideKind(null);
     setReviewRange({ startMs: evidence.startMs, endMs: evidence.endMs });
   };
@@ -344,7 +387,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
               <p className="text-sm">직접 선택한 장면 · {(selectedImpact.timeMs / 1000).toFixed(3)}초 기준</p>
               <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setImpactSelection(null); clearReview(); }}>{impactState.review ? "자동 후보로 되돌리기" : "선택 취소"}</button>
             </div>}
-            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={videoSha256} addressMs={addressMs} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} playable={videoPlayable} contourStatus={contourStatus} onResult={onCoaching} onEvidence={showEvidence} onSeek={ms => { setGuideKind(null); seekTime(ms); }} />
+            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={videoSha256} addressMs={addressMs} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} playable={videoPlayable} contourStatus={contourStatus} canRetryContour={canRetryContour} onResult={onCoaching} onEvidence={showEvidence} onSeek={ms => { setGuideKind(null); seekTime(ms); }} onRetryContour={retryContour} />
           </div>
           {tool === "coaching" && <details><summary className="text-sm font-semibold">머리·골반 움직임 직접 확인</summary><MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} selectedImpact={Boolean(selectedImpact)} /><CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} /></details>}
         {tool === "impact" && <ImpactReview key={`${jobId}:${videoSha256 ?? "pending"}`} review={impactState.review} manualClock={manualClockState.clock} clockLoading={manualClockState.loading} clockError={manualClockState.error} onClockRetry={manualClockState.retry} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}

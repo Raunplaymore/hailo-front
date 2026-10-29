@@ -48,6 +48,8 @@ try {
   assert.match(render('CoachingObservation',{...props,playable:false}),/disabled=""/);
   assert.match(render('CoachingObservation',{...props,contourStatus:'other'}),/이 장면은 윤곽을 측정하지 않았어요/);
   assert.match(render('CoachingObservation',{...props,contourStatus:'unverified'}),/표시된 장면을 확인하지 못해 선을 보류/);
+  assert.match(render('CoachingObservation',{...props,contourStatus:'unverified',canRetryContour:true,onRetryContour(){}}),/선 다시 확인/);
+  assert.doesNotMatch(render('CoachingObservation',{...props,contourStatus:'unverified',canRetryContour:false,onRetryContour(){}}),/선 다시 확인/);
   assert.match(render('CoachingObservation',{...props,contourStatus:'shown'}),/영상이 멈춘 측정 장면에서만/);
   const neutral=render('CoachingObservation',{...props,result:{...result,evidence:{...evidence,observation:'no_clear_shift'}}});
   assert.match(neutral,/스윙 전체가 좋다는 판정은 아닙니다/);

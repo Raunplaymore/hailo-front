@@ -57,6 +57,8 @@ const POSE_FRAME_MAX_DISTANCE_MS = 50;
 const CLUB_TRAIL_DURATION_MS = 550;
 const CLUB_TRAIL_MAX_GAP_MS = 120;
 const CLUB_TRAIL_MIN_CONFIDENCE = 0.3;
+// shortcut: 1.2s bounds a stalled frame callback; tune with physical-device evidence.
+const FRAME_CONFIRM_TIMEOUT_MS = 1200;
 const LEFT_JOINT_COLOR = "#38bdf8";
 const RIGHT_JOINT_COLOR = "#f59e0b";
 const CENTER_JOINT_COLOR = "#ecfdf5";
@@ -250,7 +252,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     const fail = () => { if (!active) return; stop(); if (pendingContourRetry.current === stop) pendingContourRetry.current = null; setContourStatus("unverified"); };
     const onSeeked = () => {
       if (!active) return;
-      const deadline = performance.now() + 1200;
+      const deadline = performance.now() + FRAME_CONFIRM_TIMEOUT_MS;
       const check = () => {
         if (!active) return;
         if (videoRef.current !== video || video.seeking || frameIndexAtOrBefore(clock.frameTimesMs, video.currentTime * 1000) !== neighbor) { stop(); if (pendingContourRetry.current === stop) pendingContourRetry.current = null; return; }
@@ -264,7 +266,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     };
     pendingContourRetry.current = stop;
     video.addEventListener("seeked", onSeeked, { once: true });
-    timer = window.setTimeout(fail, 2500);
+    timer = window.setTimeout(fail, FRAME_CONFIRM_TIMEOUT_MS * 2 + 100);
     video.currentTime = (clock.frameTimesMs[neighbor] + .1) / 1000;
     setTimeMs(video.currentTime * 1000);
   };
@@ -479,7 +481,7 @@ function FrameSyncedOverlays({ src, videoRef, timeMs, overlay, clubOverlay, club
     const observe = () => {
       clear();
       if (!video.paused || video.seeking || video.readyState < 2) return;
-      const current = generation, deadline = performance.now() + 1200;
+      const current = generation, deadline = performance.now() + FRAME_CONFIRM_TIMEOUT_MS;
       const check = () => {
         if (!active || generation !== current || !video.paused || video.seeking) return;
         const frame = presentedFrame.current;

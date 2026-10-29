@@ -110,7 +110,7 @@ const clockState = initial => { const i=clockCursor++; if (!(i in clockSlots)) c
 const clockEffect = (effect,deps) => { const i=clockCursor++, old=clockSlots[i]; if (!old || deps.some((v,j)=>!Object.is(v,old.deps[j]))) clockEffects.push(()=>{old?.cleanup?.();clockSlots[i]={deps,cleanup:effect()};}); };
 const clockReact = {createElement:(type,props,...children)=>({type,props:props||{},children})};
 const clockContext=vm.createContext({React:clockReact,useState:clockState,useEffect:clockEffect,useMemo:fn=>fn(),nearestAt:()=>undefined,
-  OverlaySvg:()=>null,MovementGuideOverlay:()=>null,PelvisContourOverlay:()=>null,HAND_TRAIL_DURATION_MS:800,CLUB_TRAIL_DURATION_MS:550,POSE_FRAME_MAX_DISTANCE_MS:50});
+  OverlaySvg:()=>null,MovementGuideOverlay:()=>null,PelvisContourOverlay:()=>null,HAND_TRAIL_DURATION_MS:800,CLUB_TRAIL_DURATION_MS:550,POSE_FRAME_MAX_DISTANCE_MS:50,FRAME_CONFIRM_TIMEOUT_MS:1200});
 vm.runInContext(helpers.code,clockContext);
 vm.runInContext(clockCode.code, clockContext);
 function fakeVideo() {

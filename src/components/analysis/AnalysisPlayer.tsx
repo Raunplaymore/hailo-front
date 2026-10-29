@@ -117,10 +117,14 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const [contourStatus, setContourStatus] = useState<ContourStatus>("checking");
   const canRetryContour = Boolean(contour && videoClock && videoRef.current && typeof videoRef.current.requestVideoFrameCallback === "function"
     && videoClock.frameTimesMs.filter(time => Math.abs(time - contour.focusMs) <= 1.1).length === 1);
+  const legacyClubOverlay = useMemo(() => overlay ? {
+    ...overlay, clubFrames: overlay.clubFrames.map(({ handle: _handle, ...frame }) => frame),
+  } : overlay, [overlay]);
   const clubVideoUnverified = clubSidecar?.overlayVideoSha256 !== undefined && clubSidecar.overlayVideoSha256 !== candidateVideoHash;
   const clubOverlay = clubSidecar?.overlayVideoSha256 !== undefined
     ? (!clubVideoUnverified && clubSidecar.status === "succeeded" && clubSidecar.pendingOverlay?.clubTimeSource === "video_pts" ? clubSidecar.pendingOverlay : null)
-    : clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts" ? clubSidecar.overlay : overlay;
+    : clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts" ? clubSidecar.overlay : legacyClubOverlay;
+  const legacyGripHidden = clubOverlay === legacyClubOverlay && Boolean(overlay?.clubFrames.some(frame => frame.handle));
   const clubFrameTimes = useMemo(() => clubOverlay?.clubFrames.map(frame => frame.timeMs), [clubOverlay]);
   const useClubFrameTimes = Boolean(clubFrameTimes?.length && (tool === "club" || !videoClock));
 
@@ -398,8 +402,9 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
         {tool === "impact" && <ImpactReview key={`${jobId}:${videoSha256 ?? "pending"}`} review={impactState.review} manualClock={manualClockState.clock} clockLoading={manualClockState.loading} clockError={manualClockState.error} onClockRetry={manualClockState.retry} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}
         </>}
 
+        {tool === "club" && legacyGripHidden && <p role="status" className="text-xs leading-5 text-muted-foreground">기존 추적의 그립 위치를 확인할 수 없어 노란 그립·샤프트 선을 숨겼어요. 클럽 관측을 계산해 보세요.</p>}
         {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
-        {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} overlay={clubOverlay} /></details>}
+        {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} overlay={clubOverlay === legacyClubOverlay ? null : clubOverlay} /></details>}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 장면 · {jobId ? "임팩트는 추정 후보, 나머지는 연구 참고" : "연구 참고"}</p>
           <div className="grid min-w-0 grid-cols-5 gap-1">

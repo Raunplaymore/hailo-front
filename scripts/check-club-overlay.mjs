@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 const source = fs.readFileSync('src/components/analysis/AnalysisPlayer.tsx', 'utf8');
 const start = source.indexOf('function OverlaySvg('), end = source.indexOf('\nfunction jointColor', start);
 const { code } = await esbuild.transform(source.slice(start, end), { loader: 'tsx', jsx: 'transform' });
-const context = vm.createContext({ React, CLUB_TRAIL_MIN_CONFIDENCE: .3,
+const context = vm.createContext({ React, useMemo: fn => fn(), CLUB_TRAIL_MIN_CONFIDENCE: .3,
   POSE_FRAME_MAX_DISTANCE_MS:50, HAND_TRAIL_DURATION_MS:800, HAND_TRAIL_MAX_GAP_MS:120, HAND_TRAIL_MIN_SPACING_MS:16,
   clubTrailSegments: () => [], handTrailSegments: () => [], SKELETON_LINKS: [], EVENT_LABELS: {}, jointColor:()=>"white" });
 const helperStart=source.indexOf('function frameBound'), helperEnd=source.indexOf('\nfunction OverlaySvg',helperStart);
@@ -32,13 +32,21 @@ assert.doesNotMatch(renderVerified({ ...frame, headValidUntilMs: 117 },116.9997,
 assert.doesNotMatch(render({ ...frame, handle: undefined }), /<line /);
 assert.doesNotMatch(render({ ...frame, handle: { ...point, confidence: .1 } }), /<line /);
 assert.doesNotMatch(render({ ...frame, head: { ...point, x: NaN } }), /<line /);
-const chooseStart = source.indexOf('  const clubVideoUnverified ='), chooseEnd = source.indexOf(';', source.indexOf('  const clubOverlay =', chooseStart));
+const chooseStart = source.indexOf('  const legacyClubOverlay ='), chooseEnd = source.indexOf(';', source.indexOf('  const clubOverlay =', chooseStart));
 const choose = source.slice(chooseStart, chooseEnd + 1);
 vm.runInContext(`function choose(overlay, clubSidecar, candidateVideoHash) { ${choose} return clubOverlay; }`, context);
 const primary = { clubFrames: [] }, side = { clubFrames: [frame], clubTimeSource: 'video_pts' };
+const primaryWithClub = { clubFrames: [frame], clubTimeSource: 'video_pts' };
+for (const sidecar of [undefined, { status: 'queued' }, { status: 'failed' }, { status: 'succeeded', overlay: {clubFrames:[frame]} }]) {
+  const legacy = context.choose(primaryWithClub, sidecar);
+  assert.equal(legacy.clubFrames[0].head, frame.head, 'keep the legacy head observation');
+  assert.equal(legacy.clubFrames[0].handle, undefined, 'do not show the legacy box center as a grip point');
+  assert.doesNotMatch(render(legacy.clubFrames[0]), /<line /, 'do not draw a shaft from a legacy box center');
+}
+assert.equal(primaryWithClub.clubFrames[0].handle, frame.handle, 'do not mutate the saved analysis');
 assert.equal(context.choose(primary, { status: 'succeeded', overlay: side }), side);
-assert.equal(context.choose(primary, { status: 'failed', overlay: side }), primary);
-assert.equal(context.choose(primary, { status: 'succeeded', overlay: { clubFrames: [frame] } }), primary);
+assert.equal(context.choose(primary, { status: 'failed', overlay: side }).clubFrames.length, 0);
+assert.equal(context.choose(primary, { status: 'succeeded', overlay: { clubFrames: [frame] } }).clubFrames.length, 0);
 const videoHash='a'.repeat(64), otherHash='b'.repeat(64);
 assert.equal(context.choose(primary, {status:'succeeded',pendingOverlay:side,overlayVideoSha256:videoHash}), null, 'an unbound fallback must not show on a video without a candidate');
 assert.equal(context.choose(primary, {status:'succeeded',pendingOverlay:side,overlayVideoSha256:videoHash}, otherHash), null, 'a different video cannot show the fallback trajectory');

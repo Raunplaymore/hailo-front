@@ -221,11 +221,14 @@ Object.assign(clockProps,{src:'motion',contour:null,requireFrameConfirmation:tru
 assert.equal(hasMotion(renderClock()),false,'a paused position without a frame callback cannot show a motion overlay');
 tick(4000);assert.equal(hasMotion(renderClock()),false,'a stalled callback stays withheld');
 frameRef.current={video:contourVideo,src:'motion',timeMs:860,expectedDisplayTime:3999};
-contourVideo.emit('seeked');tick(4001);
-assert.equal(hasMotion(renderClock()),true,'a matching displayed frame restores the motion overlay');
+clockProps.pausedFrameSignal=1;renderClock();tick(4001);
+assert.equal(hasMotion(renderClock()),true,'a late matching displayed frame restores the paused overlay without another seek');
 assert.equal(renderClock().props['data-overlay-time-ms'],860,'paused motion uses the confirmed source time');
 contourVideo.currentTime=.876767;
 assert.equal(hasMotion(renderClock()),false,'changing the playback position cannot reuse a previous confirmed frame');
+frameRef.current={video:contourVideo,src:'motion',timeMs:860,expectedDisplayTime:3999};
+clockProps.pausedFrameSignal=2;renderClock();tick(4002);
+assert.equal(hasMotion(renderClock()),false,'a late callback for a different frame must remain hidden');
 contourVideo.emit('seeking');frameRef.current={video:contourVideo,src:'motion',timeMs:860,expectedDisplayTime:3999};
 contourVideo.emit('seeked');tick(4002);
 assert.equal(hasMotion(renderClock()),false,'a stale callback cannot authorize a different paused frame');
@@ -266,6 +269,42 @@ clockProps.layers={pose:true,hands:true,club:true,events:true};
 clockProps.requireFrameConfirmation=false;
 assert.equal(hasMotion(renderClock()),true,'the existing unbound NAS display remains available');
 console.log('motion overlays require matching playback frames and recover without changing saved observations');
+
+const findGuide=node=>node && typeof node==='object' ? node.type===clockContext.MovementGuideOverlay ? node : node.children?.map(findGuide).find(Boolean) : null;
+const partialVideo=fakeVideo();partialVideo.currentTime=.1301;partialVideo.readyState=2;ref.current=partialVideo;clockSlots.length=0;
+Object.assign(clockProps,{src:'partial',playable:true,overlay:null,clubOverlay:null,contour:null,guideKind:'head',
+  movementGuide:{status:'unavailable',partialTracks:{head:{}}},frameTimes:[0,100,130,160,190],
+  presentedFrame:{current:null},requireFrameConfirmation:false,timeMs:130});
+assert.equal(findGuide(renderClock()).props.referenceOnly,true,'an unconfirmed partial guide shows only the fixed reference');
+partialVideo.deliver(130);assert.equal(findGuide(renderClock()).props.referenceOnly,false);
+partialVideo.currentTime=.1601;tick(5000);
+assert.equal(findGuide(renderClock()).props.referenceOnly,true,'a stale callback cannot show a moving point across a gap');
+partialVideo.deliver(160);assert.equal(findGuide(renderClock()).props.referenceOnly,false,'a new matching frame restores the partial guide');
+partialVideo.paused=true;partialVideo.requestVideoFrameCallback=undefined;clockProps.src='partial-unsupported';
+assert.equal(findGuide(renderClock()).props.referenceOnly,true,'unsupported browsers retain only the fixed reference');
+assert.match(motionNotice,/기준선만 보여요/);
+console.log('partial guide playback requires current frame confirmation');
+
+// A late paused callback must wake the confirmation check without using a stale video.
+const rootStart=source.indexOf('  useEffect(() => {\n    const video = videoRef.current;\n    presentedFrame.current = null;');
+const rootEnd=source.indexOf('  }, [jobId, reviewVideoUrl, videoUrl]);',rootStart);
+assert.ok(rootStart>=0 && rootEnd>rootStart);
+const rootEffect=source.slice(rootStart,rootEnd)+'  }, [jobId, reviewVideoUrl, videoUrl]);';
+const rootCallbacks=new Map(),rootListeners={},rootRef={current:null};let rootId=0,signals=0,cleanupRoot;
+const rootVideo={paused:false,seeking:false,requestVideoFrameCallback(fn){const id=++rootId;rootCallbacks.set(id,fn);return id;},
+  cancelVideoFrameCallback(id){rootCallbacks.delete(id);},addEventListener(name,fn){rootListeners[name]=fn;},
+  removeEventListener(name,fn){if(rootListeners[name]===fn)delete rootListeners[name];}};
+const deliverRoot=(ms)=>{const [id,fn]=rootCallbacks.entries().next().value;rootCallbacks.delete(id);fn(0,{mediaTime:ms/1000,expectedDisplayTime:1});};
+const rootContext=vm.createContext({useEffect:fn=>{cleanupRoot=fn();},videoRef:{current:rootVideo},presentedFrame:rootRef,
+  setPausedFrameSignal:fn=>{signals=fn(signals);},jobId:'job',reviewVideoUrl:'video',videoUrl:'video'});
+vm.runInContext((await esbuild.transform(rootEffect,{loader:'tsx'})).code,rootContext);
+deliverRoot(100);assert.equal(signals,0,'playback frames must not rerender the parent');
+rootVideo.paused=true;deliverRoot(200);assert.equal(signals,1,'a paused frame wakes confirmation');
+rootVideo.seeking=true;rootListeners.seeking();deliverRoot(300);assert.equal(signals,1,'a frame during a seek cannot wake confirmation');
+rootVideo.seeking=false;rootListeners.seeked();deliverRoot(400);assert.equal(signals,2);
+const lateRoot=[...rootCallbacks.values()][0];cleanupRoot();lateRoot(0,{mediaTime:.5,expectedDisplayTime:1});
+assert.equal(signals,2,'a callback from an unmounted video cannot wake confirmation');
+console.log('late paused frame callbacks trigger a bounded recheck');
 
 // Render the real selector to catch missing levels and accidental repeated cards.
 const clubSource = fs.readFileSync('src/components/analysis/ClubObservation.tsx', 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function');

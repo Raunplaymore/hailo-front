@@ -10,13 +10,25 @@ try {
  const {parseMovementGuide,guidePointAt,guideSegments,render,overlay}=await import(outfile);
  const points=Array.from({length:25},(_,i)=>({timeMs:100+i*40,x:.4+i*.002,y:.4}));
  const track={baseline:points[0],points,focusTimeMs:900,phase:'before'};
- const g={version:'movement-guide-v1',status:'ready',width:1080,height:1920,impactMs:1000,tracks:{pelvis:track}};
+ const g={version:'movement-guide-v1',coverageRevision:1,status:'ready',width:1080,height:1920,impactMs:1000,tracks:{pelvis:track}};
  assert.equal(parseMovementGuide(g),g);
+ assert.equal(parseMovementGuide({...g,coverageRevision:undefined}).status,'unavailable','legacy guides do not prove gap coverage');
  for(const patch of [{version:'bad'},{width:NaN},{height:0},{impactMs:Infinity},{tracks:{}},{tracks:{pelvis:{...track,focusTimeMs:5000}}},{tracks:{pelvis:{...track,phase:'after'}}},{tracks:{pelvis:{...track,points:[...points,points[0]]}}}]) assert.equal(parseMovementGuide({...g,...patch}),null);
  assert.equal(guidePointAt(track,1200),null,'do not carry stale pose into missing frames');
  assert.equal(guidePointAt(track,901).timeMs,900);
  const gap={...track,points:[points[0],points[1],points[15],points[16]]};
  assert.equal(guideSegments(gap,740).length,1,'never draw across a missing interval');
+ const partialTrack={...track,points:points.filter(p=>p.timeMs!==500),focusTimeMs:980,phase:'near',focusKind:'near_impact',missingTimes:[500]};
+ const partial={version:g.version,coverageRevision:1,status:'unavailable',width:1080,height:1920,impactMs:1000,partialTracks:{head:partialTrack}};
+ assert.equal(parseMovementGuide(partial),partial);
+ assert.equal(guidePointAt(partialTrack,500),null,'a missing observation cannot use a neighboring point');
+ assert.equal(guidePointAt(partialTrack,480),null,'a tie with a missing observation stays hidden');
+ assert.equal(guidePointAt(partialTrack,460).timeMs,460);
+ assert.ok(!guideSegments(partialTrack,540).some(([a,b])=>a.timeMs===460 && b.timeMs===540),'do not connect across a known gap');
+ for(const patch of [{missingTimes:[500,500]},{missingTimes:[460]},{missingTimes:[NaN]},{focusKind:'maximum'},{focusTimeMs:900,phase:'before'}]) {
+  assert.equal(parseMovementGuide({...partial,partialTracks:{head:{...partialTrack,...patch}}}),null);
+ }
+ assert.equal(parseMovementGuide({...partial,tracks:{head:track},status:'ready'}),null,'the same track cannot be complete and partial');
  const props={guide:g,active:'pelvis',timeMs:900,onActive(){},onSeek(){}};
  assert.match(render({...props,playable:false}), /disabled=""/);
  const html=render(props);assert.match(html,/골반 보기/);assert.match(html,/엉덩이 윤곽선이나 실제 회전 깊이는 아닙니다/);assert.match(html,/임팩트 전/);assert.match(html,/임팩트 후/);
@@ -29,6 +41,22 @@ try {
  assert.match(render({...props,timeMs:1400}),/현재 장면은 추적이 없어/);
  assert.match(overlay({guide:g,kind:'pelvis',timeMs:900}),/<ellipse/);
  assert.doesNotMatch(overlay({guide:g,kind:'pelvis',timeMs:1400}),/<ellipse/);
+ assert.doesNotMatch(overlay({guide:partial,kind:'head',timeMs:500}),/<ellipse/);
+ assert.match(overlay({guide:partial,kind:'head',timeMs:460}),/<ellipse/);
+ const referenceOnly=overlay({guide:partial,kind:'head',timeMs:460,referenceOnly:true});
+ assert.doesNotMatch(referenceOnly,/<ellipse/,'an unconfirmed scene must not display a current point');
+ assert.equal((referenceOnly.match(/<line /g)||[]).length,2,'only the fixed head reference remains');
+ const partialProps={...props,guide:partial,active:'head',partialPlayable:true};
+ assert.match(render(partialProps),/관측이 불확실한 장면의 점과 선은 숨겼습니다/);
+ assert.match(render({...partialProps,frameNotice:'장면 확인 중'}),/장면 확인 중/);
+ assert.doesNotMatch(render({...partialProps,active:null,frameNotice:'장면 확인 중'}),/장면 확인 중/);
+ assert.doesNotMatch(render({...partialProps,guide:{...partial,partialTracks:{head:{...partialTrack,missingTimes:[]}}}}),/점과 선은 숨겼습니다/);
+ assert.match(render(partialProps),/가장 크게 움직인 순간이라는 뜻은 아닙니다/);
+ assert.match(render({...partialProps,selectedImpact:true}),/선택한 장면 근처/);
+ const unsupported=render({...partialProps,partialPlayable:false});
+ assert.match(unsupported,/기준선만 표시합니다/);
+ const headButton=unsupported.match(/<button[^>]*>머리 보기<\/button>/)?.[0];assert.ok(headButton);
+ assert.doesNotMatch(headButton,/\sdisabled(?:=|\s|>)/,'the fixed reference remains available without frame callbacks');
  assert.doesNotMatch(html,/진단 완료|교정 성공|점수/);
  console.log('movement guide contract, gap hiding, phase controls and overlay checks passed');
 } finally {await rm(dir,{recursive:true,force:true});}

@@ -74,10 +74,15 @@ try {
   assert.throws(()=>parseCoachingReview({...result,evidence:{...evidence,cameraMotion:'similarity_corrected'}},'job',1000,100));
   assert.throws(()=>parseCoachingReview({...result,excludedFrames:[{timeMs:NaN,reason:'bad'}]},'job',1000,100));
   const guidePoints=Array.from({length:25},(_,i)=>({timeMs:100+i*40,x:.4+i*.002,y:.4}));
-  const guide={version:'movement-guide-v1',status:'ready',width:270,height:480,impactMs:1000,
+  const guide={version:'movement-guide-v1',coverageRevision:1,status:'ready',width:270,height:480,impactMs:1000,
     tracks:{pelvis:{baseline:guidePoints[0],points:guidePoints,focusTimeMs:900,phase:'before'}}};
   assert.equal(parseCoachingReview({...result,movementGuide:guide},'job',1000,100).movementGuide.impactMs,1000);
   assert.throws(()=>parseCoachingReview({...result,movementGuide:{...guide,impactMs:1050}},'job',1000,100),'reject an overlay for a different impact');
+  const partialTrack={...guide.tracks.pelvis,points:guidePoints.filter(p=>p.timeMs!==500),focusTimeMs:980,phase:'near',focusKind:'near_impact',missingTimes:[500]};
+  const partial={version:guide.version,coverageRevision:1,status:'unavailable',width:270,height:480,impactMs:1000,partialTracks:{head:partialTrack}};
+  assert.equal(parseCoachingReview({...unavailable,movementGuide:partial},'job',1000,100).movementGuide.partialTracks.head.focusTimeMs,980);
+  assert.throws(()=>parseCoachingReview({...unavailable,movementGuide:{...partial,impactMs:1010}},'job',1000,100),'partial guide must match the selected impact');
+  assert.throws(()=>parseCoachingReview({...unavailable,movementGuide:partial},'job',1000,500),'partial guide must match the selected address');
   assert.match(render('PelvisContourOverlay',{evidence:similarity,timeMs:860}),/x1="0.3" x2="0.32"/);
   assert.doesNotMatch(render('PelvisContourOverlay',{evidence:{...similarity,points:similarity.points.filter(p=>p.timeMs!==860)},timeMs:860}),/stroke="#fbbf24"/,'do not bridge excluded frames');
   const coverageUnavailable=render('CoachingObservation',{...props,result:{...unavailable,reason:'PHASE_COVERAGE_INSUFFICIENT'}});

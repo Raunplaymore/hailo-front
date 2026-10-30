@@ -50,10 +50,11 @@ export function parseCoachingReview(raw: unknown, jobId: string, impactMs: numbe
   const evidence = e && measuredEnd !== null && measuredEnd < e.endMs ? { ...e, endMs: measuredEnd } : e;
   if (evidence && evidence.focusMs > evidence.endMs) throw new Error("근거 장면과 분석 결과가 일치하지 않습니다.");
   const movementGuide = parseMovementGuide(value.movementGuide);
-  if (movementGuide?.status === "ready" && Math.abs(movementGuide.impactMs! - impactMs) > 1) {
+  const hasGuide = movementGuide?.status === "ready" || Boolean(movementGuide?.partialTracks);
+  if (hasGuide && Math.abs(movementGuide!.impactMs! - impactMs) > 1) {
     throw new Error("움직임 확인 장면과 분석 기준이 일치하지 않습니다.");
   }
-  if (movementGuide?.status === "ready" && Object.values(movementGuide.tracks ?? {}).some(track =>
+  if (hasGuide && [...Object.values(movementGuide!.tracks ?? {}), ...Object.values(movementGuide!.partialTracks ?? {})].some(track =>
     track && (track.baseline.timeMs < Math.max(0, addressMs - 106) || track.baseline.timeMs > addressMs + 190))) {
     throw new Error("움직임 확인 장면과 분석 기준이 일치하지 않습니다.");
   }

@@ -19,6 +19,11 @@ export class ApiError extends Error {
   }
 }
 
+export function isShotStoreUnavailable(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status >= 500 && error.body !== null && typeof error.body === "object"
+    && (error.body as { errorCode?: unknown }).errorCode === "SHOT_STORE_UNAVAILABLE";
+}
+
 const guessBaseFromHost = (): string => {
   if (typeof window === "undefined") return LOCAL_BASE;
   const host = window.location.hostname;

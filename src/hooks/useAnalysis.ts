@@ -52,7 +52,7 @@ export function useAnalysis(selected: Shot | null): UseAnalysisResult {
     setStatus(existingAnalysis?.status ?? selected?.status ?? "idle");
     setError(null);
 
-    if (!jobId) {
+    if (!jobId || (!existingAnalysis && (selected?.status === "not-analyzed" || selected?.status === "idle"))) {
       setIsLoading(false);
       return () => undefined;
     }

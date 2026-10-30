@@ -13,7 +13,7 @@ try {
   const {useShots, useAnalysis, begin, effects, reset} = await import(outfile);
   const requests = [];
   let release;
-  globalThis.fetch = async url => {requests.push(String(url)); await new Promise(resolve => {release = resolve;}); return {ok: true, status: 200, text: async () => JSON.stringify({ok:true, files:[{filename:'done.mov',jobId:'done',status:'succeeded'},{filename:'active.mov',jobId:'active',status:'running'}]})};};
+  globalThis.fetch = async url => {requests.push(String(url)); await new Promise(resolve => {release = resolve;}); return {ok: true, status: 200, text: async () => JSON.stringify({ok:true, files:[{filename:'done.mov',jobId:'done',status:'succeeded',sourceType:'camera',metaPath:'/tmp/camera.meta.json'},{filename:'active.mov',jobId:'active',status:'running'}]})};};
   begin(); let hook = useShots();
   const first = hook.refresh(); await hook.refresh();
   assert.equal(requests.length,1,'overlapping list requests must be skipped');
@@ -22,6 +22,8 @@ try {
   release(); await new Promise(setImmediate);
   begin(); hook=useShots();
   assert.equal(hook.shots.length,2); assert.equal(hook.shots[0].analysis,null);
+  assert.equal(hook.shots.find(shot=>shot.filename==='done.mov').sourceType,'camera');
+  assert.equal(hook.shots.find(shot=>shot.filename==='done.mov').metaPath,'/tmp/camera.meta.json');
   const update=hook.refresh({silent:true,activeOnly:true});
   assert.match(requests[2],/summary=true/); assert.match(requests[2],/jobIds=active/);
   release(); await update;
@@ -38,6 +40,13 @@ try {
   assert.equal(hook.shots[0].filename,'legacy.mov','404 retains the legacy API fallback');
   assert.equal(hook.error,null,'successful retry clears the stale error');
   assert.equal(requests.length,2);
+  requests.length=0;
+  globalThis.fetch=async url=>{requests.push(String(url));return {ok:true,status:200,text:async()=>JSON.stringify({status:'failed',errorMessage:'unexpected analysis'})};};
+  reset(); useAnalysis({id:'orphan',jobId:'orphan',filename:'orphan.mp4',status:'not-analyzed',analysis:null});
+  const noAnalysisCleanups=effects.map(effect=>effect());
+  await new Promise(setImmediate);
+  assert.equal(requests.length,0,'opening a video before analysis must not query or create an analysis job');
+  noAnalysisCleanups.forEach(cleanup=>cleanup?.());
   // Completed status contains the result: no second result request is needed.
   requests.length=0;
   globalThis.fetch=async url=>{requests.push(String(url));return {ok:true,status:200,text:async()=>JSON.stringify(String(url).endsWith('/club-review')

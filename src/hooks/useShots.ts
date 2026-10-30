@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Shot } from "../types/shots";
 import { fetchShots } from "../api/shots";
+import { isShotStoreUnavailable } from "../api/client";
 
 type UseShotsResult = {
   shots: Shot[];
@@ -48,7 +49,7 @@ export function useShots(): UseShotsResult {
       }
     } catch (err) {
       console.error(err);
-      setError("영상 목록을 불러오지 못했습니다.");
+      setError(isShotStoreUnavailable(err) ? err.message : "영상 목록을 불러오지 못했습니다.");
     } finally {
       inFlight.current = false;
       if (!silent) setIsLoading(false);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createAnalysisJob } from "../api/shots";
+import { ApiError, isShotStoreUnavailable } from "../api/client";
 import { Shot } from "../types/shots";
 
 export type UploadStatus = "idle" | "uploading" | "succeeded" | "failed";
@@ -27,6 +28,7 @@ export function useUpload(hookOptions?: UseUploadOptions) {
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [message, setMessage] = useState<string>("");
   const [activeFilename, setActiveFilename] = useState<string>("");
+  const [needsRecordCheck, setNeedsRecordCheck] = useState(false);
 
   const start = async (
     file: File,
@@ -47,6 +49,7 @@ export function useUpload(hookOptions?: UseUploadOptions) {
     }
   ): Promise<Shot | undefined> => {
     setActiveFilename(file.name);
+    setNeedsRecordCheck(false);
     if (!isSupportedVideoFile(file)) {
       setStatus("failed");
       setMessage("지원하지 않는 영상 형식입니다. MP4 또는 iPhone MOV 파일을 선택하세요.");
@@ -66,11 +69,17 @@ export function useUpload(hookOptions?: UseUploadOptions) {
     } catch (error) {
       console.error(error);
       const message = error instanceof Error ? error.message : "업로드 실패. 다시 시도하세요.";
+      const storeUnavailable = isShotStoreUnavailable(error);
+      const needsCheck = storeUnavailable || !(error instanceof ApiError) || error.status >= 500 || error.status < 400;
+      setNeedsRecordCheck(needsCheck);
       setStatus("failed");
-      setMessage(`업로드 실패: ${message}`);
+      setMessage(storeUnavailable ? message : needsCheck
+        ? "업로드가 완료됐는지 확인할 수 없습니다. 기록을 확인한 뒤 다시 시도해 주세요."
+        : `업로드 실패: ${message}`);
       return undefined;
     }
   };
 
-  return { status, isUploading: status === "uploading", message, activeFilename, start, setMessage };
+  const clearRecordCheck = () => { setNeedsRecordCheck(false); setStatus("idle"); setMessage(""); };
+  return { status, isUploading: status === "uploading", message, activeFilename, needsRecordCheck, clearRecordCheck, start, setMessage };
 }

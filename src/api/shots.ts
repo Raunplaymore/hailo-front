@@ -50,6 +50,7 @@ type FilesDetailRes = {
     url?: string;
     shotId?: string;
     jobId?: string;
+    sourceType?: SourceType | null;
     analyzed?: boolean;
     status?: JobStatus;
     size?: number;
@@ -871,6 +872,8 @@ export const fetchShots = async (jobIds?: string[]): Promise<Shot[]> => {
             createdAt: f.modifiedAt || new Date().toISOString(),
             url: f.url,
             jobId: f.jobId,
+            sourceType: f.sourceType,
+            metaPath: f.metaPath,
             analyzed: f.analyzed,
             status: f.status,
           analysis: f.analysis,
@@ -987,7 +990,7 @@ export const createAnalysisJob = async (
   try {
     res = await send("/api/analyze");
   } catch (primaryError) {
-    if (!isFallbackableApiError(primaryError)) {
+    if (!(primaryError instanceof ApiError) || ![404, 405].includes(primaryError.status)) {
       throw primaryError;
     }
     console.warn("createAnalysisJob: /api/analyze unavailable, fallback to /api/upload?analyze=true", primaryError);
@@ -1091,6 +1094,16 @@ export const fetchAnalysisResult = async (jobId: string): Promise<AnalysisResult
 // 호환성을 위해 유지
 export const fetchAnalysis = fetchAnalysisResult;
 export const createShot = createAnalysisJob;
+
+export const createAnalysisJobForStoredUpload = async (
+  filename: string,
+  options?: { force?: boolean; club?: string; viewpoint?: "down_the_line" | "face_on"; handedness?: "right" | "left" }
+): Promise<{ jobId: string; filename: string; status?: JobStatus }> => {
+  const body = new Blob([JSON.stringify({ filename, options })], { type: "application/json" });
+  const res = await client.post<{ ok?: boolean; jobId?: string; filename?: string; status?: string }>("/api/analyze/existing-upload", body);
+  if (res.ok !== true || !res.jobId) throw new Error("저장된 영상의 분석을 시작하지 못했습니다.");
+  return { jobId: res.jobId, filename: res.filename ?? filename, status: normalizeJobStatus(res.status) };
+};
 
 export const createAnalysisJobFromFile = async (
   filename: string,

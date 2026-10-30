@@ -44,7 +44,7 @@ import {
   SessionApiError,
   stopSession,
 } from "./api/sessionApi";
-import { createAnalysisJob, createAnalysisJobFromFile, fetchAnalysisStatus, retryNasArchive } from "./api/shots";
+import { createAnalysisJobForStoredUpload, createAnalysisJobFromFile, fetchAnalysisStatus, retryNasArchive } from "./api/shots";
 import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { InferDebugPage } from "./components/debug/InferDebugPage";
@@ -1272,38 +1272,20 @@ function MainApp() {
     };
   }, [sessionState, sessionAnalysisJobId, sessionFilename]);
 
+  const startStoredAnalysis = (shot: Shot, force = false) => {
+    const options = { force, club: settings.club, viewpoint: settings.viewpoint, handedness: settings.handedness };
+    return shot.sourceType === "camera"
+      ? createAnalysisJobFromFile(shot.filename, { ...options, jobId: shot.jobId ?? undefined, metaPath: shot.metaPath })
+      : createAnalysisJobForStoredUpload(shot.filename, options);
+  };
+
   const handleAnalyzeShot = async (shot: Shot) => {
     setAnalyzingId(shot.id);
     setAnalyzeError(null);
     try {
-      let jobId: string | null = null;
-      let nextStatus: any = "queued";
-
-      try {
-        const res = await createAnalysisJobFromFile(shot.filename, {
-          metaPath: shot.metaPath,
-          club: settings.club,
-          viewpoint: settings.viewpoint,
-          handedness: settings.handedness,
-        });
-        jobId = res.jobId;
-        nextStatus = res.status ?? "queued";
-      } catch (err) {
-        // 백엔드가 from-file API를 아직 제공하지 않는 경우 fallback (재업로드 방식)
-        console.warn("createAnalysisJobFromFile failed, fallback to upload", err);
-        if (!shot.videoUrl) throw err;
-        const videoRes = await fetch(shot.videoUrl);
-        const blob = await videoRes.blob();
-        const file = new File([blob], shot.filename, { type: blob.type || "video/mp4" });
-        const analyzedShot = await createAnalysisJob(file, shot.sourceType ?? "upload", settings);
-        jobId = analyzedShot.jobId ?? analyzedShot.id;
-        nextStatus = analyzedShot.status ?? "queued";
-      }
-
-      if (jobId) {
-        selectShot({ ...shot, jobId, status: nextStatus });
-        setSelectedSession(null);
-      }
+      const res = await startStoredAnalysis(shot);
+      selectShot({ ...shot, jobId: res.jobId, status: res.status ?? "queued", analysis: null, errorCode: null, errorMessage: null });
+      setSelectedSession(null);
       setActiveTab("analysis");
       void refreshShots({ silent: true });
     } catch (err) {
@@ -1318,14 +1300,8 @@ function MainApp() {
     setAnalyzingId(shot.id);
     setAnalyzeError(null);
     try {
-      const res = await createAnalysisJobFromFile(shot.filename, {
-        force: true,
-        metaPath: shot.metaPath,
-        club: settings.club,
-        viewpoint: settings.viewpoint,
-        handedness: settings.handedness,
-      });
-      selectShot({ ...shot, jobId: res.jobId, status: res.status ?? "queued" });
+      const res = await startStoredAnalysis(shot, true);
+      selectShot({ ...shot, jobId: res.jobId, status: res.status ?? "queued", analysis: null, errorCode: null, errorMessage: null });
       setSelectedSession(null);
       setActiveTab("analysis");
       void refreshShots({ silent: true });
@@ -1463,6 +1439,13 @@ function MainApp() {
           message={upload.message}
           activeFilename={upload.activeFilename}
           settings={settings}
+          needsRecordCheck={upload.needsRecordCheck}
+          onReviewRecords={() => {
+            upload.clearRecordCheck();
+            setListMode("uploads");
+            setActiveTab("list");
+            void refreshShots();
+          }}
           onUpload={async (file) => {
             const shot = await upload.start(file, "upload", settings);
             if (shot) {
@@ -1503,6 +1486,7 @@ function MainApp() {
           <div className="flex min-h-11 min-w-0 items-center gap-2"><Button variant="ghost" fullWidth={false} size="icon" aria-label="기록으로 돌아가기" onClick={() => setActiveTab("list")}><ArrowLeft className="size-5" /></Button><div className="min-w-0"><p className="sr-only">스윙 확인</p><h1 className="truncate text-base font-semibold">{formatMediaTitle(analysisTarget.filename, analysisTarget.originalName)}</h1></div></div>
 
           <div className="space-y-2">
+            {analyzeError && <p role="alert" className="text-sm text-destructive">{analyzeError}</p>}
             {isAnalysisLoading && <p className="text-sm text-muted-foreground">분석 상태를 불러오는 중...</p>}
             {analysisError && <p className="text-sm text-destructive">{analysisError}</p>}
             {jobStatus === "failed" && !analysis && selectedShot?.errorMessage && (

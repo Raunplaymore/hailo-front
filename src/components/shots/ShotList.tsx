@@ -75,7 +75,7 @@ export function ShotList({
     <Card className="min-w-0 max-w-full border-0 bg-transparent shadow-none">
       <CardHeader className="flex-row items-center justify-between gap-3 px-0 pb-2 pt-0">
         <div className="min-w-0">
-          <CardTitle className="text-sm text-muted-foreground">{title} · {shots.length}개</CardTitle>
+          <CardTitle className="text-sm text-muted-foreground">{title}{!error && <> · {shots.length}개</>}</CardTitle>
         </div>
         <Button
           type="button"
@@ -93,7 +93,7 @@ export function ShotList({
         {error && <p role="alert" className="mb-2 text-sm text-red-300">{error}</p>}
         {shots.length === 0 ? (
           <div className="rounded-xl border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
-            {isLoading ? "영상을 불러오는 중…" : error ? "연결을 확인하고 새로고침해 주세요." : emptyMessage}
+            {isLoading ? "영상을 불러오는 중…" : error ? "문제가 해결된 뒤 새로고침해 주세요." : emptyMessage}
           </div>
         ) : (
           <ul className="m-0 grid min-w-0 list-none gap-3 p-0">
@@ -121,7 +121,7 @@ export function ShotList({
                   key={shot.id}
                   className="flex w-full min-w-0 flex-wrap items-start gap-3 border-b border-border py-4 text-sm last:border-0"
                 >
-                  <button type="button" aria-label={`${displayTitle} 열기`} onClick={() => shot.jobId && onReview ? onReview(shot) : onSelect(shot)} className="relative grid aspect-[4/3] w-24 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground sm:w-36">
+                  <button type="button" aria-label={`${displayTitle} 열기`} onClick={() => shot.jobId && onReview && !isAnalyzeAvailable ? onReview(shot) : onSelect(shot)} className="relative grid aspect-[4/3] w-24 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground sm:w-36">
                     <ImageIcon className="h-6 w-6" aria-hidden="true" />
                     {shot.thumbnailUrl && (
                       <img
@@ -138,7 +138,7 @@ export function ShotList({
                     {onTitleClick ? (
                       <button
                         type="button"
-                        onClick={() => shot.jobId ? onTitleClick(shot) : onSelect(shot)}
+                        onClick={() => shot.jobId && !isAnalyzeAvailable ? onTitleClick(shot) : onSelect(shot)}
                         className="block min-h-12 w-full max-w-full break-words text-left text-sm font-semibold leading-5 text-foreground [overflow-wrap:anywhere] hover:underline"
                         style={TITLE_CLAMP_STYLE}
                       >

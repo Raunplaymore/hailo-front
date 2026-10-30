@@ -48,7 +48,12 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
         <p className="mb-1 text-xs leading-5 text-muted-foreground">두 장면이 각각 백스윙과 다운스윙인지, 노란 선이 실제 클럽과 맞는지 확인하세요.</p>
         <div aria-live="polite">
           <p className="text-sm font-medium">{selected.direction === "steeper" ? "내려올 때 더 세워져 보임" : selected.direction === "flatter" ? "내려올 때 더 누워져 보임" : "차이 방향 불확실"}</p>
-          <p className="text-xs leading-5 text-muted-foreground">추정한 클럽 위치로 비교했어요.{selected.sensitiveTo10Px ? " 위치가 달라지면 비교가 불확실해질 수 있어요." : ""}</p>
+          <p className="text-xs leading-5 text-muted-foreground">{selected.frameEdgeReason === "unverified"
+            ? "이전 결과라 클럽이 화면 가장자리에 걸쳤는지 확인하지 못했어요. 다시 계산해 확인해 주세요."
+            : selected.frameEdgeReason === "possible"
+              ? "비교에 쓰일 클럽이 화면 가장자리에 걸쳤을 수 있어 방향 비교를 보류했어요."
+              : `추정한 클럽 위치로 비교했어요.${selected.sensitiveTo10Px ? " 위치가 달라지면 비교가 불확실해질 수 있어요." : ""}`}</p>
+          {selected.frameEdgeReason === "unverified" && <button type="button" disabled={loading} onClick={() => run(true)} className="mt-1 min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-60">{loading ? "다시 계산 중…" : "클럽 관측 다시 계산"}</button>}
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {([["backswing", "백스윙", selected.backswingMs], ["downswing", "다운스윙", selected.downswingMs]] as const).map(([key, label, ms]) => <button key={key} type="button" aria-pressed={phase === key} disabled={!playable} className={`min-h-11 rounded-lg border text-sm disabled:opacity-40 ${phase === key ? "border-primary bg-primary/15 text-primary" : "border-border"}`} onClick={() => { setPhase(key); onSeek(ms); }}>{label} · {(ms / 1000).toFixed(2)}초</button>)}

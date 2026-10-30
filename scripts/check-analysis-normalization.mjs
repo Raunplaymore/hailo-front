@@ -265,13 +265,28 @@ try {
   }
   const legacy = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", overlay: { ...sideOverlay, clubTimeSource: undefined } } }, "legacy");
   assert.equal(legacy.dtlClubPointsV2.overlay.clubTimeSource, undefined);
-  const observation = { revision: 1, status: "research_observation", automaticCoachingReady: false, levels: [{
-    status: "observation", heightFraction: .5, backswing: { timeMs: 100 }, downswing: { timeMs: 300 }, inclinationDifferenceDeg: 10,
+  const observation = { revision: 1, edgeCheck: "bbox-v1", status: "research_observation", automaticCoachingReady: false, levels: [{
+    status: "observation", heightFraction: .5, backswing: { timeMs: 100, head: {frameEdge:false}, handle: {frameEdge:false} }, downswing: { timeMs: 300, head: {frameEdge:false}, handle: {frameEdge:false} }, inclinationDifferenceDeg: 10,
     sensitivity: [{ endpointRadiusPx: 5, differenceBoundsDeg: [5, 15], direction: "steeper" }],
   }] };
   const observed = normalizeAnalysis({ dtlClubPointsV2: { status: "succeeded", observations: observation } }, "observed");
   assert.equal(observed.dtlClubPointsV2.observations.levels[0].downswingMs, 300);
+  assert.equal(observed.dtlClubPointsV2.observations.levels[0].direction, 'steeper');
   assert.equal(observed.dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, undefined, 'older responses do not claim ten-pixel stability');
+  const edgeLevel = input => normalizeAnalysis({dtlClubPointsV2:{observations:input}}, 'edge').dtlClubPointsV2.observations.levels[0];
+  assert.equal(edgeLevel({...observation,edgeCheck:undefined}).direction, 'pair_uncertain');
+  assert.equal(edgeLevel({...observation,edgeCheck:undefined}).frameEdgeReason, 'unverified');
+  const edgePoint = structuredClone(observation); edgePoint.levels[0].backswing.head.frameEdge = true;
+  assert.equal(edgeLevel(edgePoint).direction, 'pair_uncertain');
+  assert.equal(edgeLevel(edgePoint).frameEdgeReason, 'possible');
+  const unknownPoint = structuredClone(observation); delete unknownPoint.levels[0].downswing.handle.frameEdge;
+  assert.equal(edgeLevel(unknownPoint).direction, 'pair_uncertain');
+  const edgeCandidate = structuredClone(observation); edgeCandidate.levels[0].sensitivity[0].frameEdgeRisk = true;
+  assert.equal(edgeLevel(edgeCandidate).direction, 'pair_uncertain');
+  const edgeOverlay = normalizeAnalysis({dtlClubPointsV2:{status:'succeeded',overlay:{...sideOverlay,
+    clubFrames:[{timeMs:17,head:{x:.2,y:.3,frameEdge:true},handle:{x:.4,y:.3,frameEdge:false}}]}}},'edge-overlay');
+  assert.equal(edgeOverlay.dtlClubPointsV2.overlay.clubFrames[0].head.frameEdge,true);
+  assert.equal(edgeOverlay.dtlClubPointsV2.overlay.clubFrames[0].handle.frameEdge,false);
   observation.levels[0].sensitivity.push({ endpointRadiusPx: 10, differenceBoundsDeg: [-5, 20], direction: 'unresolved', pairAvailabilityStable: true });
   assert.equal(normalizeAnalysis({dtlClubPointsV2:{observations:observation}}, 'sensitive').dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, true);
   observation.levels[0].sensitivity[1] = { endpointRadiusPx: 10, differenceBoundsDeg: [-5, 20], direction: 'pair_uncertain', pairAvailabilityStable: false };

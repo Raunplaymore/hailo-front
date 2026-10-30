@@ -515,6 +515,7 @@ const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefine
 
 function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observations"] {
   if (raw?.revision !== 1 || raw?.automaticCoachingReady !== false || !Array.isArray(raw.levels)) return null;
+  const edgeChecked = raw.edgeCheck === "bbox-v1";
   const levels: ClubObservationLevel[] = raw.levels.slice(0, 5).flatMap((row: any) => {
     const test = Array.isArray(row?.sensitivity) ? row.sensitivity.find((s: any) => s?.endpointRadiusPx === 5) : null;
     const values = [row?.heightFraction, row?.backswing?.timeMs, row?.downswing?.timeMs, row?.inclinationDifferenceDeg, test?.differenceBoundsDeg?.[0], test?.differenceBoundsDeg?.[1]];
@@ -527,8 +528,13 @@ function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observatio
     const validBounds = Array.isArray(bounds) && bounds.length === 2 && bounds.every((v: any) => typeof v === "number" && Number.isFinite(v)) && bounds[0] <= bounds[1];
     const uncertainAt10 = validBounds && ((larger.direction === "unresolved" && larger.pairAvailabilityStable === true && bounds[0] <= 0 && bounds[1] >= 0)
       || (larger.direction === "pair_uncertain" && larger.pairAvailabilityStable === false));
-    return [{ heightFraction: values[0], backswingMs: values[1], downswingMs: values[2], differenceDeg: values[3], lowerDeg: values[4], upperDeg: values[5], direction: test.direction,
-      ...(["steeper", "flatter"].includes(test.direction) && uncertainAt10 ? { sensitiveTo10Px: true as const } : {}) }];
+    const selectedEdgeUnknown = [row.backswing, row.downswing].some((frame: any) =>
+      [frame?.head, frame?.handle].some((point: any) => point?.frameEdge !== false));
+    const frameEdgeReason = !edgeChecked ? "unverified" : test.frameEdgeRisk === true || selectedEdgeUnknown ? "possible" : undefined;
+    const direction = frameEdgeReason ? "pair_uncertain" : test.direction;
+    return [{ heightFraction: values[0], backswingMs: values[1], downswingMs: values[2], differenceDeg: values[3], lowerDeg: values[4], upperDeg: values[5], direction,
+      ...(frameEdgeReason ? { frameEdgeReason } : {}),
+      ...(["steeper", "flatter"].includes(direction) && uncertainAt10 ? { sensitiveTo10Px: true as const } : {}) }];
   });
   return { status: String(raw.status), levels, ...(raw.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? {reason: raw.reason} : {}) };
 }
@@ -596,7 +602,8 @@ const normalizeOverlay = (raw: any): AnalysisOverlay | null => {
   if (!raw || typeof raw !== "object" || raw.coordinateSpace !== "normalized") return null;
   const point = (value: any) =>
     value && typeof value === "object" && Number.isFinite(Number(value.x)) && Number.isFinite(Number(value.y))
-      ? { x: Number(value.x), y: Number(value.y), confidence: toOptionalNumber(value.confidence) }
+      ? { x: Number(value.x), y: Number(value.y), confidence: toOptionalNumber(value.confidence),
+          ...(typeof value.frameEdge === "boolean" ? { frameEdge: value.frameEdge } : {}) }
       : undefined;
   const poseFrames = Array.isArray(raw.poseFrames)
     ? raw.poseFrames

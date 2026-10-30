@@ -111,7 +111,7 @@ export type AnalysisProgress = {
   detail?: Record<string, unknown> | null;
 };
 
-export type OverlayPoint = { x: number; y: number; confidence?: number | null };
+export type OverlayPoint = { x: number; y: number; confidence?: number | null; frameEdge?: boolean };
 export type OverlayPoseFrame = { timeMs: number; frame?: number; keypoints: Record<string, [number, number, number?]> };
 export type OverlayClubFrame = { timeMs: number; frame?: number; head?: OverlayPoint; handle?: OverlayPoint; headBreakBefore?: boolean; handleBreakBefore?: boolean; headValidUntilMs?: number; handleValidUntilMs?: number };
 export type AnalysisOverlay = {
@@ -158,6 +158,7 @@ export type ClubObservationLevel = {
   differenceDeg: number; lowerDeg: number; upperDeg: number;
   direction: "steeper" | "flatter" | "unresolved" | "pair_uncertain";
   sensitiveTo10Px?: true;
+  frameEdgeReason?: "unverified" | "possible";
 };
 export type DtlClubPointsV2Sidecar = {
   observations?: { status: string; levels: ClubObservationLevel[]; reason?: "IMPACT_CANDIDATE_UNAVAILABLE" } | null;

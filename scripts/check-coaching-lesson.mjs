@@ -9,7 +9,7 @@ try {
   const outfile = join(dir, 'lesson.cjs');
   await build({
     stdin: {
-      contents: `import {createElement} from 'react'; import {renderToStaticMarkup} from 'react-dom/server'; import {CoachingLesson} from './src/components/analysis/CoachingLesson'; export const render=topic=>renderToStaticMarkup(createElement(CoachingLesson,{topic}));`,
+      contents: `import {createElement} from 'react'; import {renderToStaticMarkup} from 'react-dom/server'; import {CoachingLesson} from './src/components/analysis/CoachingLesson'; export const render=(topic,referenceVideo=false)=>renderToStaticMarkup(createElement(CoachingLesson,{topic,referenceVideo}));`,
       resolveDir: process.cwd(), loader: 'tsx',
     },
     bundle: true, platform: 'node', format: 'cjs', outfile,
@@ -41,6 +41,12 @@ try {
   assert.match(head, /코 한 점의 이동에는 얼굴 회전이 섞입니다/);
   assert.match(head, /href="https:\/\/www.titleist.com\/videos\/instruction\/golf-myths-keep-your-head-still"/);
   assert.doesNotMatch(head, /골반이 돌아갈 공간/);
+  const reference = render('pelvis', true);
+  assert.match(reference, /전문가 동작 시범/);
+  assert.match(reference, /YouTube/);
+  assert.match(reference, /aria-expanded="false"/);
+  assert.doesNotMatch(reference, /<iframe|youtube-nocookie\.com\/embed/,'external player must not load before a user chooses it');
+  assert.doesNotMatch(render('head', true), /전문가 동작 시범/);
   console.log('coaching lesson: sourced topics, accessible disclosure and education boundaries passed');
 } finally {
   await rm(dir, { recursive: true, force: true });

@@ -1,16 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { requestCoachingReview, type CoachingReview as Review, type CoachingEvidence } from "@/api/coachingReview";
 import { CoachingLesson } from "./CoachingLesson";
 
 const button = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
 export type ContourStatus = "checking" | "playing" | "shown" | "other" | "unverified";
-export function CoachingReview({ jobId, videoSha256, addressMs, selectedAddress = false, hasAddressCandidate = false, onChooseAddress, onResetAddress, addressSelectionError, canChooseAddress = false, impactMs, impactFrameIndex, candidatePending, analysisReady, analysisError, onRetryAnalysis, playable, contourStatus, canRetryContour, onResult, onEvidence, onSeek, onRetryContour }: {
+export function CoachingReview({ jobId, videoSha256, addressMs, selectedAddress = false, hasAddressCandidate = false, onChooseAddress, onResetAddress, addressSelectionError, canChooseAddress = false, impactMs, impactFrameIndex, candidatePending, analysisReady, analysisError, onRetryAnalysis, playable, contourStatus, canRetryContour, onResult, onEvidence, onSeek, onRetryContour, active = true, sourceVideoRef, onReferenceOpen }: {
   jobId: string; videoSha256?: string; addressMs?: number; impactMs?: number; candidatePending: boolean; analysisReady: boolean; playable: boolean;
   selectedAddress?: boolean; hasAddressCandidate?: boolean; onChooseAddress?: () => void; onResetAddress?: () => void;
   addressSelectionError?: string | null; canChooseAddress?: boolean;
   analysisError?: string | null;
   onRetryAnalysis?: () => void;
   impactFrameIndex?: number; contourStatus?: ContourStatus; canRetryContour?: boolean;
+  active?: boolean; sourceVideoRef?: RefObject<HTMLVideoElement | null>; onReferenceOpen?: () => void;
   onResult: (value: Review | null) => void; onEvidence: (evidence: CoachingEvidence) => void; onSeek: (ms: number) => void;
   onRetryContour?: (ms: number) => void;
 }) {
@@ -55,7 +56,7 @@ export function CoachingReview({ jobId, videoSha256, addressMs, selectedAddress 
         : error ? <div role="alert" className="mt-4 space-y-2"><p className="text-sm">{error}</p><button type="button" className={button} onClick={() => setAttempt(n => n + 1)}>근거 다시 불러오기</button></div>
         : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} selectedImpact={impactFrameIndex !== undefined} contourStatus={contourStatus} canRetryContour={canRetryContour} onRetryContour={onRetryContour} />}
     </div>
-    <CoachingLesson topic="pelvis" />
+    <CoachingLesson topic="pelvis" referenceVideo active={active} sourceVideoRef={sourceVideoRef} onReferenceOpen={onReferenceOpen} />
   </section>;
 }
 

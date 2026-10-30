@@ -1,6 +1,20 @@
-export function CoachingLesson({ topic }: { topic: "pelvis" | "head" }) {
+import { useEffect, useState, type RefObject } from "react";
+
+export function CoachingLesson({ topic, referenceVideo = false, active = true, sourceVideoRef, onReferenceOpen }: {
+  topic: "pelvis" | "head"; referenceVideo?: boolean; active?: boolean;
+  sourceVideoRef?: RefObject<HTMLVideoElement | null>; onReferenceOpen?: () => void;
+}) {
   const pelvis = topic === "pelvis";
-  return <details className="group rounded-xl border border-border bg-card">
+  const [showReference, setShowReference] = useState(false);
+  useEffect(() => { if (!active || !pelvis) setShowReference(false); }, [active, pelvis]);
+  useEffect(() => {
+    const video = sourceVideoRef?.current;
+    if (!showReference || !video) return;
+    const close = () => setShowReference(false);
+    video.addEventListener("play", close);
+    return () => video.removeEventListener("play", close);
+  }, [showReference, sourceVideoRef]);
+  return <details className="group rounded-xl border border-border bg-card" onToggle={event => { if (!event.currentTarget.open) setShowReference(false); }}>
     <summary className="min-h-12 cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       교습 원리와 연습
       <span className="mt-1 block pl-4 text-xs font-normal text-muted-foreground">{pelvis ? "골반이 돌아갈 공간" : "머리는 안정적으로, 회전은 자연스럽게"}</span>
@@ -9,6 +23,19 @@ export function CoachingLesson({ topic }: { topic: "pelvis" | "head" }) {
       <p className="text-xs leading-5 text-muted-foreground">내 영상의 판정과 별개인 일반 교습 안내입니다.</p>
       {pelvis ? <>
         <p className="text-sm leading-6">얼리 익스텐션은 다운스윙에서 몸이 일찍 펴지며 골반이 준비 자세보다 공 쪽으로 가까워지는 패턴을 말합니다. 이때 팔과 클럽이 지나갈 공간이 줄어들 수 있습니다.</p>
+        {referenceVideo && <section className="space-y-2 rounded-lg bg-muted/50 p-3" aria-label="전문가 동작 시범">
+          <p className="text-sm font-semibold">전문가 동작 시범</p>
+          <p className="text-xs text-muted-foreground">Dave Phillips · Titleist · YouTube · 영어 · 약 2분 30초</p>
+          <p className="text-xs leading-5 text-muted-foreground">준비 자세부터 내려오는 구간까지 엉덩이 뒤쪽과 기준선의 관계를 보세요. 아래에 한국어 연습 요약이 있습니다. 촬영 각도와 체형이 다르므로 모양을 그대로 맞출 필요는 없습니다.</p>
+          <button type="button" aria-expanded={showReference} className="min-h-11 w-full rounded-lg border border-border px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => {
+            if (!showReference) onReferenceOpen?.();
+            setShowReference(!showReference);
+          }}>{showReference ? "시범 영상 닫기" : "시범 영상 보기"}</button>
+          {showReference && <div className="space-y-2">
+            <iframe className="aspect-video w-full rounded-lg border-0" title="Dave Phillips 골반 움직임 시범" src="https://www.youtube-nocookie.com/embed/IbslJLSPA20?rel=0" referrerPolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+            <a href="https://www.youtube.com/watch?v=IbslJLSPA20" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-xs font-semibold text-primary underline">YouTube에서 열기</a>
+          </div>}
+        </section>}
         <figure className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <PelvisIllustration thrust={false} />

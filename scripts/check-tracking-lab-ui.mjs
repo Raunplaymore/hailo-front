@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
+import { transform } from "esbuild";
 
 const source = await readFile("src/components/debug/InferDebugPage.tsx", "utf8");
 
@@ -47,5 +49,63 @@ assert.match(source, /const loadRequestRef = useRef\(0\)/, "Overlapping job load
 assert.match(source, /requestId !== loadRequestRef\.current/, "Stale job responses must be ignored.");
 assert.match(source, /saveSwingTrackingAnnotation\(annotation\.jobId, annotation\)/, "Saves must use the loaded annotation jobId.");
 assert.match(source, /Job 불일치/, "A visible job mismatch guard must block saving.");
+
+const helpers = source.slice(source.indexOf("function frameLabelMap("), source.indexOf("function formatMs("));
+const handlers = source.slice(source.indexOf("  const prefillCurrent ="), source.indexOf("  const markEvent ="));
+assert.ok(helpers.includes("function fillMissingModelPoints") && handlers.includes("const prefillAll"));
+const { code } = await transform(`${helpers}\n${handlers}\nglobalThis.handlers = { prefillCurrent, prefillAll };`, { loader: "ts" });
+
+function prefill(action, frames, labels, selectedFrame = frames[0]) {
+  const context = {
+    selectedFrame,
+    data: { frames, meta: {} },
+    threshold: 0.2,
+    annotation: { frames: structuredClone(labels) },
+    strongestDetection: (frame, key) => frame.noDetection ? null : { key },
+    boxCenter: (detection) => detection.key === "club_head" ? { x: 0.7, y: 0.8 } : { x: 0.4, y: 0.5 },
+    setNotice: () => {},
+  };
+  context.mutateAnnotation = (update) => { context.annotation = update(context.annotation); };
+  vm.runInNewContext(code, context);
+  context.handlers[action]();
+  return context.annotation.frames;
+}
+
+const manual = { x: 0, y: 0.3, source: "manual" };
+const model = { x: 0.1, y: 0.2, source: "model" };
+const frames = Array.from({ length: 7 }, (_, frame) => ({ frame, timeMs: frame * 33 }));
+const labels = [
+  { ...frames[0], clubHeadVisibility: "occluded", clubHandle: manual, clubHandleVisibility: "visible" },
+  { ...frames[1], clubHandleVisibility: "out_of_frame" },
+  { ...frames[2], clubHead: manual, clubHeadVisibility: "visible", clubHandle: manual, clubHandleVisibility: "visible" },
+  { ...frames[3], clubHeadVisibility: "out_of_frame", clubHandleVisibility: "occluded" },
+  { ...frames[4], clubHead: model, clubHeadVisibility: "visible", clubHandleVisibility: "unknown" },
+  { ...frames[5], clubHeadVisibility: "unknown" },
+];
+for (const action of ["prefillCurrent", "prefillAll"]) {
+  const result = prefill(action, frames, labels);
+  assert.equal(result[0].clubHeadVisibility, "occluded", `${action} must retain hidden head`);
+  assert.equal(result[0].clubHead, undefined, `${action} must not add a head behind a hidden label`);
+  assert.equal(result[0].clubHandle.source, "manual", `${action} must retain a manual handle`);
+  assert.equal(result[0].clubHandle.x, 0, `${action} must retain a zero coordinate`);
+}
+const currentPartial = prefill("prefillCurrent", frames, labels, frames[1]);
+assert.equal(currentPartial[1].clubHead.source, "model", "Current-frame prefill must fill an empty head");
+assert.equal(currentPartial[1].clubHandleVisibility, "out_of_frame", "Current-frame prefill must retain a hidden handle");
+const all = prefill("prefillAll", frames, labels);
+assert.equal(all[1].clubHead.source, "model", "An empty head can receive a model draft");
+assert.equal(all[1].clubHandleVisibility, "out_of_frame", "An out-of-frame handle must remain hidden");
+assert.equal(all[1].clubHandle, undefined);
+assert.equal(all[2].clubHead.source, "manual");
+assert.equal(all[2].clubHandle.source, "manual");
+assert.equal(all[3].clubHeadVisibility, "out_of_frame");
+assert.equal(all[3].clubHandleVisibility, "occluded");
+assert.equal(all[4].clubHead.x, model.x, "Existing model drafts must not be silently replaced");
+assert.equal(all[4].clubHandle.source, "model", "Unknown empty points can receive a model draft");
+assert.equal(all[5].clubHead.source, "model");
+assert.equal(all[6].clubHead.source, "model", "A new frame can receive both drafts");
+assert.equal(all[6].clubHandle.source, "model");
+const none = prefill("prefillAll", [{ ...frames[0], noDetection: true }], [labels[0]]);
+assert.equal(none[0].clubHeadVisibility, "occluded", "No detections must leave labels unchanged");
 
 console.log("tracking lab responsive UI check passed");

@@ -197,6 +197,18 @@ function frameLabelMap(annotation: SwingTrackingAnnotation | null) {
   return new Map((annotation?.frames ?? []).map((frame) => [frame.frame, frame]));
 }
 
+function fillMissingModelPoints(current: SwingTrackingFrameLabel, draft: SwingTrackingFrameLabel) {
+  const next = { ...current };
+  for (const key of ["clubHead", "clubHandle"] as const) {
+    const visibilityKey = key === "clubHead" ? "clubHeadVisibility" : "clubHandleVisibility";
+    if (!current[key] && (!current[visibilityKey] || current[visibilityKey] === "unknown") && draft[key]) {
+      next[key] = draft[key];
+      next[visibilityKey] = "visible";
+    }
+  }
+  return next;
+}
+
 function upsertFrameLabel(
   annotation: SwingTrackingAnnotation,
   frame: InferDebugFramesResponse["frames"][number],
@@ -619,8 +631,9 @@ export function InferDebugPage() {
       return;
     }
     mutateAnnotation((current) =>
-      upsertFrameLabel(current, selectedFrame, (frame) => ({
-        ...frame,
+      upsertFrameLabel(current, selectedFrame, (frame) => fillMissingModelPoints(frame, {
+        frame: frame.frame,
+        timeMs: frame.timeMs,
         ...(head
           ? {
               clubHead: { ...boxCenter(head, data.meta), source: "model" as const },
@@ -635,6 +648,7 @@ export function InferDebugPage() {
           : {}),
       }))
     );
+    setNotice("기존 라벨은 유지하고 빈 항목에만 검출 초안을 적용했습니다.");
   };
 
   const prefillAll = () => {
@@ -662,20 +676,19 @@ export function InferDebugPage() {
         },
       ];
     });
+    if (!frames.length) {
+      setNotice("현재 threshold에서 사용할 검출점이 없습니다.");
+      return;
+    }
     mutateAnnotation((current) => {
       const existing = frameLabelMap(current);
       frames.forEach((frame) => {
-        const old = existing.get(frame.frame);
-        existing.set(frame.frame, {
-          ...frame,
-          ...old,
-          clubHead: old?.clubHead ?? frame.clubHead,
-          clubHandle: old?.clubHandle ?? frame.clubHandle,
-        });
+        const old = existing.get(frame.frame) ?? { frame: frame.frame, timeMs: frame.timeMs };
+        existing.set(frame.frame, fillMissingModelPoints(old, frame));
       });
       return { ...current, frames: [...existing.values()].sort((a, b) => a.frame - b.frame) };
     });
-    setNotice(`${frames.length}개 프레임에 모델 검출 초안을 채웠습니다.`);
+    setNotice("기존 라벨은 유지하고 빈 항목에만 검출 초안을 적용했습니다.");
   };
 
   const markEvent = (key: (typeof EVENT_KEYS)[number]) => {
@@ -1528,14 +1541,14 @@ export function InferDebugPage() {
                       onClick={prefillCurrent}
                       className="mt-2 flex w-full items-center justify-center gap-2 border border-white/10 bg-white/[0.04] px-3 py-2 text-slate-300 hover:text-white"
                     >
-                      <WandSparkles className="size-3.5" /> 현재 검출 초안
+                      <WandSparkles className="size-3.5" /> 현재 빈 항목에 검출 초안
                     </button>
                     <button
                       type="button"
                       onClick={prefillAll}
                       className="flex w-full items-center justify-center gap-2 border border-cyan-300/20 bg-cyan-300/5 px-3 py-2 text-cyan-200 hover:bg-cyan-300/10"
                     >
-                      <CircleDot className="size-3.5" /> 전체 자동 pre-label
+                      <CircleDot className="size-3.5" /> 전체 빈 항목에 검출 초안
                     </button>
                     <button
                       type="button"

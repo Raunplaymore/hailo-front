@@ -46,6 +46,9 @@ jobs:
       - name: Check review interface
         run: npm run check:service-ux && npm run check:practice-coach && npm run check:movement-guide && npm run check:coaching-review
 
+      - name: Check tracking labels
+        run: npm run check:tracking-lab
+
       - name: Build frontend
         run: npm run build
 

@@ -50,6 +50,7 @@ const SKELETON_LINKS = [
 type OverlayBounds = { left: number; top: number; width: number; height: number };
 type HandTrailPoint = { timeMs: number; x: number; y: number };
 type ClubTrailPoint = HandTrailPoint;
+type SelectedFrame = { jobId: string; videoSha256: string; frameIndex: number; timeMs: number };
 
 const HAND_TRAIL_DURATION_MS = 800;
 const HAND_TRAIL_MAX_GAP_MS = 120;
@@ -77,13 +78,23 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const candidateVideoHash = impactState.review?.videoSha256;
   const videoSha256 = videoClock?.videoSha256;
   const reviewVideoUrl = jobId ? impactReviewVideoUrl(jobId, videoSha256, originalQuality) : videoUrl;
-  const [impactSelection, setImpactSelection] = useState<{jobId: string; videoSha256: string; frameIndex: number; timeMs: number} | null>(null);
+  const [impactSelection, setImpactSelection] = useState<SelectedFrame | null>(null);
+  const [addressSelection, setAddressSelection] = useState<SelectedFrame | null>(null);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [addressSelectionError, setAddressSelectionError] = useState<string | null>(null);
   const selectedImpact = impactSelection && videoClock && impactSelection.jobId === jobId
     && impactSelection.videoSha256 === videoSha256
     && videoClock.frameTimesMs[impactSelection.frameIndex] === impactSelection.timeMs ? impactSelection : null;
+  const selectedAddress = addressSelection && videoClock && addressSelection.jobId === jobId
+    && addressSelection.videoSha256 === videoSha256
+    && videoClock.frameTimesMs[addressSelection.frameIndex] === addressSelection.timeMs ? addressSelection : null;
   const coachingImpactMs = selectedImpact?.timeMs ?? impactState.review?.candidate.timeMs;
-  const addressMs = Math.max(100, events?.address?.timeMs ?? 200);
+  const addressCandidate = events?.address;
+  const candidateAddressMs = addressCandidate && addressCandidate.quality !== "withheld"
+    && Number.isFinite(addressCandidate.timeMs) && addressCandidate.timeMs >= 0 && addressCandidate.timeMs <= 30000
+    && (!videoClock || addressCandidate.timeMs <= videoClock.frameTimesMs.at(-1)!)
+    ? addressCandidate.timeMs : undefined;
+  const addressMs = selectedAddress?.timeMs ?? candidateAddressMs;
   const [coaching, setCoaching] = useState<{key:string; result:CoachingResult|null}>({key:"",result:null});
   const [reviewRange, setReviewRange] = useState<{ startMs: number; endMs: number } | null>(null);
   const [guideKind, setGuideKind] = useState<GuideKind | null>(null);
@@ -95,7 +106,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const pendingContourRetry = useRef<(() => void) | null>(null);
   const clearReview = useCallback(() => { pendingContourRetry.current?.(); pendingContourRetry.current = null; setReviewRange(null); }, []);
   useEffect(() => { setGuideKind(null); clearReview(); }, [guideKey, clearReview]);
-  useEffect(() => { setImpactSelection(null); setSelectionError(null); }, [jobId, videoUrl, videoSha256]);
+  useEffect(() => { setImpactSelection(null); setAddressSelection(null); setSelectionError(null); setAddressSelectionError(null); }, [jobId, videoUrl, videoSha256]);
   useEffect(() => { setTool("coaching"); setOriginalQuality(false); }, [jobId, videoUrl]);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const presentedFrame = useRef<{video: HTMLVideoElement; src: string; timeMs: number; expectedDisplayTime: number} | null>(null);
@@ -285,17 +296,17 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     setTimeMs(video.currentTime * 1000);
   };
 
-  const chooseImpactAtCurrentTime = () => {
+  const currentFrameSelection = (label: string, reportError: (message: string) => void): SelectedFrame | null => {
     const video = videoRef.current;
     const clock = videoClock;
     if (!jobId || !clock || !video || !videoPlayable || video.seeking || video.readyState < 2) {
-      setSelectionError("영상이 준비된 뒤 다시 선택해 주세요.");
-      return;
+      reportError("영상이 준비된 뒤 다시 선택해 주세요.");
+      return null;
     }
     if (!video.paused) {
       video.pause();
-      setSelectionError("영상을 일시 정지했어요. 타격 장면을 확인하고 다시 선택해 주세요.");
-      return;
+      reportError(`영상을 일시 정지했어요. ${label} 장면을 확인하고 다시 선택해 주세요.`);
+      return null;
     }
     const frame = presentedFrame.current;
     // shortcut: matching timestamps do not prove identical decoded images; validate playback on physical devices.
@@ -303,21 +314,42 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
       && frame.expectedDisplayTime <= performance.now()
       ? frameIndexForPresentedTime(clock.frameTimesMs, video.currentTime * 1000, frame.timeMs) : null;
     if (index === null) {
-      setSelectionError(typeof video.requestVideoFrameCallback === "function"
+      reportError(typeof video.requestVideoFrameCallback === "function"
         ? "화면 장면을 확인할 수 없어요. 이전·다음 프레임으로 이동한 뒤 다시 선택해 주세요."
         : "이 브라우저에서는 표시된 장면을 확인할 수 없습니다. 다른 브라우저에서 다시 시도해 주세요.");
-      return;
+      return null;
     }
     const chosenMs = clock.frameTimesMs[index];
-    if (chosenMs === undefined || chosenMs - addressMs < 230) {
+    return chosenMs === undefined ? null : { jobId, videoSha256: clock.videoSha256, frameIndex: index, timeMs: chosenMs };
+  };
+
+  const chooseImpactAtCurrentTime = () => {
+    const selected = currentFrameSelection("타격", setSelectionError);
+    if (!selected) return;
+    if (selected.timeMs - (selectedAddress?.timeMs ?? 0) < 230) {
       setSelectionError("준비 자세보다 뒤의 타격 장면을 선택해 주세요.");
       return;
     }
-    setImpactSelection({ jobId, videoSha256: clock.videoSha256, frameIndex: index, timeMs: chosenMs });
+    setImpactSelection(selected);
     setSelectionError(null);
-    seekTime(chosenMs);
+    seekTime(selected.timeMs);
     setTool("coaching");
     if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0;
+  };
+
+  const chooseAddressAtCurrentTime = () => {
+    const selected = currentFrameSelection("준비 자세", setAddressSelectionError);
+    if (!selected) return;
+    if (selected.timeMs > 30000) {
+      setAddressSelectionError("영상의 30초 이내 장면을 선택해 주세요.");
+      return;
+    }
+    if (coachingImpactMs !== undefined && coachingImpactMs - selected.timeMs < 230) {
+      setAddressSelectionError("타격 장면보다 앞의 준비 자세를 선택해 주세요. 타격 후보가 틀렸다면 임팩트 탭에서 먼저 바꿔 주세요.");
+      return;
+    }
+    setAddressSelection(selected);
+    setAddressSelectionError(null);
   };
 
   const showEvidence = (evidence: CoachingEvidence) => {
@@ -405,7 +437,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
               <p className="text-sm">직접 선택한 장면 · {(selectedImpact.timeMs / 1000).toFixed(3)}초 기준</p>
               <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setImpactSelection(null); clearReview(); }}>{impactState.review ? "자동 후보로 되돌리기" : "선택 취소"}</button>
             </div>}
-            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={videoSha256} addressMs={addressMs} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} analysisReady={coachingReady} analysisError={analysisError} onRetryAnalysis={onRetryAnalysis} playable={videoPlayable} contourStatus={contourStatus} canRetryContour={canRetryContour} onResult={onCoaching} onEvidence={showEvidence} onSeek={ms => { setGuideKind(null); seekTime(ms); }} onRetryContour={retryContour} />
+            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={videoSha256} addressMs={addressMs} selectedAddress={Boolean(selectedAddress)} hasAddressCandidate={candidateAddressMs !== undefined} onChooseAddress={chooseAddressAtCurrentTime} onResetAddress={() => { setAddressSelection(null); setAddressSelectionError(null); }} addressSelectionError={addressSelectionError} canChooseAddress={Boolean(videoClock) && videoPlayable} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} analysisReady={coachingReady} analysisError={analysisError} onRetryAnalysis={onRetryAnalysis} playable={videoPlayable} contourStatus={contourStatus} canRetryContour={canRetryContour} onResult={onCoaching} onEvidence={showEvidence} onSeek={ms => { setGuideKind(null); seekTime(ms); }} onRetryContour={retryContour} />
           </div>
           {tool === "coaching" && <details><summary className="text-sm font-semibold">머리·골반 움직임 직접 확인</summary><MovementGuideControls playable={videoPlayable} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} selectedImpact={Boolean(selectedImpact)} /><CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} /></details>}
         {tool === "impact" && <ImpactReview key={`${jobId}:${videoSha256 ?? "pending"}`} review={impactState.review} manualClock={manualClockState.clock} clockLoading={manualClockState.loading} clockError={manualClockState.error} onClockRetry={manualClockState.retry} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}

@@ -17,7 +17,7 @@ export type CoachingReview = {
   excludedFrames?: { timeMs: number; reason: string }[];
 };
 
-export function parseCoachingReview(raw: unknown, jobId: string, impactMs: number): CoachingReview {
+export function parseCoachingReview(raw: unknown, jobId: string, impactMs: number, addressMs: number): CoachingReview {
   const value = raw as CoachingReview;
   const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
   const unit = (v: unknown): v is number => finite(v) && v > 0 && v < 1;
@@ -31,7 +31,8 @@ export function parseCoachingReview(raw: unknown, jobId: string, impactMs: numbe
       || !value.excludedFrames.every(p => p && finite(p.timeMs) && p.timeMs >= 0 && p.timeMs <= 30000 && typeof p.reason === "string")))) throw new Error("코칭 근거를 확인하지 못했습니다. 다시 시도해 주세요.");
   if (value.status === "ready" && (!e
     || ![e.addressMs, e.startMs, e.endMs, e.focusMs, e.impactMs, e.width, e.height, e.noisePx, e.shiftPx].every(finite)
-    || e.addressMs < 0 || e.addressMs >= e.startMs || e.startMs >= e.endMs || e.endMs > 30000
+    || e.addressMs < 0 || e.addressMs < addressMs - 50 || e.addressMs > addressMs + 118
+    || e.addressMs >= e.startMs || e.startMs >= e.endMs || e.endMs > 30000
     || e.focusMs < e.startMs || e.focusMs > e.impactMs - 40 || e.focusMs > e.endMs
     || Math.abs(e.impactMs - impactMs) > 1 || e.startMs < e.impactMs - 650 || e.endMs > e.impactMs + 200
     || e.width <= 0 || e.height <= 0 || e.width > 1920 || e.height > 1920 || e.noisePx < 0
@@ -50,6 +51,10 @@ export function parseCoachingReview(raw: unknown, jobId: string, impactMs: numbe
   if (evidence && evidence.focusMs > evidence.endMs) throw new Error("근거 장면과 분석 결과가 일치하지 않습니다.");
   const movementGuide = parseMovementGuide(value.movementGuide);
   if (movementGuide?.status === "ready" && Math.abs(movementGuide.impactMs! - impactMs) > 1) {
+    throw new Error("움직임 확인 장면과 분석 기준이 일치하지 않습니다.");
+  }
+  if (movementGuide?.status === "ready" && Object.values(movementGuide.tracks ?? {}).some(track =>
+    track && (track.baseline.timeMs < Math.max(0, addressMs - 106) || track.baseline.timeMs > addressMs + 190))) {
     throw new Error("움직임 확인 장면과 분석 기준이 일치하지 않습니다.");
   }
   return { ...value, evidence, movementGuide };
@@ -73,7 +78,7 @@ export function requestCoachingReview(jobId: string, addressMs: number, impactMs
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 35000);
     return client.post(`/api/analyze/${encodeURIComponent(jobId)}/practice-review`, body, controller.signal)
-      .then(raw => parseCoachingReview(raw, jobId, impactMs))
+      .then(raw => parseCoachingReview(raw, jobId, impactMs, addressMs))
       .catch(error => { if (controller.signal.aborted) throw new Error("분석 시간이 초과됐습니다. 다시 시도해 주세요."); throw error; })
       .finally(() => clearTimeout(timeout));
   };

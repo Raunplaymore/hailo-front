@@ -4,8 +4,10 @@ import { CoachingLesson } from "./CoachingLesson";
 
 const button = "min-h-12 rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40";
 export type ContourStatus = "checking" | "playing" | "shown" | "other" | "unverified";
-export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impactFrameIndex, candidatePending, analysisReady, analysisError, onRetryAnalysis, playable, contourStatus, canRetryContour, onResult, onEvidence, onSeek, onRetryContour }: {
-  jobId: string; videoSha256?: string; addressMs: number; impactMs?: number; candidatePending: boolean; analysisReady: boolean; playable: boolean;
+export function CoachingReview({ jobId, videoSha256, addressMs, selectedAddress = false, hasAddressCandidate = false, onChooseAddress, onResetAddress, addressSelectionError, canChooseAddress = false, impactMs, impactFrameIndex, candidatePending, analysisReady, analysisError, onRetryAnalysis, playable, contourStatus, canRetryContour, onResult, onEvidence, onSeek, onRetryContour }: {
+  jobId: string; videoSha256?: string; addressMs?: number; impactMs?: number; candidatePending: boolean; analysisReady: boolean; playable: boolean;
+  selectedAddress?: boolean; hasAddressCandidate?: boolean; onChooseAddress?: () => void; onResetAddress?: () => void;
+  addressSelectionError?: string | null; canChooseAddress?: boolean;
   analysisError?: string | null;
   onRetryAnalysis?: () => void;
   impactFrameIndex?: number; contourStatus?: ContourStatus; canRetryContour?: boolean;
@@ -20,7 +22,7 @@ export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impact
     let cancelled = false;
     setResult(null); onResult(null); setError(null); setLoading(true);
     if (!analysisReady || candidatePending) return;
-    if (!videoSha256 || impactMs === undefined) { setLoading(false); return; }
+    if (!videoSha256 || addressMs === undefined || impactMs === undefined) { setLoading(false); return; }
     requestCoachingReview(jobId, addressMs, impactMs, videoSha256, impactFrameIndex)
       .then(value => { if (!cancelled) { setResult(value); onResult(value); } })
       .catch(reason => { if (!cancelled) setError(reason instanceof Error ? reason.message : "근거 장면을 준비하지 못했습니다."); })
@@ -33,8 +35,22 @@ export function CoachingReview({ jobId, videoSha256, addressMs, impactMs, impact
       <p className="text-xs font-semibold text-primary">이번 스윙에서 살펴볼 것</p>
       <h3 className="mt-1 text-lg font-semibold">골반이 돌아갈 공간</h3>
       <p className="mt-1 text-sm leading-6 text-muted-foreground">후방에서 촬영한 한 번의 스윙에서 {impactFrameIndex === undefined ? "임팩트 후보" : "직접 선택한 장면"} 전 엉덩이 뒤쪽을 봅니다. 영상이 잘리거나 반복되면 구간이 틀릴 수 있어요. 공은 직접 감지하지 않고 준비 자세로 방향을 추정합니다. 원본에서 공 위치와 타격 장면을 확인해 주세요.</p>
+      <div className="mt-4 rounded-lg bg-muted/50 p-3 text-sm">
+        <p className="font-medium">{addressMs === undefined ? "준비 자세 후보 없음" : `${selectedAddress ? "직접 선택한 준비 자세" : "준비 자세 후보"} · ${(addressMs / 1000).toFixed(2)}초`}</p>
+        {addressMs !== undefined && <p className="mt-1 text-xs leading-5 text-muted-foreground">실제 준비 자세와 다르면 영상에서 바꿔 주세요.</p>}
+        {addressMs !== undefined && <button type="button" className="min-h-11 font-semibold text-primary underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40" disabled={!playable} onClick={() => onSeek(addressMs)}>준비 자세 장면 보기</button>}
+        <details open={addressMs === undefined || undefined}>
+          <summary className="min-h-11 cursor-pointer py-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{addressMs === undefined ? "준비 자세 선택하기" : "준비 자세 바꾸기"}</summary>
+          <p className="text-xs leading-5 text-muted-foreground">영상에서 스윙 전 준비 자세를 찾아 멈춘 뒤 선택하세요. 선택은 이 화면에서만 유지됩니다.</p>
+          <button type="button" className={`${button} mt-2 w-full`} disabled={!canChooseAddress} onClick={onChooseAddress}>현재 장면을 준비 자세로 선택</button>
+          {!canChooseAddress && <p className="mt-2 text-xs text-muted-foreground">영상과 프레임 시각이 준비되면 선택할 수 있어요.</p>}
+          {selectedAddress && <button type="button" className={`${button} mt-2 w-full`} onClick={onResetAddress}>{hasAddressCandidate ? "준비 자세 후보로 되돌리기" : "준비 자세 선택 취소"}</button>}
+          {addressSelectionError && <p role="alert" className="mt-2 text-xs text-destructive">{addressSelectionError}</p>}
+        </details>
+      </div>
       {!analysisReady ? analysisError ? <div role="status" className="mt-4 space-y-2 text-sm text-muted-foreground"><p>분석 결과를 불러오지 못해 골반 관찰을 준비하지 못했어요.</p>{onRetryAnalysis && <button type="button" className={button} onClick={onRetryAnalysis}>분석 결과 다시 불러오기</button>}</div>
         : <p role="status" className="mt-4 text-sm text-muted-foreground">분석 결과를 확인하면 골반 관찰을 준비합니다.</p>
+        : addressMs === undefined ? <p role="status" className="mt-4 text-sm text-muted-foreground">준비 자세를 선택하면 골반 관찰을 시작합니다.</p>
         : loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요…"}</p>
         : error ? <div role="alert" className="mt-4 space-y-2"><p className="text-sm">{error}</p><button type="button" className={button} onClick={() => setAttempt(n => n + 1)}>근거 다시 불러오기</button></div>
         : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} selectedImpact={impactFrameIndex !== undefined} contourStatus={contourStatus} canRetryContour={canRetryContour} onRetryContour={onRetryContour} />}
@@ -51,7 +67,9 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
   const recovery = result?.reason === "CAMERA_BACKGROUND_AMBIGUOUS"
     ? "배경 보정에 따라 골반 위치가 달라져 관찰을 보류했어요. 원본 영상을 확인하고 카메라와 배경이 고정된 상태로 다시 촬영해 주세요."
     : result?.reason === "CAMERA_MOTION_OR_BACKGROUND_UNCLEAR"
-    ? "카메라 움직임을 보정할 만큼 안정적인 배경을 확보하지 못했습니다. 다음 촬영에서는 카메라를 고정하고 움직이지 않는 배경이 보이도록 잡아 주세요."
+    ? "안정적인 배경을 충분히 확인하지 못했습니다. 준비 자세 후보가 다르면 위에서 바꿔 보세요. 다음 촬영에서는 카메라와 배경을 고정해 주세요."
+    : result?.reason === "VIDEO_TIMING_UNAVAILABLE"
+      ? "영상과 분석 프레임의 시각을 확인하지 못했습니다. 영상을 다시 열어 확인해 주세요."
     : result?.reason === "BALL_DIRECTION_UNCLEAR"
       ? "준비 자세로 공 방향을 추정하기 어렵습니다. 후방에서 준비 자세와 손이 함께 보이도록 촬영해 주세요."
       : result?.reason === "PHASE_COVERAGE_INSUFFICIENT"

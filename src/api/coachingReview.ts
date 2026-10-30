@@ -76,7 +76,7 @@ export function requestCoachingReview(jobId: string, addressMs: number, impactMs
     viewpoint: "down_the_line", videoSha256, ...(impactFrameIndex === undefined ? {} : { impactFrameIndex }) })], { type: "application/json" });
   const run = () => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 35000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
     return client.post(`/api/analyze/${encodeURIComponent(jobId)}/practice-review`, body, controller.signal)
       .then(raw => parseCoachingReview(raw, jobId, impactMs, addressMs))
       .catch(error => { if (controller.signal.aborted) throw new Error("분석 시간이 초과됐습니다. 다시 시도해 주세요."); throw error; })

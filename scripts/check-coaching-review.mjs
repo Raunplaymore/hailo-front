@@ -38,6 +38,7 @@ try {
   const missingAddress = render('CoachingReview',{jobId:'job',candidatePending:false,analysisReady:true,playable:true,onResult(){},onEvidence(){},onSeek(){}});
   assert.match(missingAddress,/준비 자세 후보 없음/); assert.match(missingAddress,/준비 자세를 선택하면 골반 관찰을 시작/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:0,candidatePending:false,analysisReady:true,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/준비 자세 후보 · 0\.00초/);
+  assert.match(render('CoachingReview',{jobId:'job',addressMs:0,candidatePending:false,analysisReady:true,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/처음에는 1분 정도 걸릴 수 있어요/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/영상이 잘리거나 반복되면 구간이 틀릴 수/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/공은 직접 감지하지 않고 준비 자세로 방향을 추정/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,analysisReady:false,analysisError:'failed',onRetryAnalysis(){},playable:true,onResult(){},onEvidence(){},onSeek(){}}),/분석 결과 다시 불러오기/);
@@ -144,7 +145,7 @@ try {
   } finally {globalThis.fetch=originalFetch;}
   const originalSetTimeout=globalThis.setTimeout, originalClearTimeout=globalThis.clearTimeout;
   const timers=[];let networkCalls=0;
-  globalThis.setTimeout=(fn,delay,...args)=>{if(delay!==35000)return originalSetTimeout(fn,delay,...args);const timer={fn};timers.push(timer);return timer;};
+  globalThis.setTimeout=(fn,delay,...args)=>{if(delay!==60000)return originalSetTimeout(fn,delay,...args);const timer={fn};timers.push(timer);return timer;};
   globalThis.clearTimeout=timer=>{if(!timers.includes(timer))originalClearTimeout(timer);};
   globalThis.fetch=async(_url,options)=>{
     networkCalls++;

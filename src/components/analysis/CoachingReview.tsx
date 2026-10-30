@@ -52,7 +52,7 @@ export function CoachingReview({ jobId, videoSha256, addressMs, selectedAddress 
       {!analysisReady ? analysisError ? <div role="status" className="mt-4 space-y-2 text-sm text-muted-foreground"><p>분석 결과를 불러오지 못해 골반 관찰을 준비하지 못했어요.</p>{onRetryAnalysis && <button type="button" className={button} onClick={onRetryAnalysis}>분석 결과 다시 불러오기</button>}</div>
         : <p role="status" className="mt-4 text-sm text-muted-foreground">분석 결과를 확인하면 골반 관찰을 준비합니다.</p>
         : addressMs === undefined ? <p role="status" className="mt-4 text-sm text-muted-foreground">준비 자세를 선택하면 골반 관찰을 시작합니다.</p>
-        : loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요…"}</p>
+        : loading ? <p role="status" className="mt-4 text-sm text-muted-foreground">{candidatePending ? "임팩트 구간을 찾고 있어요…" : "골반 윤곽과 근거 장면을 준비하고 있어요. 처음에는 1분 정도 걸릴 수 있어요."}</p>
         : error ? <div role="alert" className="mt-4 space-y-2"><p className="text-sm">{error}</p><button type="button" className={button} onClick={() => setAttempt(n => n + 1)}>근거 다시 불러오기</button></div>
         : <CoachingObservation result={result} playable={playable} onEvidence={onEvidence} onSeek={onSeek} selectedImpact={impactFrameIndex !== undefined} contourStatus={contourStatus} canRetryContour={canRetryContour} onRetryContour={onRetryContour} />}
     </div>

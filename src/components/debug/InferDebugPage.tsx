@@ -291,6 +291,9 @@ export function InferDebugPage() {
   const jobIdInputRef = useRef<HTMLInputElement>(null);
   const loadRequestRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
+  const editRevisionRef = useRef(0);
+  const dirtyRef = useRef(false);
+  const savingRef = useRef(false);
   const [variant, setVariant] = useState<"main" | "debug">("main");
   const [threshold, setThreshold] = useState(0.2);
   const [data, setData] = useState<InferDebugFramesResponse | null>(null);
@@ -387,9 +390,15 @@ export function InferDebugPage() {
     );
   }, [annotationCatalog, annotationSearch]);
 
+  const updateDirty = (value: boolean) => {
+    dirtyRef.current = value;
+    setDirty(value);
+  };
+
   const mutateAnnotation = (update: (current: SwingTrackingAnnotation) => SwingTrackingAnnotation) => {
+    editRevisionRef.current += 1;
     setAnnotation((current) => (current ? update(current) : current));
-    setDirty(true);
+    updateDirty(true);
     setNotice(null);
   };
 
@@ -411,6 +420,18 @@ export function InferDebugPage() {
       setError("jobId를 입력하세요.");
       return;
     }
+    if (dirtyRef.current && !window.confirm("저장하지 않은 현재 라벨을 버리고 불러올까요?")) {
+      if (annotation?.jobId) setJobId(annotation.jobId);
+      return;
+    }
+    const revisionAtStart = editRevisionRef.current;
+    const previousJobId = annotation?.jobId;
+    const retainNewEdits = () => {
+      if (revisionAtStart === editRevisionRef.current) return false;
+      if (previousJobId) setJobId(previousJobId);
+      setError("불러오는 동안 수정한 라벨을 유지했습니다. 저장한 뒤 다시 불러와 주세요.");
+      return true;
+    };
     loadAbortRef.current?.abort();
     const abortController = new AbortController();
     loadAbortRef.current = abortController;
@@ -466,6 +487,7 @@ export function InferDebugPage() {
         fetchSwingTrackingAnnotation(trimmed),
       ]);
       if (requestId !== loadRequestRef.current) return;
+      if (retainNewEdits()) return;
       const loadedAnnotation =
         stored.annotation ?? createDraftAnnotation(trimmed, next, nextAnalysis, targetVariant);
       const normalizedAnnotation = {
@@ -495,7 +517,7 @@ export function InferDebugPage() {
           )
         : 0;
       setSelectedIndex(initialIndex);
-      setDirty(loadedAnnotation.schemaVersion !== "swing-tracking-label-v2");
+      updateDirty(loadedAnnotation.schemaVersion !== "swing-tracking-label-v2");
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.set("jobId", trimmed);
@@ -504,6 +526,7 @@ export function InferDebugPage() {
     } catch (loadError) {
       if (requestId !== loadRequestRef.current) return;
       if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+      if (retainNewEdits()) return;
       setError(loadError instanceof Error ? loadError.message : "실험 데이터를 불러오지 못했습니다.");
       setData(null);
       setAnalysis(null);
@@ -538,26 +561,35 @@ export function InferDebugPage() {
   };
 
   const handleSave = async () => {
-    if (!annotation || !data) return;
+    if (!annotation || !data || !dirtyRef.current || savingRef.current || isLoading) return;
     if (loadedJobMismatch) {
       setError("입력한 Job과 화면에 로드된 Job이 달라 저장을 차단했습니다. 먼저 불러오기를 완료하세요.");
       return;
     }
+    const revisionAtStart = editRevisionRef.current;
+    const requestId = loadRequestRef.current;
+    savingRef.current = true;
     setIsSaving(true);
     setError(null);
     try {
       const response = await saveSwingTrackingAnnotation(annotation.jobId, annotation);
-      if (response.annotation) setAnnotation(response.annotation);
-      await refreshAnnotationCatalog();
-      setDirty(false);
-      setNotice(
-        response.archive?.state === "pending"
-          ? "라벨을 저장했고 NAS 아카이브를 요청했습니다."
-          : "라벨을 저장했습니다."
-      );
+      const saved = response.annotation;
+      if (!saved || saved.jobId !== annotation.jobId || typeof saved.updatedAt !== "string") {
+        throw new Error("저장 결과의 라벨 버전을 확인하지 못했습니다. 다시 불러오기 전에 편집 내용을 기록해 주세요.");
+      }
+      if (requestId === loadRequestRef.current) {
+        const editedDuringSave = revisionAtStart !== editRevisionRef.current;
+        setAnnotation((current) => !current || current.jobId !== saved.jobId ? current
+          : editedDuringSave ? { ...current, updatedAt: saved.updatedAt } : saved);
+        updateDirty(editedDuringSave);
+        setNotice(editedDuringSave ? "저장 중 새로 수정한 내용은 아직 저장되지 않았습니다."
+          : response.archive?.state === "pending" ? "라벨을 저장했고 NAS 아카이브를 요청했습니다." : "라벨을 저장했습니다.");
+      }
+      void refreshAnnotationCatalog();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "라벨 저장에 실패했습니다.");
+      if (requestId === loadRequestRef.current) setError(saveError instanceof Error ? saveError.message : "라벨 저장에 실패했습니다.");
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -1008,10 +1040,7 @@ export function InferDebugPage() {
                       <button
                         key={item.jobId}
                         type="button"
-                        onClick={() => {
-                          if (dirty && !window.confirm("저장하지 않은 현재 라벨을 버리고 이동할까요?")) return;
-                          void loadVariant("main", false, item.jobId);
-                        }}
+                        onClick={() => void loadVariant("main", false, item.jobId)}
                         className="min-w-0 border border-white/10 bg-black/20 p-2 text-left hover:border-cyan-300/30 hover:bg-cyan-300/5"
                       >
                         <div className="flex min-w-0 gap-2">

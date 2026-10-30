@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { AnalysisOverlay, AnalysisResult, DtlClubPointsV2Sidecar, SwingEventKey } from "../../types/shots";
-import { frameIndexAtOrBefore, frameIndexForPresentedTime, impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
+import { frameIndexAtOrBefore, frameIndexForPresentedTime, impactReviewIssue, impactReviewVideoUrl, withImpactCandidate } from "@/api/impactReview";
 import { useImpactReview } from "@/hooks/useImpactReview";
 import { useVideoClock } from "@/hooks/useVideoClock";
 import { usePoseOverlay } from "@/hooks/usePoseOverlay";
@@ -95,12 +95,13 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     && (!videoClock || addressCandidate.timeMs <= videoClock.frameTimesMs.at(-1)!)
     ? addressCandidate.timeMs : undefined;
   const addressMs = selectedAddress?.timeMs ?? candidateAddressMs;
+  const impactIssue = impactReviewIssue(impactState.review, selectedImpact?.timeMs, addressMs);
   const [coaching, setCoaching] = useState<{key:string; result:CoachingResult|null}>({key:"",result:null});
   const [reviewRange, setReviewRange] = useState<{ startMs: number; endMs: number } | null>(null);
   const [guideKind, setGuideKind] = useState<GuideKind | null>(null);
   const guideKey = `${jobId}:${videoSha256 ?? "pending"}:${addressMs}:${selectedImpact ? `selected:${selectedImpact.frameIndex}` : `candidate:${coachingImpactMs}`}`;
   const onCoaching = useCallback((result: CoachingResult | null) => setCoaching({key:guideKey,result}),[guideKey]);
-  const coachingResult = coaching.key === guideKey ? coaching.result : null;
+  const coachingResult = !impactIssue && coaching.key === guideKey ? coaching.result : null;
   const movementGuide = coachingResult?.movementGuide ?? null;
   const contour = tool === "coaching" && !guideKind ? coachingResult?.evidence : null;
   const pendingContourRetry = useRef<(() => void) | null>(null);
@@ -112,6 +113,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const presentedFrame = useRef<{video: HTMLVideoElement; src: string; timeMs: number; expectedDisplayTime: number} | null>(null);
   const [pausedFrameSignal, setPausedFrameSignal] = useState(0);
   const analysisScrollRef = useRef<HTMLDivElement | null>(null);
+  const impactTabRef = useRef<HTMLButtonElement | null>(null);
   const videoFrameRef = useRef<HTMLDivElement | null>(null);
   const [timeMs, setTimeMs] = useState(0);
   const [clubOverride, setClubOverride] = useState<{ jobId: string; value: DtlClubPointsV2Sidecar } | null>(null);
@@ -341,6 +343,15 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
     if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0;
   };
 
+  const reviewImpact = () => {
+    setTool("impact");
+    clearReview();
+    setGuideKind(null);
+    if (videoPlayable && coachingImpactMs !== undefined) seekTime(coachingImpactMs);
+    if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0;
+    impactTabRef.current?.focus();
+  };
+
   const chooseAddressAtCurrentTime = () => {
     const selected = currentFrameSelection("준비 자세", setAddressSelectionError);
     if (!selected) return;
@@ -415,7 +426,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
         </div>
         <div className="analysis-tools min-w-0">
         {jobId && videoUrl && !isModalOpen && <div className="grid shrink-0 grid-cols-3 border-b border-border" role="group" aria-label="영상 확인 도구">
-          {([["coaching", "몸"], ["club", "클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 border-b-2 px-2 text-sm font-semibold", tool === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
+          {([["coaching", "몸"], ["club", "클럽"], ["impact", "임팩트"]] as const).map(([key, label]) => <button key={key} ref={key === "impact" ? impactTabRef : undefined} type="button" aria-pressed={tool === key} onClick={() => { setTool(key); clearReview(); setGuideKind(null); if (analysisScrollRef.current) analysisScrollRef.current.scrollTop = 0; }} className={cn("min-h-11 border-b-2 px-2 text-sm font-semibold", tool === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
         </div>}
         <div ref={analysisScrollRef} className="analysis-scroll space-y-3" role="region" aria-label="분석 내용" tabIndex={0}>
         {motionNotice && <p role="status" className="text-xs leading-5 text-muted-foreground">{motionNotice}</p>}
@@ -444,7 +455,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
               <p className="text-sm">직접 선택한 장면 · {(selectedImpact.timeMs / 1000).toFixed(3)}초 기준</p>
               <button type="button" className="min-h-11 rounded-lg px-2 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setImpactSelection(null); clearReview(); }}>{impactState.review ? "자동 후보로 되돌리기" : "선택 취소"}</button>
             </div>}
-            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={videoSha256} addressMs={addressMs} selectedAddress={Boolean(selectedAddress)} hasAddressCandidate={candidateAddressMs !== undefined} onChooseAddress={chooseAddressAtCurrentTime} onResetAddress={() => { setAddressSelection(null); setAddressSelectionError(null); }} addressSelectionError={addressSelectionError} canChooseAddress={Boolean(videoClock) && videoPlayable} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} candidatePending={impactState.loading} analysisReady={coachingReady} analysisError={analysisError} onRetryAnalysis={onRetryAnalysis} playable={videoPlayable} contourStatus={contourStatus} canRetryContour={canRetryContour} onResult={onCoaching} onEvidence={showEvidence} onSeek={ms => { setGuideKind(null); seekTime(ms); }} onRetryContour={retryContour} active={tool === "coaching"} sourceVideoRef={videoRef} onReferenceOpen={() => { clearReview(); videoRef.current?.pause(); }} />
+            <CoachingReview key={`coaching:${guideKey}`} jobId={jobId} videoSha256={videoSha256} addressMs={addressMs} selectedAddress={Boolean(selectedAddress)} hasAddressCandidate={candidateAddressMs !== undefined} onChooseAddress={chooseAddressAtCurrentTime} onResetAddress={() => { setAddressSelection(null); setAddressSelectionError(null); }} addressSelectionError={addressSelectionError} canChooseAddress={Boolean(videoClock) && videoPlayable} impactMs={coachingImpactMs} impactFrameIndex={selectedImpact?.frameIndex} impactIssue={impactIssue} onReviewImpact={reviewImpact} candidatePending={impactState.loading} analysisReady={coachingReady} analysisError={analysisError} onRetryAnalysis={onRetryAnalysis} playable={videoPlayable} contourStatus={contourStatus} canRetryContour={canRetryContour} onResult={onCoaching} onEvidence={showEvidence} onSeek={ms => { setGuideKind(null); seekTime(ms); }} onRetryContour={retryContour} active={tool === "coaching"} sourceVideoRef={videoRef} onReferenceOpen={() => { clearReview(); videoRef.current?.pause(); }} />
           </div>
           {tool === "coaching" && <details><summary className="text-sm font-semibold">머리·골반 움직임 직접 확인</summary><MovementGuideControls playable={videoPlayable} partialPlayable={Boolean(videoClock && typeof videoRef.current?.requestVideoFrameCallback === "function")} frameNotice={motionNotice} timeMs={timeMs} guide={movementGuide} active={guideKind} onActive={setGuideKind} onSeek={seekTime} selectedImpact={Boolean(selectedImpact)} /><CoachingLesson topic={guideKind === "pelvis" ? "pelvis" : "head"} /></details>}
         {tool === "impact" && <ImpactReview key={`${jobId}:${videoSha256 ?? "pending"}`} review={impactState.review} manualClock={manualClockState.clock} clockLoading={manualClockState.loading} clockError={manualClockState.error} onClockRetry={manualClockState.retry} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}

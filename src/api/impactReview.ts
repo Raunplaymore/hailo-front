@@ -14,6 +14,16 @@ export type ImpactReview = VideoClock & {
   candidate: { frameIndex: number; timeMs: number };
 };
 
+export type ImpactReviewIssue = "nearEnd" | "tooEarly" | null;
+export function impactReviewIssue(review: ImpactReview | null, selectedMs: number | undefined, addressMs: number | undefined): ImpactReviewIssue {
+  const impactMs = selectedMs ?? review?.candidate.timeMs;
+  if (impactMs !== undefined && addressMs !== undefined && impactMs - addressMs < 230) return "tooEarly";
+  const last = review?.frameTimesMs.at(-1);
+  // shortcut: 100ms is a review prompt, not a validated incomplete-swing detector.
+  if (selectedMs === undefined && review && last !== undefined && last - review.candidate.timeMs <= 100) return "nearEnd";
+  return null;
+}
+
 export function validateVideoClock(raw: any, jobId: string): VideoClock {
   const times = raw?.frameTimesMs;
   if (raw?.ok !== true || raw.jobId !== jobId || raw.timingRevision !== 3

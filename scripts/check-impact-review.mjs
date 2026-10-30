@@ -7,9 +7,16 @@ const dir = await mkdtemp(join(tmpdir(), 'impact-review-'));
 try {
   const outfile = join(dir, 'review.mjs');
   await build({entryPoints: ['src/api/impactReview.ts'], bundle: true, platform: 'node', format: 'esm', outfile, define: {'import.meta.env': '{}'}, logLevel: 'silent'});
-  const {validateVideoClock,validateImpactReview, withImpactCandidate, impactReviewVideoUrl, frameIndexAtOrBefore, frameIndexForPresentedTime} = await import(outfile);
+  const {validateVideoClock,validateImpactReview, withImpactCandidate, impactReviewVideoUrl, impactReviewIssue, frameIndexAtOrBefore, frameIndexForPresentedTime} = await import(outfile);
   const valid = {ok: true, jobId: 'job', status: 'reference_candidate', timingRevision: 3, modelSha256: '70b338b519565f870ed1fce044a0453f828773e53b9fa9d024391b3b4cf57733', videoSha256: 'a'.repeat(64), inputScopeConfirmed: false, publicValue: null, automaticCoachingReady: false, appliedToPrimary: false, requiresHumanConfirmation: true, frameTimesMs: [0, 33, 67, 100], candidate: {frameIndex: 2, timeMs: 67}};
   assert.equal(validateImpactReview(valid, 'job'), valid);
+  const nearEnd={...valid,frameTimesMs:[0,300,700,900,1000],candidate:{frameIndex:3,timeMs:900}};
+  assert.equal(impactReviewIssue(nearEnd,undefined,0),'nearEnd');
+  assert.equal(impactReviewIssue({...nearEnd,frameTimesMs:[0,300,700,900,1000.001]},undefined,0),null);
+  assert.equal(impactReviewIssue(nearEnd,900,0),null,'explicit selection may use a short recording');
+  assert.equal(impactReviewIssue(nearEnd,200,0),'tooEarly','manual selection must still follow the address');
+  assert.equal(impactReviewIssue(valid,undefined,0),'tooEarly');
+  assert.equal(impactReviewIssue(null,undefined,0),null);
   const clock={ok:true,jobId:'job',timingRevision:3,videoSha256:'a'.repeat(64),frameTimesMs:[0,33,67,100]};
   assert.equal(validateVideoClock(clock,'job'),clock);
   for(const patch of [{jobId:'other'},{videoSha256:'bad'},{timingRevision:2},{frameTimesMs:[1,33,67,100]},{frameTimesMs:[0,33,33,100]}]) assert.throws(()=>validateVideoClock({...clock,...patch},'job'));

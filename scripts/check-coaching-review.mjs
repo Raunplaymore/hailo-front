@@ -43,6 +43,9 @@ try {
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/공은 직접 감지하지 않고 준비 자세로 방향을 추정/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,candidatePending:false,analysisReady:false,analysisError:'failed',onRetryAnalysis(){},playable:true,onResult(){},onEvidence(){},onSeek(){}}),/분석 결과 다시 불러오기/);
   assert.match(render('CoachingReview',{jobId:'job',addressMs:100,impactFrameIndex:3,candidatePending:false,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/직접 선택한 장면/);
+  const impactCheck=render('CoachingReview',{jobId:'job',addressMs:0,impactMs:900,impactIssue:'nearEnd',onReviewImpact(){},candidatePending:false,analysisReady:true,playable:true,onResult(){},onEvidence(){},onSeek(){}});
+  assert.match(impactCheck,/임팩트 후보가 영상 끝과 가까워요/);assert.match(impactCheck,/타격 장면 확인/);
+  assert.match(render('CoachingReview',{jobId:'job',addressMs:0,impactMs:67,impactIssue:'tooEarly',onReviewImpact(){},candidatePending:false,analysisReady:true,playable:true,onResult(){},onEvidence(){},onSeek(){}}),/두 장면을 확인/);
   const html=render('CoachingObservation',props);
   assert.match(html,/근거 구간 천천히 보기/);assert.match(html,/화면상 윤곽만으로 얼리 익스텐션이나 교정 필요성을 확정하지 않습니다/);
   assert.match(html,/추정 공 방향: 화면 오른쪽/);assert.match(html,/공 위치를 확인할 수 없다면 이 관찰을 해석하지 마세요/);
@@ -187,6 +190,8 @@ try {
     runGate(gateProps);await new Promise(setImmediate);assert.equal(gateRequests.length,0,'do not request a provisional address');
     runGate({...gateProps,analysisReady:true,candidatePending:true});await new Promise(setImmediate);assert.equal(gateRequests.length,0,'wait for the impact candidate');
     runGate({...gateProps,analysisReady:true,addressMs:undefined});await new Promise(setImmediate);assert.equal(gateRequests.length,0,'do not invent an address');
+    runGate({...gateProps,analysisReady:true,impactIssue:'nearEnd'});await new Promise(setImmediate);assert.equal(gateRequests.length,0,'short tail requires a reviewed frame');
+    runGate({...gateProps,analysisReady:true,impactIssue:'tooEarly'});await new Promise(setImmediate);assert.equal(gateRequests.length,0,'early candidate requires a reviewed frame');
     runGate({...gateProps,analysisReady:true,addressMs:100});await gateResult;
     assert.deepEqual(gateRequests.map(request=>request.addressMs),[100],'request once with the loaded address');
   } finally {globalThis.fetch=originalFetch;}

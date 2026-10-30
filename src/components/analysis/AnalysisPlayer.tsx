@@ -140,9 +140,11 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
   const selectedClubOverlay = clubSidecar?.overlayVideoSha256 !== undefined
     ? (!clubVideoUnverified && clubSidecar.status === "succeeded" && clubSidecar.pendingOverlay?.clubTimeSource === "video_pts" ? clubSidecar.pendingOverlay : null)
     : clubSidecar?.status === "succeeded" && clubSidecar.overlay?.clubTimeSource === "video_pts" ? clubSidecar.overlay : legacyClubOverlay;
-  const clubOverlay = useMemo(() => needsGripRecheck && selectedClubOverlay && selectedClubOverlay !== legacyClubOverlay
+  const clubOverlay = useMemo<AnalysisOverlay | null | undefined>(() => needsGripRecheck && selectedClubOverlay && selectedClubOverlay !== legacyClubOverlay
     ? {...selectedClubOverlay, clubFrames: selectedClubOverlay.clubFrames.map(({ handle: _handle, ...frame }) => frame)} : selectedClubOverlay,
   [needsGripRecheck, selectedClubOverlay, legacyClubOverlay]);
+  const hasClubPair = useMemo(() => Boolean(clubOverlay && hasValidClubPair(clubOverlay.clubFrames)), [clubOverlay]);
+  const hasClubLine = Boolean(videoUrl && layers.club && hasClubPair);
   const legacyGripHidden = selectedClubOverlay === legacyClubOverlay && Boolean(overlay?.clubFrames.some(frame => frame.handle));
   const clubFrameTimes = useMemo(() => clubOverlay?.clubFrames.map(frame => frame.timeMs), [clubOverlay]);
   const useClubFrameTimes = Boolean(clubFrameTimes?.length && (tool === "club" || !videoClock));
@@ -418,7 +420,10 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
         <div ref={analysisScrollRef} className="analysis-scroll space-y-3" role="region" aria-label="분석 내용" tabIndex={0}>
         {motionNotice && <p role="status" className="text-xs leading-5 text-muted-foreground">{motionNotice}</p>}
         {clubVideoUnverified && Boolean(clubSidecar?.pendingOverlay?.clubFrames.length) && <p className="text-xs text-muted-foreground" role="status">클럽 궤적은 임팩트 후보와 영상 일치가 확인되면 표시됩니다.</p>}
-        {jobId && tool === "club" && Boolean(clubOverlay?.clubFrames.length) && <p className="text-xs text-muted-foreground">재생 중 선은 장면과 조금 어긋날 수 있어요. 확인할 때 잠시 멈춰 주세요.</p>}
+        {(hasClubLine || (jobId && tool === "club" && Boolean(clubOverlay?.clubFrames.length))) && <p className="text-xs leading-5 text-muted-foreground">
+          {hasClubLine && "노란 실선: 추정 그립·헤드 중심 연결선(샤프트 직접 추적 아님). "}
+          {jobId && tool === "club" && Boolean(clubOverlay?.clubFrames.length) && "재생 중에는 조금 어긋날 수 있어요. 잠시 멈춰 확인하세요."}
+        </p>}
         {jobId && tool !== "club" && !contour && !guideKind && (impactState.loading || poseState.loading
           ? <p className="text-xs text-muted-foreground" role="status">자세 선의 영상 시각을 확인하고 있어요.</p>
           : !videoClock || poseState.error || poseState.pose?.status === "unavailable"
@@ -445,7 +450,7 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
         {tool === "impact" && <ImpactReview key={`${jobId}:${videoSha256 ?? "pending"}`} review={impactState.review} manualClock={manualClockState.clock} clockLoading={manualClockState.loading} clockError={manualClockState.error} onClockRetry={manualClockState.retry} loading={impactState.loading} playable={videoPlayable} error={impactState.error} onRetry={impactState.retry} timeMs={timeMs} onSeek={seekTime} onChooseCurrent={chooseImpactAtCurrentTime} selectionError={selectionError} />}
         </>}
 
-        {legacyGripHidden && (!jobId || tool === "club") && <p role="status" className="text-xs leading-5 text-muted-foreground">기존 추적의 그립 위치를 확인할 수 없어 노란 그립·샤프트 선을 숨겼어요. {jobId ? "클럽 관측을 계산해 보세요." : "Pi의 분석 화면에서 클럽 관측을 확인해 보세요."}</p>}
+        {legacyGripHidden && (!jobId || tool === "club") && <p role="status" className="text-xs leading-5 text-muted-foreground">기존 추적의 그립 위치를 확인할 수 없어 노란 연결선을 숨겼어요. {jobId ? "클럽 관측을 계산해 보세요." : "Pi의 분석 화면에서 클럽 관측을 확인해 보세요."}</p>}
         {!jobId && needsGripRecheck && selectedClubOverlay !== legacyClubOverlay && Boolean(selectedClubOverlay?.clubFrames.some(frame => frame.handle)) && <p role="status" className="text-xs leading-5 text-muted-foreground">이전에 저장된 그립은 후보 확인 전 결과라 숨겼어요. Pi 분석 화면에서 클럽 관측을 다시 계산해 주세요.</p>}
         {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar}
           impactReview={impactState.review} impactLoading={impactState.loading} onRetryImpact={impactState.retry}
@@ -650,7 +655,7 @@ function ClubTrackingEvidence({ sidecar, overlay }: { sidecar?: DtlClubPointsV2S
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-semibold text-cyan-100">DTL V2 클럽 추적</p>
-          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{overlay?.clubTimeSource === "video_pts" ? overlay.clubFrames.some(frame => frame.handle) ? "파란 선은 헤드 궤적, 노란 선은 그립과 샤프트의 추정 위치입니다. 두 점이 실제 클럽과 맞는지 영상에서 확인하세요." : "파란 선은 추정한 헤드 궤적입니다. 그립과 샤프트는 표시되지 않습니다." : "클럽 궤적과 영상의 일치를 아직 확인하지 못했습니다."}</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-cyan-100/70">{overlay?.clubTimeSource === "video_pts" ? hasValidClubPair(overlay.clubFrames) ? "파란 선은 추정 헤드 궤적, 노란 실선은 추정 그립과 헤드 중심을 이은 선입니다. 샤프트를 직접 추적하지 않았으니 원본에서 확인하세요." : "파란 선은 추정한 헤드 궤적입니다. 그립과 헤드를 잇는 선은 표시되지 않습니다." : "클럽 궤적과 영상의 일치를 아직 확인하지 못했습니다."}</p>
         </div>
         <span className={cn(
           "rounded-full border px-2 py-1 text-[11px] font-semibold",
@@ -703,6 +708,11 @@ function nearestAt<T extends { timeMs: number }>(frames: T[], timeMs: number): T
 function validPosePoint(point: unknown): point is [number, number, number] {
   return Array.isArray(point) && point.length >= 3 && Number.isFinite(point[0]) && Number.isFinite(point[1])
     && Number.isFinite(point[2]) && point[2] >= .15;
+}
+
+function hasValidClubPair(frames: AnalysisOverlay["clubFrames"]) {
+  return frames.some(frame => [frame.head, frame.handle].every(point => point
+    && (point.confidence ?? 0) >= CLUB_TRAIL_MIN_CONFIDENCE && Number.isFinite(point.x) && Number.isFinite(point.y)));
 }
 
 function OverlaySvg({ pose, poseFrames, clubFrames, events, timeMs, clubTimeMs = timeMs, layers }: { pose?: AnalysisOverlay["poseFrames"][number]; poseFrames: AnalysisOverlay["poseFrames"]; clubFrames: AnalysisOverlay["clubFrames"]; events?: AnalysisResult["events"]; timeMs: number; clubTimeMs?: number; layers: Record<"pose" | "hands" | "club" | "events", boolean> }) {

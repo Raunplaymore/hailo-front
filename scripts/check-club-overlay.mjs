@@ -23,6 +23,10 @@ const renderVerified = (frame, timeMs, clubTimeMs) => renderToStaticMarkup(React
   clubFrames: [frame], poseFrames: [], timeMs, clubTimeMs, layers: { club: true },
 }));
 const frame = { timeMs: 100, head: point, handle: { ...point, x: .5 } };
+assert.equal(context.hasValidClubPair([frame]), true, 'a visible line needs two valid points in the same frame');
+assert.equal(context.hasValidClubPair([{timeMs: 0, head: point}, {timeMs: 10, handle: point}]), false, 'points in separate frames are not a line');
+assert.equal(context.hasValidClubPair([{...frame, head: {...point, confidence: .2}}]), false, 'low confidence points cannot produce a line legend');
+assert.equal(context.hasValidClubPair([{...frame, handle: {...point, x: NaN}}]), false, 'invalid coordinates cannot produce a line legend');
 assert.match(render(frame), /<line /);
 assert.doesNotMatch(render(frame, 151), /<line /, 'stale shaft must disappear');
 assert.match(render({ ...frame, headValidUntilMs: 117 },116), /<line /);
@@ -338,8 +342,8 @@ assert.doesNotMatch(fullCoverage,/빠진 프레임/);
 assert.equal((clubHtml.match(/>백스윙/g)||[]).length,1,'only one phase pair should be displayed');
 assert.equal((clubHtml.match(/aria-pressed="true"/g)||[]).length,1,'default height selected');
 assert.match(clubHtml,/50%/); assert.match(clubHtml,/관측의 한계/);
-assert.match(clubHtml,/두 장면이 각각 백스윙과 다운스윙인지/);
-assert.match(clubHtml,/노란 선이 실제 클럽과 맞는지 확인하세요/);
+assert.match(clubHtml,/추정 그립과 헤드 중심의 연결선을 비교/);
+assert.match(clubHtml,/두 장면을 원본에서 확인하세요/);
 assert.match(clubHtml,/추정한 클럽 위치로 비교/);
 assert.doesNotMatch(clubHtml,/위치가 달라지면 비교가 불확실/, 'missing sensitivity must not claim a result');
 const sensitive = {...props, sidecar:{observations:{impactReference:clubReference,levels:[{...props.sidecar.observations.levels[2], sensitiveTo10Px:true}]}}};

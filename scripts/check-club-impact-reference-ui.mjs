@@ -21,20 +21,20 @@ try {
     observations: { levels: [level], impactReference: reference } };
   const props = { jobId: 'job', sidecar, impactReview: impact, impactLoading: false,
     playable: true, onSeek() {}, onResult() {}, onRetryImpact() {} };
-  assert.match(render(props), /내려올 때 더 세워져 보임/);
+  assert.match(render(props), /내려올 때 연결선이 더 세워져 보임/);
   const legacy = render({ ...props, sidecar: { ...sidecar, observations: { levels: [level] } } });
-  assert.doesNotMatch(legacy, /내려올 때 더 세워져 보임/);
+  assert.doesNotMatch(legacy, /내려올 때 연결선이 더 세워져 보임/);
   assert.match(legacy, /임팩트 기준.*다시 계산/);
   const changed = render({ ...props, impactReview: { ...impact, candidate: { frameIndex: 2, timeMs: 67 } } });
-  assert.doesNotMatch(changed, /내려올 때 더 세워져 보임/);
+  assert.doesNotMatch(changed, /내려올 때 연결선이 더 세워져 보임/);
   assert.match(changed, /기준이 현재 후보와 달라/);
   const otherVideo = render({ ...props, impactReview: { ...impact, videoSha256: 'b'.repeat(64) } });
-  assert.doesNotMatch(otherVideo, /내려올 때 더 세워져 보임/);
+  assert.doesNotMatch(otherVideo, /내려올 때 연결선이 더 세워져 보임/);
   const waiting = render({ ...props, impactReview: null, impactLoading: true });
-  assert.doesNotMatch(waiting, /내려올 때 더 세워져 보임/);
+  assert.doesNotMatch(waiting, /내려올 때 연결선이 더 세워져 보임/);
   assert.match(waiting, /임팩트 후보를 확인하는 중/);
   const failed = render({ ...props, impactReview: null });
-  assert.doesNotMatch(failed, /내려올 때 더 세워져 보임/);
+  assert.doesNotMatch(failed, /내려올 때 연결선이 더 세워져 보임/);
   assert.match(failed, /임팩트 후보 다시 확인/);
   assert.match(render({ ...props, manualImpactDifferent: true }), /직접 선택한.*몸 관찰/);
   console.log('club comparisons require the matching video and impact frame');

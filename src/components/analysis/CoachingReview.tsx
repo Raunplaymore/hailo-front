@@ -74,7 +74,7 @@ export function CoachingObservation({ result, playable, onEvidence, onSeek, sele
     : result?.reason === "BALL_DIRECTION_UNCLEAR"
       ? "준비 자세로 공 방향을 추정하기 어렵습니다. 후방에서 준비 자세와 손이 함께 보이도록 촬영해 주세요."
       : result?.reason === "PHASE_COVERAGE_INSUFFICIENT"
-        ? "임팩트 전 확인 가능한 장면이 부족하거나 사이가 너무 멉니다. 준비 자세부터 임팩트까지 끊김 없이 촬영해 주세요."
+        ? "임팩트 전 확인 가능한 장면이 부족하거나 간격이 넓습니다. 임팩트 탭에서 타격 장면을 확인해 주세요."
         : result?.reason === "SILHOUETTE_UNRELIABLE"
           ? "골반 뒤쪽 윤곽을 구분하기 어렵습니다. 몸 전체와 엉덩이 뒤쪽이 가리지 않게 촬영해 주세요."
           : result?.reason === "ADDRESS_UNSTABLE"

@@ -79,7 +79,10 @@ try {
   assert.throws(()=>parseCoachingReview({...result,movementGuide:{...guide,impactMs:1050}},'job',1000,100),'reject an overlay for a different impact');
   assert.match(render('PelvisContourOverlay',{evidence:similarity,timeMs:860}),/x1="0.3" x2="0.32"/);
   assert.doesNotMatch(render('PelvisContourOverlay',{evidence:{...similarity,points:similarity.points.filter(p=>p.timeMs!==860)},timeMs:860}),/stroke="#fbbf24"/,'do not bridge excluded frames');
-  assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'PHASE_COVERAGE_INSUFFICIENT'}}),/장면이 부족/);
+  const coverageUnavailable=render('CoachingObservation',{...props,result:{...unavailable,reason:'PHASE_COVERAGE_INSUFFICIENT'}});
+  assert.match(coverageUnavailable,/장면이 부족/);
+  assert.match(coverageUnavailable,/임팩트 탭에서 타격 장면을 확인/);
+  assert.doesNotMatch(coverageUnavailable,/촬영해 주세요/);
   assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'BALL_DIRECTION_UNCLEAR'}}),/준비 자세로 공 방향을 추정하기 어렵습니다/);
   assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'CAMERA_MOTION_OR_BACKGROUND_UNCLEAR'}}),/준비 자세 후보가 다르면 위에서 바꿔/);
   assert.match(render('CoachingObservation',{...props,result:{...unavailable,reason:'VIDEO_TIMING_UNAVAILABLE'}}),/영상과 분석 프레임의 시각/);

@@ -9,6 +9,7 @@ export function MovementGuideControls({ guide, active, onActive, onSeek, timeMs,
       <div className="flex flex-wrap gap-2">{(["head", "pelvis"] as const).map(kind => <button key={kind} type="button" className={`${button} ${active === kind ? "bg-primary/15 text-primary border-primary/40" : "hover:bg-muted"}`} aria-pressed={active === kind} disabled={!playable || !guide.tracks?.[kind]} onClick={() => { onActive(kind); onSeek(guide.tracks![kind]!.focusTimeMs); }}>{labels[kind]} 보기</button>)}
         {active && <button type="button" className={button} onClick={() => onActive(null)}>기준선 숨기기</button>}
       </div>
+      {(!guide.tracks?.head || !guide.tracks?.pelvis) && <p className="text-xs text-muted-foreground">관측이 충분하지 않은 부위의 선은 표시하지 않습니다. 원본 영상에서 직접 확인해 주세요.</p>}
       {track && <>
         {!guidePointAt(track,timeMs) && <p className="text-xs text-muted-foreground">현재 장면은 추적이 없어 시작 기준선만 표시합니다.</p>}
         <p className="text-sm">{labels[active!]} 확인 장면 · {selectedImpact ? "선택 장면" : "임팩트 후보"} {track.phase === "before" ? "이전" : track.phase === "after" ? "이후" : "근처"}</p>

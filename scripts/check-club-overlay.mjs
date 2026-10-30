@@ -272,7 +272,9 @@ const clubSource = fs.readFileSync('src/components/analysis/ClubObservation.tsx'
 const clubCode = await esbuild.transform(clubSource, {loader:'tsx', jsx:'transform'});
 const clubContext = vm.createContext({React, useState:React.useState, useEffect:React.useEffect, useRef:React.useRef, CLUB_BODY_UNAVAILABLE_MESSAGE:'자세 자료를 확인하지 못해'});
 vm.runInContext(clubCode.code, clubContext);
-const props = {jobId:'fixture', playable:true, onSeek(){}, onResult(){}, sidecar:{observations:{levels:[.2,.35,.5,.65,.8].map(heightFraction=>({heightFraction, direction:'steeper', backswingMs:1000, downswingMs:1700}))}}};
+const clubReference = {videoSha256:'a'.repeat(64),frameIndex:3,timeMs:2000};
+const clubImpact = {videoSha256:clubReference.videoSha256,candidate:{frameIndex:3,timeMs:2000}};
+const props = {jobId:'fixture', playable:true, impactReview:clubImpact, onSeek(){}, onResult(){}, sidecar:{observations:{impactReference:clubReference,levels:[.2,.35,.5,.65,.8].map(heightFraction=>({heightFraction, direction:'steeper', backswingMs:1000, downswingMs:1700}))}}};
 const clubHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,props));
 const coverageProps = { ...props, sidecar: { ...props.sidecar, status:'succeeded', overlay:{clubFrames:[frame]}, sourceFrameCoverage:{status:'verified',missingFrames:1} } };
 const missingCoverage = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,coverageProps));
@@ -301,7 +303,7 @@ assert.match(clubHtml,/두 장면이 각각 백스윙과 다운스윙인지/);
 assert.match(clubHtml,/노란 선이 실제 클럽과 맞는지 확인하세요/);
 assert.match(clubHtml,/추정한 클럽 위치로 비교/);
 assert.doesNotMatch(clubHtml,/위치가 달라지면 비교가 불확실/, 'missing sensitivity must not claim a result');
-const sensitive = {...props, sidecar:{observations:{levels:[{...props.sidecar.observations.levels[2], sensitiveTo10Px:true}]}}};
+const sensitive = {...props, sidecar:{observations:{impactReference:clubReference,levels:[{...props.sidecar.observations.levels[2], sensitiveTo10Px:true}]}}};
 const sensitiveHtml = renderToStaticMarkup(React.createElement(clubContext.ClubObservation,sensitive));
 assert.match(sensitiveHtml,/위치가 달라지면 비교가 불확실/);
 assert.match(sensitiveHtml,/10px 오차를 가정하면 비교가 불확실/);
@@ -329,9 +331,9 @@ const requestClubReview = () => new Promise((resolve, reject) => { resolveRefres
 const interactive = vm.createContext({React:fakeReact, useState, useRef, useEffect, requestClubReview, AbortController, CLUB_BODY_UNAVAILABLE_MESSAGE:'자세 자료를 확인하지 못해'});
 vm.runInContext(clubCode.code, interactive);
 const seeks = [];
-const first = {status:'succeeded', trackingQuality:checkedGrip, observations:{levels:[{heightFraction:.5,direction:'steeper',backswingMs:1000,downswingMs:1700}]}};
-const second = {status:'succeeded', trackingQuality:checkedGrip, observations:{levels:[{heightFraction:.5,direction:'steeper',backswingMs:1200,downswingMs:1800}]}};
-const live = {jobId:'fixture', sidecar:first, playable:true, onSeek:ms=>seeks.push(ms), onResult:value=>{live.sidecar=value;}};
+const first = {status:'succeeded', trackingQuality:checkedGrip, observations:{impactReference:clubReference,levels:[{heightFraction:.5,direction:'steeper',backswingMs:1000,downswingMs:1700}]}};
+const second = {status:'succeeded', trackingQuality:checkedGrip, observations:{impactReference:clubReference,levels:[{heightFraction:.5,direction:'steeper',backswingMs:1200,downswingMs:1800}]}};
+const live = {jobId:'fixture', sidecar:first, impactReview:clubImpact, playable:true, onSeek:ms=>seeks.push(ms), onResult:value=>{live.sidecar=value;}};
 function rerender() { let tree; do { cursor=0; effects=[]; dirty=false; tree=interactive.ClubObservation(live); effects.forEach(effect=>effect()); } while (dirty); return tree; }
 function nodes(node) { return node && typeof node === 'object' ? [node, ...node.children.flatMap(nodes)] : []; }
 function text(node) { return typeof node === 'string' || typeof node === 'number' ? String(node) : node?.children?.map(text).join('') || ''; }
@@ -347,9 +349,13 @@ pending=button(tree,'클럽 관측 다시 계산').props.onClick(); resolveRefre
 assert.equal(button(tree,'백스윙').props['aria-pressed'],false,'new results must not mark the old video scene as selected');
 assert.deepEqual(seeks,[1000],'refresh does not move the video without a user action');
 button(tree,'백스윙').props.onClick(); tree=rerender(); assert.deepEqual(seeks,[1000,1200]);
-live.sidecar={...second,observations:{levels:[{...second.observations.levels[0],backswingMs:1400}]}}; tree=rerender();
+live.sidecar={...second,observations:{...second.observations,levels:[{...second.observations.levels[0],backswingMs:1400}]}}; tree=rerender();
 assert.equal(button(tree,'백스윙').props['aria-pressed'],false,'an externally replaced observation also clears selection');
 button(tree,'백스윙').props.onClick(); tree=rerender(); assert.deepEqual(seeks,[1000,1200,1400]);
+live.impactReview={...clubImpact,candidate:{frameIndex:4,timeMs:2033}}; tree=rerender();
+assert.equal(nodes(tree).some(node=>node.type==='button' && text(node).includes('백스윙')),false,'a changed impact hides the old comparison');
+live.impactReview=clubImpact; tree=rerender();
+assert.equal(button(tree,'백스윙').props['aria-pressed'],false,'returning to the original impact must not restore a stale selected scene');
 live.playable=false; tree=rerender(); assert.equal(button(tree,'백스윙').props.disabled,true);
 button(tree,'50%').props.onClick(); tree=rerender();
 assert.equal(button(tree,'백스윙').props['aria-pressed'],false,'changing height without playable video clears the old phase');

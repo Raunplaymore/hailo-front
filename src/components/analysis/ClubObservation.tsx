@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { CLUB_BODY_UNAVAILABLE_MESSAGE, requestClubReview } from "@/api/shots";
 import type { DtlClubPointsV2Sidecar } from "@/types/shots";
+import type { ImpactReview } from "@/api/impactReview";
 
-export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: {
+export function ClubObservation({ jobId, sidecar, impactReview, impactLoading, manualImpactDifferent, playable, onSeek, onResult, onRetryImpact }: {
   jobId: string; sidecar?: DtlClubPointsV2Sidecar | null; playable: boolean;
+  impactReview?: Pick<ImpactReview, "videoSha256" | "candidate"> | null; impactLoading?: boolean;
+  manualImpactDifferent?: boolean; onRetryImpact?: () => void;
   onSeek: (ms: number) => void; onResult: (result: DtlClubPointsV2Sidecar) => void;
 }) {
   const [height, setHeight] = useState(0.5);
@@ -12,12 +15,17 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
   const [error, setError] = useState("");
   const active = useRef<AbortController | null>(null);
   useEffect(() => () => active.current?.abort(), []);
-  useEffect(() => setPhase(null), [sidecar]);
+  useEffect(() => setPhase(null), [sidecar, impactReview?.videoSha256, impactReview?.candidate.frameIndex, impactReview?.candidate.timeMs]);
   const ambiguousHeads = sidecar?.trackingQuality?.ambiguousClubHeadFrames;
   const ambiguousHandles = sidecar?.trackingQuality?.ambiguousClubHandleFrames;
   const needsGripRecheck = sidecar?.status === "succeeded" &&
     (typeof ambiguousHandles !== "number" || !Number.isSafeInteger(ambiguousHandles) || ambiguousHandles < 0);
-  const levels = needsGripRecheck ? undefined : sidecar?.observations?.levels;
+  const savedLevels = needsGripRecheck ? undefined : sidecar?.observations?.levels;
+  const reference = sidecar?.observations?.impactReference;
+  const matchingImpact = Boolean(reference && impactReview && reference.videoSha256 === impactReview.videoSha256
+    && reference.frameIndex === impactReview.candidate.frameIndex && reference.timeMs === impactReview.candidate.timeMs);
+  const needsImpactCheck = Boolean(savedLevels?.length && !matchingImpact);
+  const levels = needsImpactCheck ? undefined : savedLevels;
   const selected = levels?.find(level => level.heightFraction === height) ?? levels?.[0];
   const run = async (refresh = false) => {
     active.current?.abort();
@@ -41,6 +49,7 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
           : null)}
     {levels?.length ? <>
       <p className="sr-only">손 높이: 시작 0% → 최고점 후보 100%</p>
+      {manualImpactDifferent && <p className="text-xs leading-5 text-muted-foreground">직접 선택한 타격 장면은 몸 관찰에 적용돼요. 클럽 비교는 자동 임팩트 후보 기준이에요.</p>}
       <div className="grid grid-cols-5 gap-1" role="group" aria-label="비교할 손 높이">
         {levels.map(level => <button key={level.heightFraction} type="button" aria-pressed={selected === level} onClick={() => { setHeight(level.heightFraction); if (phase && playable) onSeek(phase === "backswing" ? level.backswingMs : level.downswingMs); else if (!playable) setPhase(null); }} className={`min-h-11 rounded-lg border text-sm ${selected === level ? "border-primary bg-primary/15 text-primary" : "border-border"}`}>{Math.round(level.heightFraction * 100)}%</button>)}
       </div>
@@ -60,7 +69,20 @@ export function ClubObservation({ jobId, sidecar, playable, onSeek, onResult }: 
         </div>
       </div>}
       <details className="text-xs text-muted-foreground"><summary className="cursor-pointer py-2">관측의 한계와 다시 계산</summary><p className="leading-5">손 높이가 비슷한 백스윙과 다운스윙 장면의 화면상 관측이며, 스윙의 정답·오류 판정은 아닙니다. 표시는 각 검출점에 5px 위치 오차를 가정하고 비교 프레임이 바뀔 가능성까지 계산한 결과입니다.{selected?.sensitiveTo10Px ? " 이 장면은 10px 오차를 가정하면 비교가 불확실해집니다." : ""} 실제 오차를 측정한 정확도가 아니며, 카메라 각도·구간 경계·잘못된 물체 검출의 영향은 별도 확인이 필요합니다.</p><button type="button" disabled={loading} onClick={() => run(true)} className="mt-2 min-h-11 rounded-lg border border-border px-3 text-sm disabled:opacity-60">{loading ? "다시 계산 중…" : "클럽 관측 다시 계산"}</button></details>
-    </> : <><p className="text-sm text-muted-foreground">{needsGripRecheck ? "이전에 저장된 결과에는 그립 후보 확인이 없어 그립·샤프트와 비교를 숨겼어요. 클럽 관측을 다시 계산해 주세요." : sidecar?.observations?.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? "임팩트 후보 없이 계산해 구간 비교를 보류했어요. 임팩트 탭에서 후보를 확인한 뒤 다시 계산해 주세요. 추적 궤적은 영상 일치가 확인되면 표시됩니다." : sidecar?.status === "failed" && sidecar.errorCode === "BODY_UNAVAILABLE" ? CLUB_BODY_UNAVAILABLE_MESSAGE : sidecar?.observations ? "이 영상에서는 안정적으로 비교할 장면을 확보하지 못했습니다." : "클럽 관측을 계산하면 높이별 비교 장면을 볼 수 있습니다."}</p><button type="button" disabled={loading} onClick={() => run(sidecar?.status === "succeeded")} className="min-h-11 w-full rounded-lg bg-primary px-4 text-primary-foreground disabled:opacity-60">{loading ? "클럽 관측 중…" : sidecar?.status === "succeeded" ? "클럽 관측 다시 계산" : "클럽 관측 계산"}</button></>}
+    </> : <>
+      <p className="text-sm text-muted-foreground" aria-live="polite">{needsGripRecheck ? "이전에 저장된 결과에는 그립 후보 확인이 없어 그립·샤프트와 비교를 숨겼어요. 클럽 관측을 다시 계산해 주세요."
+        : needsImpactCheck && impactLoading ? "임팩트 후보를 확인하는 중이에요."
+        : needsImpactCheck && !impactReview ? "임팩트 후보를 확인하지 못해 비교를 보류했어요."
+        : needsImpactCheck && !reference ? "이전 비교에는 임팩트 기준이 없어 다시 계산이 필요해요."
+        : needsImpactCheck ? "이 비교의 임팩트 기준이 현재 후보와 달라요. 클럽 관측을 다시 계산해 주세요."
+        : sidecar?.observations?.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? "임팩트 후보 없이 계산해 구간 비교를 보류했어요. 임팩트 탭에서 후보를 확인한 뒤 다시 계산해 주세요. 추적 궤적은 영상 일치가 확인되면 표시됩니다."
+        : sidecar?.status === "failed" && sidecar.errorCode === "BODY_UNAVAILABLE" ? CLUB_BODY_UNAVAILABLE_MESSAGE
+        : sidecar?.observations ? "이 영상에서는 안정적으로 비교할 장면을 확보하지 못했습니다." : "클럽 관측을 계산하면 높이별 비교 장면을 볼 수 있습니다."}</p>
+      {needsImpactCheck && impactLoading ? null : needsImpactCheck && !impactReview && !needsGripRecheck
+        ? <button type="button" disabled={!onRetryImpact} onClick={onRetryImpact} className="min-h-11 w-full rounded-lg bg-primary px-4 text-primary-foreground disabled:opacity-60">임팩트 후보 다시 확인</button>
+        : <button type="button" disabled={loading} onClick={() => run(sidecar?.status === "succeeded")} className="min-h-11 w-full rounded-lg bg-primary px-4 text-primary-foreground disabled:opacity-60">{loading ? "클럽 관측 중…" : sidecar?.status === "succeeded" ? "클럽 관측 다시 계산" : "클럽 관측 계산"}</button>}
+      {needsImpactCheck && reference && impactReview && onRetryImpact && <button type="button" onClick={onRetryImpact} className="min-h-11 w-full rounded-lg border border-border px-4 text-sm">임팩트 후보 다시 확인</button>}
+    </>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>;
 }

@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "check:club-overlay": "node scripts/check-club-overlay.mjs",
+    "check:club-overlay": "node scripts/check-club-overlay.mjs && node scripts/check-club-impact-reference-ui.mjs",
     "dev": "vite",
     "build": "vite build",
     "check:analysis": "node scripts/check-analysis-normalization.mjs && node scripts/check-club-followup.mjs",

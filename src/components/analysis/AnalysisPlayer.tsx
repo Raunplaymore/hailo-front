@@ -445,7 +445,10 @@ export function AnalysisPlayer({ videoUrl, jobId, events, overlay, dtlClubPoints
 
         {legacyGripHidden && (!jobId || tool === "club") && <p role="status" className="text-xs leading-5 text-muted-foreground">기존 추적의 그립 위치를 확인할 수 없어 노란 그립·샤프트 선을 숨겼어요. {jobId ? "클럽 관측을 계산해 보세요." : "Pi의 분석 화면에서 클럽 관측을 확인해 보세요."}</p>}
         {!jobId && needsGripRecheck && selectedClubOverlay !== legacyClubOverlay && Boolean(selectedClubOverlay?.clubFrames.some(frame => frame.handle)) && <p role="status" className="text-xs leading-5 text-muted-foreground">이전에 저장된 그립은 후보 확인 전 결과라 숨겼어요. Pi 분석 화면에서 클럽 관측을 다시 계산해 주세요.</p>}
-        {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar} playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
+        {jobId && <div hidden={tool !== "club"}><ClubObservation key={jobId} jobId={jobId} sidecar={clubSidecar}
+          impactReview={impactState.review} impactLoading={impactState.loading} onRetryImpact={impactState.retry}
+          manualImpactDifferent={Boolean(selectedImpact && impactState.review && selectedImpact.frameIndex !== impactState.review.candidate.frameIndex)}
+          playable={videoPlayable} onSeek={seekTime} onResult={value => setClubOverride({ jobId, value })} /></div>}
         {tool === "club" && clubSidecar && <details className="text-xs text-muted-foreground"><summary>클럽 추적 근거 · 연구용</summary><ClubTrackingEvidence sidecar={clubSidecar} overlay={clubOverlay === legacyClubOverlay ? null : clubOverlay} /></details>}
         <div className="space-y-2">
           <p className="text-xs font-semibold text-muted-foreground">스윙 장면 · {jobId ? "임팩트는 추정 후보, 나머지는 연구 참고" : "연구 참고"}</p>

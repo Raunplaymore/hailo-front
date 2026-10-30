@@ -273,6 +273,14 @@ try {
   assert.equal(observed.dtlClubPointsV2.observations.levels[0].downswingMs, 300);
   assert.equal(observed.dtlClubPointsV2.observations.levels[0].direction, 'steeper');
   assert.equal(observed.dtlClubPointsV2.observations.levels[0].sensitiveTo10Px, undefined, 'older responses do not claim ten-pixel stability');
+  const impactReference = { videoSha256:'a'.repeat(64), frameIndex:12, timeMs:400 };
+  const bound = value => normalizeAnalysis({dtlClubPointsV2:{observations:{...observation,impactReference:value}}},'bound').dtlClubPointsV2.observations;
+  assert.deepEqual(bound(impactReference).impactReference, impactReference);
+  for (const bad of [null, {...impactReference,videoSha256:'bad'}, {...impactReference,frameIndex:-1},
+    {...impactReference,frameIndex:7200}, {...impactReference,timeMs:NaN}, {...impactReference,timeMs:30001}]) {
+    assert.equal(bound(bad).impactReference, undefined, 'invalid impact provenance must not unlock a comparison');
+  }
+  assert.equal(bound({...impactReference,timeMs:200}).levels.length, 0, 'downswing comparison must precede its recorded impact');
   const edgeLevel = input => normalizeAnalysis({dtlClubPointsV2:{observations:input}}, 'edge').dtlClubPointsV2.observations.levels[0];
   assert.equal(edgeLevel({...observation,edgeCheck:undefined}).direction, 'pair_uncertain');
   assert.equal(edgeLevel({...observation,edgeCheck:undefined}).frameEdgeReason, 'unverified');

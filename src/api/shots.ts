@@ -516,12 +516,18 @@ const normalizeCoachFindings = (rawFindings: unknown): CoachFinding[] | undefine
 
 function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observations"] {
   if (raw?.revision !== 1 || raw?.automaticCoachingReady !== false || !Array.isArray(raw.levels)) return null;
+  const ref = raw.impactReference;
+  const impactReference = typeof ref?.videoSha256 === "string" && /^[a-f0-9]{64}$/.test(ref.videoSha256)
+    && Number.isSafeInteger(ref.frameIndex) && ref.frameIndex >= 0 && ref.frameIndex < 7200
+    && typeof ref.timeMs === "number" && Number.isFinite(ref.timeMs) && ref.timeMs >= 0 && ref.timeMs <= 30000
+    ? { videoSha256: ref.videoSha256, frameIndex: ref.frameIndex, timeMs: ref.timeMs } : undefined;
   const edgeChecked = raw.edgeCheck === "bbox-v1";
   const levels: ClubObservationLevel[] = raw.levels.slice(0, 5).flatMap((row: any) => {
     const test = Array.isArray(row?.sensitivity) ? row.sensitivity.find((s: any) => s?.endpointRadiusPx === 5) : null;
     const values = [row?.heightFraction, row?.backswing?.timeMs, row?.downswing?.timeMs, row?.inclinationDifferenceDeg, test?.differenceBoundsDeg?.[0], test?.differenceBoundsDeg?.[1]];
     if (row?.status !== "observation" || !values.every(v => typeof v === "number" && Number.isFinite(v))
       || values[0] <= 0 || values[0] >= 1 || values[1] < 0 || values[2] <= values[1] || values[4] > values[5]
+      || (impactReference && values[2] > impactReference.timeMs)
       || !["steeper", "flatter", "unresolved", "pair_uncertain"].includes(test?.direction)
       || (test.direction === "steeper" && values[4] <= 0) || (test.direction === "flatter" && values[5] >= 0)) return [];
     const larger = row.sensitivity.find((s: any) => s?.endpointRadiusPx === 10);
@@ -537,7 +543,8 @@ function normalizeClubObservations(raw: any): DtlClubPointsV2Sidecar["observatio
       ...(frameEdgeReason ? { frameEdgeReason } : {}),
       ...(["steeper", "flatter"].includes(direction) && uncertainAt10 ? { sensitiveTo10Px: true as const } : {}) }];
   });
-  return { status: String(raw.status), levels, ...(raw.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? {reason: raw.reason} : {}) };
+  return { status: String(raw.status), levels, ...(impactReference ? { impactReference } : {}),
+    ...(raw.reason === "IMPACT_CANDIDATE_UNAVAILABLE" ? {reason: raw.reason} : {}) };
 }
 
 export const CLUB_BODY_UNAVAILABLE_MESSAGE = "자세 자료를 확인하지 못해 클럽 관측을 보류했어요. 업로드 탭에서 영상을 다시 선택해 새 기록으로 분석하거나 다시 촬영해 주세요.";

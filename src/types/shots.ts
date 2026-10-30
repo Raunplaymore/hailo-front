@@ -161,7 +161,8 @@ export type ClubObservationLevel = {
   frameEdgeReason?: "unverified" | "possible";
 };
 export type DtlClubPointsV2Sidecar = {
-  observations?: { status: string; levels: ClubObservationLevel[]; reason?: "IMPACT_CANDIDATE_UNAVAILABLE" } | null;
+  observations?: { status: string; levels: ClubObservationLevel[]; reason?: "IMPACT_CANDIDATE_UNAVAILABLE";
+    impactReference?: { videoSha256: string; frameIndex: number; timeMs: number } } | null;
   overlay?: AnalysisOverlay | null;
   pendingOverlay?: AnalysisOverlay | null;
   overlayVideoSha256?: string | null;

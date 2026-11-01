@@ -213,7 +213,8 @@ export const listSessionFiles = async (
       ? json.sessions
       : Array.isArray(json?.items)
       ? json.items
-      : [];
+      : null;
+    if (!sessions) throw new Error("카메라 세션 목록을 확인할 수 없습니다.");
     return sessions.map((item: any) => {
       const jobId = item.jobId ?? item.sessionId ?? item.id;
       const filename =

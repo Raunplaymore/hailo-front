@@ -36,7 +36,6 @@ import {
   stopStream,
 } from "./api/cameraApi";
 import {
-  deleteSession,
   getSessionLive,
   getSessionStatus,
   listSessionFiles,
@@ -44,6 +43,7 @@ import {
   SessionApiError,
   stopSession,
 } from "./api/sessionApi";
+import { deleteRecording } from "./api/deleteRecording";
 import { createAnalysisJobForStoredUpload, createAnalysisJobFromFile, fetchAnalysisStatus, retryNasArchive } from "./api/shots";
 import { SessionList } from "./components/sessions/SessionList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
@@ -329,13 +329,16 @@ function MainApp() {
   }, [cameraSettings.baseUrl, cameraSettings.token]);
 
   const handleDelete = async (shot: Shot) => {
-    if (!window.confirm(`${formatMediaTitle(shot.filename, shot.originalName)} 영상을 삭제할까요?`)) return;
+    if (!window.confirm(`${formatMediaTitle(shot.filename, shot.originalName)} 영상과 연결된 분석 기록을 삭제할까요? 라벨은 보존됩니다.`)) return;
     setDeletingId(shot.id);
     try {
-      const response = await fetch(`${API_BASE}/api/files/${encodeURIComponent(shot.filename)}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("영상을 삭제하지 못했습니다. 다시 시도해 주세요.");
+      if (shot.sourceType === "camera" || shot.id === shot.filename) {
+        await deleteRecording(shot.filename, cameraSettings.baseUrl, cameraSettings.token || undefined);
+        await refreshSessions();
+      } else {
+        const response = await fetch(`${API_BASE}/api/files/${encodeURIComponent(shot.filename)}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("영상을 삭제하지 못했습니다. 다시 시도해 주세요.");
+      }
       await refreshShots();
       if (selectedShot?.id === shot.id) {
         selectShot(null);
@@ -369,21 +372,17 @@ function MainApp() {
       setSessionsError("카메라 서버 주소를 입력하세요.");
       return;
     }
-    const confirmed = window.confirm(`${formatMediaTitle(session.filename)} 촬영 기록을 삭제할까요?`);
+    const confirmed = window.confirm(`${formatMediaTitle(session.filename)} 영상과 연결된 분석 기록을 삭제할까요? 라벨은 보존됩니다.`);
     if (!confirmed) return;
     setDeletingSessionId(session.id);
     setSessionsError(null);
     try {
-      await deleteSession(
-        cameraSettings.baseUrl,
-        session.jobId,
-        session.filename,
-        cameraSettings.token || undefined
-      );
+      await deleteRecording(session.filename, cameraSettings.baseUrl, cameraSettings.token || undefined, session.id);
       if (selectedSession?.id === session.id) {
         setSelectedSession(null);
       }
       await refreshSessions();
+      await refreshShots({ silent: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "세션을 삭제하지 못했습니다.";
       setSessionsError(message);

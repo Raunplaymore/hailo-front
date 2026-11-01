@@ -213,6 +213,7 @@ function MainApp() {
   const [sessionAnalysisStatus, setSessionAnalysisStatus] = useState<JobStatus | null>(null);
   const [sessionAnalysisError, setSessionAnalysisError] = useState<string | null>(null);
   const [autoRecordStatus, setAutoRecordStatus] = useState<AutoRecordStatus | null>(null);
+  const sessionActionRef = useRef(0);
   const lastAutoFilenameRef = useRef<string | null>(null);
   const [liveBoxes, setLiveBoxes] = useState<LiveOverlayBox[]>([]);
   const livePollTimer = useRef<number | null>(null);
@@ -822,9 +823,11 @@ function MainApp() {
       setSessionError("해상도가 너무 높습니다. 네트워크 상태를 고려해 낮춰주세요.");
       return;
     }
+    const action = ++sessionActionRef.current;
     if (isPreviewOn && cameraSettings.autoStopPreviewOnCapture) {
       await handleStopPreview(true);
       await new Promise((resolve) => window.setTimeout(resolve, 300));
+      if (action !== sessionActionRef.current) return;
     }
     setSessionError(null);
     setSessionState("starting");
@@ -851,6 +854,7 @@ function MainApp() {
           handedness: settings.handedness,
         }
       );
+      if (action !== sessionActionRef.current) return;
       const status = res.status;
       setAutoRecordStatus(status);
       setSessionRuntimeStatus(status.state);
@@ -860,6 +864,7 @@ function MainApp() {
         handleStartPreview();
       }
     } catch (err) {
+      if (action !== sessionActionRef.current) return;
       const message = err instanceof Error ? err.message : "세션 시작 실패";
       setSessionError(message);
       setSessionState("failed");
@@ -872,6 +877,7 @@ function MainApp() {
       setSessionError("카메라 서버 주소를 입력하세요.");
       return;
     }
+    ++sessionActionRef.current;
     const isAutoRecord = AUTO_RECORD_ACTIVE_STATES.has(sessionState);
     if (isAutoRecord) {
       setSessionError(null);
@@ -1059,7 +1065,23 @@ function MainApp() {
 
   useEffect(() => {
     if (!cameraSettings.baseUrl) return;
+    let cancelled = false;
+    const action = sessionActionRef.current;
+    getAutoRecordStatus(cameraSettings.baseUrl, cameraSettings.token || undefined)
+      .then(({ status }) => {
+        if (cancelled || action !== sessionActionRef.current) return;
+        if (status.enabled && status.state !== "idle" && status.state !== "failed") {
+          void processAutoRecordStatus(status);
+        }
+      })
+      .catch(() => { if (!cancelled) setSessionRuntimeError("자동 녹화 상태를 불러오지 못했습니다."); });
+    return () => { cancelled = true; };
+  }, [cameraSettings.baseUrl, cameraSettings.token]);
+
+  useEffect(() => {
+    if (!cameraSettings.baseUrl) return;
     if (!AUTO_RECORD_ACTIVE_STATES.has(sessionState)) return;
+    if (sessionState === "starting") return;
     let cancelled = false;
     let timer: number | undefined;
 

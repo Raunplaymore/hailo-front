@@ -232,58 +232,7 @@ export const listSessionFiles = async (
     });
   };
 
-  const fetchFiles = async (path: string) => {
-    const res = await fetch(`${normalized}${path}`, {
-      headers: {
-        ...authHeaders(token),
-      },
-    });
-    if (!res.ok) {
-      throw await buildError(res, "파일 목록을 불러오지 못했습니다.");
-    }
-    const json = (await res.json()) as any;
-    return Array.isArray(json) ? json : Array.isArray(json?.files) ? json.files : [];
-  };
-
-  let files: any[] = [];
-  try {
-    return await fetchSessionList();
-  } catch (err) {
-    try {
-      files = await fetchFiles("/api/files/detail");
-    } catch (_) {
-      files = await fetchFiles("/api/files");
-    }
-  }
-
-  return files
-    .map((item: any) => {
-      if (typeof item === "string") {
-        return { filename: item } as SessionFileItem;
-      }
-      return {
-        filename: item.filename ?? item.name ?? item.fileName ?? "",
-        url: item.url ?? item.file?.url,
-        startedAt: item.startedAt ?? item.started_at,
-        stoppedAt: item.stoppedAt ?? item.stopped_at,
-        createdAt:
-          item.createdAt ??
-          item.created_at ??
-          item.modifiedAt ??
-          item.modified_at ??
-          item.startedAt ??
-          item.started_at ??
-          item.stoppedAt ??
-          item.stopped_at,
-        modifiedAt: item.modifiedAt ?? item.modified_at,
-        size: item.size ?? item.bytes,
-        jobId: item.jobId ?? item.sessionId ?? item.job_id,
-        status: item.status,
-        metaPath: item.metaPath ?? item.meta_path,
-        errorMessage: item.errorMessage ?? item.error,
-      } as SessionFileItem;
-    })
-    .filter((item: SessionFileItem) => Boolean(item.filename));
+  return fetchSessionList();
 };
 
 export const resolveCameraFileUrl = (baseUrl: string, url: string | undefined, filename: string): string => {
@@ -315,13 +264,5 @@ export const deleteSession = async (
     }
     return;
   }
-  const res = await fetch(`${normalized}/api/uploads/${encodeURIComponent(filename)}`, {
-    method: "DELETE",
-    headers: {
-      ...authHeaders(token),
-    },
-  });
-  if (!res.ok) {
-    throw await buildError(res, "파일을 삭제하지 못했습니다.");
-  }
+  throw new Error(`촬영 ID가 없어 ${filename} 파일을 삭제할 수 없습니다.`);
 };

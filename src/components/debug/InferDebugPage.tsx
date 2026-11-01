@@ -322,6 +322,8 @@ export function InferDebugPage() {
   const [labReport, setLabReport] = useState<ClubPreprocessLabResponse | null>(null);
   const [dirty, setDirty] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [archiveNotice, setArchiveNotice] = useState<string | null>(null);
+  const [archiveWatch, setArchiveWatch] = useState<{ jobId: string; updatedAt: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const selectedFrame = data?.frames[selectedIndex] ?? null;
@@ -440,6 +442,8 @@ export function InferDebugPage() {
     setIsLoading(true);
     setError(null);
     setNotice(null);
+    setArchiveWatch(null);
+    setArchiveNotice(null);
     setLabReport(null);
     setIsPlaying(false);
     setFrameProgress({
@@ -504,6 +508,8 @@ export function InferDebugPage() {
       setData(next);
       setAnalysis(nextAnalysis);
       setAnnotation(normalizedAnnotation);
+      setArchiveWatch(stored.annotation?.updatedAt ? { jobId: trimmed, updatedAt: stored.annotation.updatedAt } : null);
+      setArchiveNotice(null);
       setVariant(targetVariant);
       const impact = normalizedAnnotation.events.impact;
       const initialIndex = impact
@@ -582,6 +588,8 @@ export function InferDebugPage() {
         setAnnotation((current) => !current || current.jobId !== saved.jobId ? current
           : editedDuringSave ? { ...current, updatedAt: saved.updatedAt } : saved);
         updateDirty(editedDuringSave);
+        setArchiveWatch({ jobId: saved.jobId, updatedAt: saved.updatedAt });
+        setArchiveNotice(null);
         setNotice(editedDuringSave ? "저장 중 새로 수정한 내용은 아직 저장되지 않았습니다."
           : response.archive?.state === "pending" ? "라벨을 저장했고 NAS 아카이브를 요청했습니다." : "라벨을 저장했습니다.");
       }
@@ -751,6 +759,43 @@ export function InferDebugPage() {
   useEffect(() => {
     void refreshAnnotationCatalog();
   }, []);
+
+  useEffect(() => {
+    if (!archiveWatch) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    let attempts = 0;
+    const poll = async () => {
+      try {
+        const result = await fetchSwingTrackingAnnotation(archiveWatch.jobId);
+        if (cancelled) return;
+        if (result.annotation?.updatedAt !== archiveWatch.updatedAt) {
+          setArchiveNotice("저장한 라벨이 변경되어 NAS 보관 상태를 확인할 수 없습니다.");
+          return;
+        }
+        const state = result.archive?.state || "unknown";
+        if (state === "stored") {
+          setArchiveNotice("저장한 라벨의 NAS 보관 요청이 완료됐습니다. 보관 파일 내용은 별도 검증이 필요합니다.");
+          return;
+        }
+        if (state === "failed" || state === "disabled") {
+          setArchiveNotice(state === "failed" ? "NAS 보관에 실패했습니다. 라벨은 Pi에 저장되어 있습니다." : "NAS 보관이 설정되지 않았습니다. 라벨은 Pi에 저장되어 있습니다.");
+          return;
+        }
+        setArchiveNotice(state === "retrying" ? "NAS 보관에 실패해 다시 시도하고 있습니다." : "저장한 라벨의 NAS 보관 상태를 확인하고 있습니다.");
+      } catch {
+        if (cancelled) return;
+        setArchiveNotice("NAS 보관 상태를 확인하지 못했습니다. 라벨은 Pi에 저장되어 있습니다.");
+      }
+      if (++attempts >= 30) {
+        setArchiveNotice("NAS 보관 결과를 아직 확인하지 못했습니다. 라벨은 Pi에 저장되어 있습니다.");
+        return;
+      }
+      timer = window.setTimeout(poll, 2000);
+    };
+    void poll();
+    return () => { cancelled = true; if (timer) window.clearTimeout(timer); };
+  }, [archiveWatch]);
 
   useEffect(
     () => () => {
@@ -944,6 +989,7 @@ export function InferDebugPage() {
             {notice}
           </div>
         ) : null}
+        {archiveNotice ? <div role="status" className="mb-4 border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">{archiveNotice}</div> : null}
         {loadedJobMismatch && !isLoading ? (
           <div className="mb-4 border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
             입력 Job과 현재 화면의 Job이 다릅니다. 잘못된 영상에 저장되지 않도록 라벨 저장을 차단했습니다.

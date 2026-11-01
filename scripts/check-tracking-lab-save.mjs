@@ -33,7 +33,7 @@ function setup() {
     generateInferDebugMeta: async () => ({}),
     createDraftAnnotation: () => structuredClone(label),
   };
-  for (const name of ['dirty', 'notice', 'error', 'data', 'analysis', 'variant', 'jobId', 'isLoading', 'isSaving', 'isGeneratingDebug', 'isPlaying', 'frameProgress', 'labReport', 'selectedIndex', 'annotationCatalog']) {
+  for (const name of ['dirty', 'notice', 'archiveWatch', 'archiveNotice', 'error', 'data', 'analysis', 'variant', 'jobId', 'isLoading', 'isSaving', 'isGeneratingDebug', 'isPlaying', 'frameProgress', 'labReport', 'selectedIndex', 'annotationCatalog']) {
     const setter = `set${name[0].toUpperCase()}${name.slice(1)}`;
     context[setter] = value => { context[name] = typeof value === 'function' ? value(context[name]) : value; };
   }

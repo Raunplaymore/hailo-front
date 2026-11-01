@@ -168,7 +168,7 @@ export type SwingTrackingAnnotationResponse = {
   annotation: SwingTrackingAnnotation | null;
   annotationPath?: string;
   archive?: {
-    state: "pending" | "not_scheduled" | "disabled";
+    state: "pending" | "not_scheduled" | "disabled" | "unknown" | "uploading" | "retrying" | "failed" | "stored";
     archiveJobId?: string;
     error?: string;
   };
